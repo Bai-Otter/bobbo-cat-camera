@@ -1,5 +1,7 @@
 # 可爱吃播连续片段算法 v3
 
+> 历史实验记录（2026-08-22）。下文的“尚未接入”等描述仅代表当时状态。当前源码入口、运行路径与统计口径请阅读 [算法说明](../ALGORITHMS.md)，不要将本记录中的单次测试结果视为当前部署承诺。
+
 **状态：** 实验基线，已完成一段独立录制的泛化试跑；尚未接入生产 quick-cut。
 
 **代码入口：** `vision/evaluation/cute_segments.py`、`vision/evaluation/render_cute_overlay.py`
