@@ -1,0 +1,11 @@
+{
+  "tracks": [
+    {
+      "id": "cute-cat-01",
+      "title": "Cute Cat 01",
+      "artist": "Licensed artist",
+      "file": "cute-cat-01.mp3",
+      "licenseSource": "User-provided authorized file"
+    }
+  ]
+}

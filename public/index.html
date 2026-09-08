@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>布卜布卜·摄像头观看</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0a0a0a; color: #e5e5e5; margin: 0; padding: 16px; }
+    .container { max-width: 1200px; margin: 0 auto; }
+    h1 { font-size: 18px; margin: 0 0 12px 0; font-weight: 600; }
+    .main { display: flex; gap: 16px; flex-wrap: wrap; }
+    .video-box { flex: 1; min-width: 320px; position: relative; background: #000; border-radius: 8px; overflow: hidden; }
+    .video-box canvas, .video-box video { width: 100%; height: 100%; display: block; }
+    .video-box video { position: absolute; top: 0; left: 0; }
+    .controls { width: 280px; background: #1a1a1a; border-radius: 8px; padding: 16px; }
+    .control-group { margin-bottom: 16px; }
+    .control-group label { display: block; font-size: 12px; color: #999; margin-bottom: 6px; }
+    .control-group select, .control-group button { width: 100%; padding: 8px 12px; border: 1px solid #333; border-radius: 4px; background: #2a2a2a; color: #e5e5e5; font-size: 14px; }
+    .control-group select:focus, .control-group button:focus { outline: none; border-color: #3b82f6; }
+    .btn-primary { background: #3b82f6; border-color: #3b82f6; color: #fff; font-weight: 500; }
+    .btn-primary:hover { background: #2563eb; }
+    .btn-secondary { background: #4b5563; border-color: #4b5563; }
+    .btn-secondary:hover { background: #374151; }
+    .btn-row { display: flex; gap: 8px; }
+    .btn-row button { flex: 1; }
+    .status { font-size: 12px; padding: 8px; background: #1f2937; border-radius: 4px; margin-top: 12px; }
+    .status-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+    .status-value { color: #10b981; font-weight: 500; }
+    .log { font-size: 11px; max-height: 150px; overflow-y: auto; background: #111; border-radius: 4px; padding: 8px; margin-top: 12px; font-family: monospace; }
+    .log div { margin-bottom: 2px; }
+    .log .error { color: #ef4444; }
+    .log .success { color: #10b981; }
+    @media (max-width: 768px) {
+      .main { flex-direction: column; }
+      .controls { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🐱 布卜布卜·摄像头观看</h1>
+    <div class="main">
+      <div class="video-box" style="aspect-ratio: 16/9;">
+        <canvas id="playCanvas"></canvas>
+        <video name="videoElement" playsinline></video>
+      </div>
+      <div class="controls">
+        <div class="control-group">
+          <label>视频质量</label>
+          <select id="streamSelect">
+            <option value="1">标清 (辅码流)</option>
+            <option value="0">高清 (主码流)</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label>传输协议</label>
+          <select id="protocolSelect">
+            <option value="flv">FLV (推荐)</option>
+            <option value="webrtc">WebRTC (低延迟)</option>
+            <option value="hls-ts">HLS (兼容性好)</option>
+          </select>
+        </div>
+        <div class="control-group btn-row">
+          <button id="btnPlay" class="btn-primary">▶ 播放</button>
+          <button id="btnStop" class="btn-secondary">⏹ 停止</button>
+        </div>
+        <div class="control-group btn-row">
+          <button id="btnFullscreen" class="btn-secondary">⛶ 全屏</button>
+          <button id="btnCapture" class="btn-secondary">📷 截图</button>
+        </div>
+        <div class="status">
+          <div class="status-row"><span>状态:</span><span id="statusText" class="status-value">就绪</span></div>
+          <div class="status-row"><span>协议:</span><span id="protocolText" class="status-value">-</span></div>
+          <div class="status-row"><span>分辨率:</span><span id="resolutionText" class="status-value">-</span></div>
+        </div>
+        <div class="log" id="logBox"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { Player } from './player/player.js';
+
+    const canvas = document.getElementById('playCanvas');
+    const videoEle = document.getElementsByName('videoElement')[0];
+    const streamSelect = document.getElementById('streamSelect');
+    const protocolSelect = document.getElementById('protocolSelect');
+    const btnPlay = document.getElementById('btnPlay');
+    const btnStop = document.getElementById('btnStop');
+    const btnFullscreen = document.getElementById('btnFullscreen');
+    const btnCapture = document.getElementById('btnCapture');
+    const statusText = document.getElementById('statusText');
+    const protocolText = document.getElementById('protocolText');
+    const resolutionText = document.getElementById('resolutionText');
+    const logBox = document.getElementById('logBox');
+
+    let player = null;
+    let currentUrl = null;
+
+    function log(msg, type = 'info') {
+      const div = document.createElement('div');
+      div.textContent = new Date().toLocaleTimeString() + ' ' + msg;
+      if (type === 'error') div.className = 'error';
+      if (type === 'success') div.className = 'success';
+      logBox.appendChild(div);
+      logBox.scrollTop = logBox.scrollHeight;
+      console.log(msg);
+    }
+
+    function setStatus(text) { statusText.textContent = text; }
+    function setProtocol(text) { protocolText.textContent = text; }
+    function setResolution(text) { resolutionText.textContent = text; }
+
+    async function init() {
+      log('初始化播放器...');
+      const res = await fetch('/api/player-auth');
+      const auth = (await res.json()).data;
+      player = new Player({
+        dir: '.',
+        uuid: auth.uuid,
+        appkey: auth.appkey,
+        appsecret: auth.appsecret,
+        movedcard: auth.movedcard,
+        logLevel: 2,
+        outputConsole: true,
+      });
+      player.fnSetVideoEle(videoEle);
+      log('播放器就绪', 'success');
+      setStatus('就绪');
+    }
+
+    async function play() {
+      const stream = streamSelect.value;
+      const protocol = protocolSelect.value;
+      const urlProto = protocol === 'flv' ? 'httpFlv' : protocol === 'webrtc' ? 'WebRTC' : 'httpHls';
+      
+      log('获取地址: ' + protocol + ' stream=' + stream);
+      setStatus('连接中...');
+      
+      try {
+        const res = await fetch('/getLivestreamUrl?protocol=' + protocol + '&stream=' + stream);
+        const data = await res.json();
+        if (data.code !== 0) { log('错误: ' + data.msg, 'error'); setStatus('错误'); return; }
+        
+        currentUrl = data.url;
+        log('URL: ' + data.url.substring(0, 40) + '...');
+        setProtocol(protocol.toUpperCase());
+        
+        player.fnStop();
+        player.fnPlay({
+          url: data.url,
+          isStream: true,
+          urlProto: urlProto,
+          enableHEVC: true,
+          bufferTime: 2000,
+          reconnect: true,
+          reconnectInterval: 2000,
+          maxReconnectAttempts: 3,
+        }, canvas, e => {
+          if (e.ret === 5 || e.status === 2004) {
+            setStatus('播放中');
+            log('播放成功', 'success');
+            // 尝试获取分辨率
+            if (videoEle.videoWidth) {
+              setResolution(videoEle.videoWidth + 'x' + videoEle.videoHeight);
+            }
+          }
+          if (e.ret === 1 && e.status !== 1) {
+            log('回调: ret=' + e.ret + ' status=' + e.status);
+          }
+        });
+      } catch (e) {
+        log('请求失败: ' + e.message, 'error');
+        setStatus('错误');
+      }
+    }
+
+    function stop() {
+      if (player) player.fnStop();
+      setStatus('已停止');
+      setResolution('-');
+      log('已停止');
+    }
+
+    function fullscreen() {
+      if (player) player.fnFullscreen();
+    }
+
+    async function capture() {
+      if (!player) return;
+      try {
+        const result = await player.fnSnapshot('capture_' + Date.now() + '.png');
+        log('截图已保存', 'success');
+      } catch (e) {
+        log('截图失败: ' + e.message, 'error');
+      }
+    }
+
+    btnPlay.onclick = play;
+    btnStop.onclick = stop;
+    btnFullscreen.onclick = fullscreen;
+    btnCapture.onclick = capture;
+
+    init().catch(e => log('初始化失败: ' + e.message, 'error'));
+  </script>
+</body>
+</html>

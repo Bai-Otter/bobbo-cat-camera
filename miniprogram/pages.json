@@ -1,0 +1,182 @@
+{
+    "pages": [
+        {
+            "path": "pages/launch/index",
+            "style": {
+                "navigationStyle": "custom"
+            }
+        },
+        {
+            "path": "pages/today/index",
+            "style": {
+                "navigationStyle": "custom",
+                "enablePullDownRefresh": false
+            }
+        },
+        {
+            "path": "pages/clips/index",
+            "style": {
+                "navigationStyle": "custom"
+            }
+        },
+        {
+            "path": "pages/live/overview",
+            "style": {
+                "navigationStyle": "custom",
+                "enablePullDownRefresh": false
+            }
+        },
+        {
+            "path": "pages/clips/foodcast",
+            "style": {
+                "navigationStyle": "custom"
+            }
+        },
+        {
+            "path": "pages/clips/customize",
+            "style": {
+                "navigationStyle": "custom"
+            }
+        },
+        {
+            "path": "pages/profile/index",
+            "style": {
+                "navigationStyle": "custom"
+            }
+        },
+        {
+            "path": "pages/profile/feedback",
+            "style": {
+                "navigationBarTitleText": "反馈",
+                "navigationStyle": "custom"
+            }
+        },
+        {
+            "path": "pages/profile/notifications",
+            "style": {
+				"navigationStyle": "custom"
+            }
+        },
+        {
+            "path": "pages/login/index",
+            "style": {
+                "navigationBarTitleText": "登录",
+                "navigationStyle": "custom"
+            }
+        },
+        {
+            "path": "pages/login/profile-setup",
+            "style": {
+                "navigationStyle": "custom"
+            }
+        },
+		{
+			"path": "pages/share/accept",
+			"style": {
+				"navigationStyle": "custom"
+			}
+		},
+        {
+            "path": "pages/device/index",
+            "style": {
+                "navigationBarTitleText": "设备管理",
+                "navigationStyle": "custom"
+            }
+        },
+        {
+            "path": "pages/bind/addDevice",
+            "style": {
+                "navigationBarTitleText": "添加设备",
+                "navigationStyle": "custom"
+            }
+        },
+        {
+            "path": "pages/bind/repairing",
+            "style": {
+                "navigationBarTitleText": "手动添加",
+                "navigationStyle": "custom"
+            }
+        },
+        {
+            "path": "pages/bind/bluetooth",
+            "style": {
+                "navigationBarTitleText": "蓝牙配网",
+                "navigationStyle": "custom"
+            }
+        },
+        {
+            "path": "pages/bind/qrcode",
+            "style": {
+                "navigationBarTitleText": "二维码配网",
+                "navigationStyle": "custom"
+            }
+        },
+        {
+            "path": "pages/live/index",
+            "style": {
+                "navigationBarTitleText": "实时视频",
+                "navigationStyle": "custom",
+                "disableScroll": true
+            }
+        },
+        {
+            "path": "pages/live/replay",
+            "style": {
+                "navigationBarTitleText": "录像回放",
+                "navigationStyle": "custom"
+            }
+        },
+        {
+            "path": "pages/today/detail",
+            "style": {
+                "navigationStyle": "custom"
+            }
+        },
+        {
+            "path": "pages/profile/cats",
+            "style": {
+                "navigationStyle": "custom"
+            }
+        },
+        {
+            "path": "pages/profile/settings",
+            "style": {
+                "navigationStyle": "custom"
+            }
+        },
+		{
+			"path": "pages/profile/device-storage",
+			"style": {
+				"navigationStyle": "custom"
+			}
+		},
+        {
+            "path": "pages/device/detail",
+            "style": {
+                "navigationStyle": "custom"
+            }
+        },
+        {
+            "path": "pages/profile/foodcast-preferences",
+            "style": {
+                "navigationStyle": "custom"
+            }
+        },
+        {
+            "path": "pages/profile/share-device",
+            "style": {
+                "navigationStyle": "custom"
+            }
+        }
+    ],
+    "globalStyle": {
+        "navigationBarTextStyle": "black",
+        "navigationBarTitleText": "布卜布卜",
+        "navigationBarBackgroundColor": "#FBFBFA",
+        "backgroundColor": "#FBFBFA"
+    },
+    "easycom": {
+        "autoscan": true,
+        "custom": {}
+    }
+}

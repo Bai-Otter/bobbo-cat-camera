@@ -1,0 +1,373 @@
+name: Deploy Cloud Hosting
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'server/**'
+      - 'vision/**'
+      - 'public/**'
+      - 'bgm/**'
+      - 'Dockerfile'
+      - '.dockerignore'
+      - 'cloudbaserc.json'
+      - '.github/workflows/deploy-cloud-hosting.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: cloud-hosting-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  TCB_ENV_ID: YOUR_CLOUDBASE_ENV
+  TCB_SERVICE_NAME: cat-feeding-api
+  HEALTH_URL: https://api.example.com/health
+  API_URL: https://api.example.com
+
+jobs:
+  verify-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install server dependencies
+        run: npm ci --prefix server
+
+      - name: Verify repository
+        shell: bash
+        run: |
+          node --test miniprogram/utils/sdkVendor.test.js miniprogram/utils/cloudRuntime.test.js miniprogram/utils/projectConfig.test.js
+          node --test server/src/**/*.test.js miniprogram/utils/*.test.js miniprogram/config/*.test.js
+          git diff --check
+
+      - name: Install CloudBase CLI
+        run: npm install --global @cloudbase/cli@3.6.4
+
+      - name: Authenticate CloudBase CLI
+        env:
+          TCB_SECRET_ID: ${{ secrets.TCB_SECRET_ID }}
+          TCB_SECRET_KEY: ${{ secrets.TCB_SECRET_KEY }}
+        shell: bash
+        run: |
+          test -n "$TCB_SECRET_ID"
+          test -n "$TCB_SECRET_KEY"
+          tcb login --apiKeyId "$TCB_SECRET_ID" --apiKey "$TCB_SECRET_KEY"
+
+      - name: Configure Cloud Hosting runtime secrets
+        env:
+          CLOUDBASE_SECRET_ID: ${{ secrets.TCB_SECRET_ID }}
+          CLOUDBASE_SECRET_KEY: ${{ secrets.TCB_SECRET_KEY }}
+          PUSHPLUS_TOKEN: ${{ secrets.PUSHPLUS_TOKEN }}
+          PUSHPLUS_SECRET_KEY: ${{ secrets.PUSHPLUS_SECRET_KEY }}
+          PUSHPLUS_CALLBACK_SECRET: ${{ secrets.PUSHPLUS_CALLBACK_SECRET }}
+          AUTOMATION_TICK_SECRET: ${{ secrets.AUTOMATION_TICK_SECRET }}
+        shell: bash
+        run: |
+          node <<'NODE'
+          const { spawnSync } = require('node:child_process')
+
+          const envId = process.env.TCB_ENV_ID
+          const serverName = process.env.TCB_SERVICE_NAME
+          const apiVersion = '2022-02-17'
+          const requiredRuntimeSecrets = [
+            'CLOUDBASE_SECRET_ID',
+            'CLOUDBASE_SECRET_KEY',
+            'PUSHPLUS_TOKEN',
+            'PUSHPLUS_SECRET_KEY',
+            'PUSHPLUS_CALLBACK_SECRET',
+            'AUTOMATION_TICK_SECRET'
+          ]
+          for (const name of requiredRuntimeSecrets) {
+            if (!String(process.env[name] || '').trim()) {
+              throw new Error(`${name} is required`)
+            }
+          }
+
+          function callCloudBase(action, body) {
+            const result = spawnSync('tcb', [
+              'api', 'tcbr', action,
+              '--api-version', apiVersion,
+              '--body', JSON.stringify(body),
+              '--json'
+            ], { encoding: 'utf8' })
+            if (result.status !== 0) throw new Error(`${action} failed`)
+            const jsonStart = result.stdout.indexOf('{')
+            if (jsonStart < 0) throw new Error(`${action} returned no JSON`)
+            const payload = JSON.parse(result.stdout.slice(jsonStart))
+            if (payload.error) throw new Error(payload.error.code || `${action} failed`)
+            return payload.data
+          }
+
+          const detail = callCloudBase('DescribeCloudRunServerDetail', {
+            EnvId: envId,
+            ServerName: serverName
+          })
+          const previous = detail.ServerConfig
+          const envParams = JSON.parse(previous.EnvParams || '{}')
+          envParams.CLOUDBASE_SECRET_ID = process.env.CLOUDBASE_SECRET_ID
+          envParams.CLOUDBASE_SECRET_KEY = process.env.CLOUDBASE_SECRET_KEY
+          envParams.PUBLIC_BASE_URL = process.env.API_URL
+          envParams.JF_UUID = 'YOUR_VENDOR_UUID'
+          envParams.JF_APPKEY = 'YOUR_VENDOR_APPKEY'
+          envParams.JF_APPSECRET = 'YOUR_VENDOR_APPSECRET'
+          envParams.JF_MOVECARD = '3'
+          for (const name of [
+            'MODEL_TEST_TOKEN',
+            'MODEL_TEST_EXPIRES_AT',
+            'MODEL_TEST_ALLOWED_SHA256',
+            'MODEL_TEST_MAX_BYTES',
+            'MODEL_TEST_TTL_MS',
+            'MODEL_TEST_TEMP_DIR'
+          ]) {
+            delete envParams[name]
+          }
+          envParams.FEED_ANALYSIS_VISION_TIMEOUT_MS = String(30 * 60 * 1000)
+          envParams.FEED_ANALYSIS_ENABLED = 'false'
+          envParams.FEED_ANALYSIS_YOLO_MODEL = '/app/vision/models/yolo11s.pt'
+          envParams.CAT_VISION_YOLO_MODEL = '/app/vision/models/yolo11s.pt'
+          envParams.CAT_VISION_POSE_MODEL = '/app/vision/models/vitpose-s-apt36k.onnx'
+          envParams.CAT_FACE_MODEL_DIR = '/app/vision/models/cat-face'
+          envParams.PUSHPLUS_TOKEN = process.env.PUSHPLUS_TOKEN
+          envParams.PUSHPLUS_SECRET_KEY = process.env.PUSHPLUS_SECRET_KEY
+          envParams.PUSHPLUS_CALLBACK_SECRET = process.env.PUSHPLUS_CALLBACK_SECRET
+          envParams.AUTOMATION_TICK_SECRET = process.env.AUTOMATION_TICK_SECRET
+
+          callCloudBase('UpdateCloudRunServerConfig', {
+            EnvId: envId,
+            ServerBaseConfig: {
+              EnvId: envId,
+              ServerName: serverName,
+              OpenAccessTypes: previous.OpenAccessTypes.filter((type) => type !== 'PUBLIC'),
+              Cpu: previous.Cpu,
+              Mem: previous.Mem,
+              MinNum: previous.MinNum,
+              MaxNum: previous.MaxNum,
+              PolicyDetails: previous.PolicyDetails,
+              CustomLogs: previous.CustomLogs,
+              EnvParams: JSON.stringify(envParams),
+              InitialDelaySeconds: 2,
+              CreateTime: previous.CreateTime,
+              Port: previous.Port,
+              HasDockerfile: true,
+              Dockerfile: previous.Dockerfile,
+              BuildDir: previous.BuildDir
+            }
+          })
+          console.log('Cloud Hosting runtime secrets configured')
+          NODE
+
+      - name: Deploy full version from main
+        shell: bash
+        run: |
+          node <<'NODE'
+          const { spawnSync } = require('node:child_process')
+
+          const envId = process.env.TCB_ENV_ID
+          const serverName = process.env.TCB_SERVICE_NAME
+          const apiVersion = '2022-02-17'
+
+          function callCloudBase(action, body, service = 'tcbr', version = apiVersion) {
+            const result = spawnSync('tcb', [
+              'api',
+              service,
+              action,
+              '--api-version',
+              version,
+              '--body',
+              JSON.stringify(body),
+              '--json'
+            ], { encoding: 'utf8' })
+
+            if (result.status !== 0) {
+              throw new Error(result.stderr || result.stdout || `${action} failed`)
+            }
+
+            const jsonStart = result.stdout.indexOf('{')
+            if (jsonStart < 0) {
+              throw new Error(`${action} returned no JSON`)
+            }
+
+            const payload = JSON.parse(result.stdout.slice(jsonStart))
+            if (payload.error) {
+              throw new Error(payload.error.message || `${action} failed`)
+            }
+            return payload.data
+          }
+
+          function latestRecord(records = []) {
+            return [...records].sort((left, right) =>
+              Number(left.DeployId) - Number(right.DeployId)
+            ).at(-1)
+          }
+
+          function onlineVersionNames(detail = {}) {
+            return (detail.OnlineVersionInfos || [])
+              .map((version) => version.VersionName)
+              .filter(Boolean)
+          }
+
+          const delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds))
+
+          ;(async () => {
+            const before = callCloudBase('DescribeCloudRunDeployRecord', {
+              EnvId: envId,
+              ServerName: serverName
+            })
+            let baselineDeployId = latestRecord(before.DeployRecords)?.DeployId
+            let readyButOfflineAttempts = 0
+            let imageFallbackStarted = false
+            let forcedFullRelease = false
+
+            callCloudBase('UpdateCloudRunServer', {
+              EnvId: envId,
+              ServerName: serverName,
+              DeployInfo: {
+                DeployType: 'repository',
+                RepoInfo: {
+                  Source: 'github',
+                  Repo: 'lil-goat/cat-feeding-demo',
+                  Branch: 'main'
+                },
+                DeployRemark: process.env.GITHUB_SHA,
+                ReleaseType: 'FULL'
+              }
+            })
+
+            for (let attempt = 1; attempt <= 240; attempt += 1) {
+              await delay(15000)
+              const state = callCloudBase('DescribeCloudRunDeployRecord', {
+                EnvId: envId,
+                ServerName: serverName
+              })
+              const latest = latestRecord(state.DeployRecords)
+              if (!latest || latest.DeployId === baselineDeployId) {
+                continue
+              }
+              if (latest.Status === 'normal') {
+                const expectedVersion = latest.VersionName || `${serverName}-${latest.DeployId}`
+                const detail = callCloudBase('DescribeCloudRunServerDetail', {
+                  EnvId: envId,
+                  ServerName: serverName
+                })
+                if (!onlineVersionNames(detail).includes(expectedVersion)) {
+                  readyButOfflineAttempts += 1
+                  if (!forcedFullRelease) {
+                    callCloudBase('ReleaseGray', {
+                      EnvId: envId,
+                      ServerName: serverName,
+                      GrayType: 'FLOW',
+                      TrafficType: '',
+                      VersionFlowItems: [{
+                        VersionName: expectedVersion,
+                        IsDefaultPriority: true,
+                        FlowRatio: 100,
+                        Priority: 0
+                      }],
+                      GrayFlowRatio: 100,
+                      OperatorRemark: process.env.GITHUB_SHA
+                    })
+                    forcedFullRelease = true
+                    console.log(`Requested 100% release for ready version ${expectedVersion}`)
+                  }
+                  if (readyButOfflineAttempts >= 20) {
+                    throw new Error(
+                      `Repository deployment ${latest.DeployId} produced ${expectedVersion} but was not promoted online after 5 minutes`
+                    )
+                  }
+                  console.log(`Repository deployment ${latest.DeployId} is ready but not online yet`)
+                  continue
+                }
+                const label = imageFallbackStarted ? 'Direct image fallback' : 'Repository deployment'
+                console.log(`${label} ${latest.DeployId} is ready`)
+                return
+              }
+              if (latest.Status.includes('fail')) {
+                try {
+                  const buildLog = callCloudBase('DescribeCloudRunBuildLog', {
+                    EnvId: envId,
+                    ServerName: serverName,
+                    ServerVersion: '',
+                    BuildId: latest.BuildId,
+                    Offset: 0
+                  })
+                  console.error(`Cloud build ${latest.BuildId} failed: ${buildLog.Log?.FailType || 'unknown'}`)
+                  if (buildLog.Log?.FailReason) console.error(buildLog.Log.FailReason)
+                  if (buildLog.Log?.Text) console.error(buildLog.Log.Text)
+                } catch (buildLogError) {
+                  console.error(`Unable to read Cloud Hosting build log: ${buildLogError.message}`)
+                }
+                if (imageFallbackStarted) {
+                  throw new Error(`Direct image fallback ${latest.DeployId} failed: ${latest.Status}`)
+                }
+
+                const failedVersionName = latest.VersionName || `${serverName}-${latest.DeployId}`
+                const failedVersion = callCloudBase('DescribeCloudBaseRunServerVersion', {
+                  EnvId: envId,
+                  ServerName: serverName,
+                  VersionName: failedVersionName
+                }, 'tcb', '2018-06-08')
+                if (!failedVersion.ImageUrl) {
+                  throw new Error(`Repository deployment ${latest.DeployId} failed without a reusable image`)
+                }
+
+                baselineDeployId = latest.DeployId
+                readyButOfflineAttempts = 0
+                imageFallbackStarted = true
+                forcedFullRelease = false
+                callCloudBase('UpdateCloudRunServer', {
+                  EnvId: envId,
+                  ServerName: serverName,
+                  DeployInfo: {
+                    DeployType: 'image',
+                    ImageUrl: failedVersion.ImageUrl,
+                    DeployRemark: process.env.GITHUB_SHA,
+                    ReleaseType: 'FULL'
+                  }
+                })
+                console.log(`Direct image fallback started from ${failedVersionName}`)
+                continue
+              }
+              console.log(`Repository deployment ${latest.DeployId}: ${latest.Status}`)
+            }
+
+            throw new Error('Repository deployment timed out')
+          })().catch((error) => {
+            console.error(error.message)
+            process.exit(1)
+          })
+          NODE
+
+      - name: Verify released authentication boundary
+        shell: bash
+        run: |
+          for attempt in $(seq 1 60); do
+            health_status=$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 20 "$HEALTH_URL" || true)
+            anonymous_status=$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 20 "$API_URL/api/devices" || true)
+            spoofed_status=$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 20 \
+              --request POST \
+              --header 'Content-Type: application/json' \
+              --header 'x-wx-openid: forged-user' \
+              --header 'x-wx-source: wx_client' \
+              --header 'x-authmethod: WX_SERVER_AUTH' \
+              --data '{}' \
+              "$API_URL/api/auth/wechat-login" || true)
+            if { [ "$health_status" = "200" ] || [ "$health_status" = "401" ]; } \
+              && [ "$anonymous_status" = "401" ] \
+              && [ "$spoofed_status" = "401" ]; then
+              echo "Released health HTTP $health_status; anonymous HTTP $anonymous_status; spoofed login HTTP $spoofed_status"
+              exit 0
+            fi
+            echo "Released verification attempt $attempt returned health HTTP $health_status, API HTTP $anonymous_status, spoofed login HTTP $spoofed_status"
+            sleep 2
+          done
+          exit 1

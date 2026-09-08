@@ -1,0 +1,3 @@
+2a40f76421d87f1b03f1204949d67014dbb876b7572c2bbc60ce2be45f6b4172  vitpose-s-apt36k.onnx
+db0dbdc8430221cec96fcd907e7390fa0b23546e7673d08e508f1f6838ce2737  cat-face/cat_face_localizer.tflite
+c14bce135f5e005e135e3fd7d23938b4c1e9cb79ac1cfcc3b70a6df6c15265fe  cat-face/cat_face_landmarks_full.tflite

@@ -1,0 +1,2367 @@
+{
+  "sourceCommit": "3879af3537b8c9281d1737a6f54be5f8648ab089",
+  "included": [
+    ".dockerignore",
+    ".github/workflows/automation-recovery.yml",
+    ".github/workflows/deploy-cloud-hosting.yml",
+    "Dockerfile",
+    "Dockerfile.full",
+    "docs/algorithms/2026-08-22-cute-foodcast-continuity-v3.md",
+    "miniprogram/.gitignore",
+    "miniprogram/App.vue",
+    "miniprogram/README.md",
+    "miniprogram/cloudfunctions/demoData/collectionBootstrap.js",
+    "miniprogram/cloudfunctions/demoData/collectionBootstrap.test.js",
+    "miniprogram/cloudfunctions/demoData/coverStoragePolicy.js",
+    "miniprogram/cloudfunctions/demoData/coverStoragePolicy.test.js",
+    "miniprogram/cloudfunctions/demoData/index.js",
+    "miniprogram/cloudfunctions/demoData/package.json",
+    "miniprogram/cloudfunctions/login/index.js",
+    "miniprogram/cloudfunctions/login/package.json",
+    "miniprogram/cloudfunctions/updateProfile/index.js",
+    "miniprogram/cloudfunctions/updateProfile/package.json",
+    "miniprogram/common/uqrcode.js",
+    "miniprogram/components/app-tab-bar/app-tab-bar.vue",
+    "miniprogram/components/bobbo-nav-bar/bobbo-nav-bar.vue",
+    "miniprogram/components/cat-icon/cat-icon.vue",
+    "miniprogram/config/backend.js",
+    "miniprogram/config/backend.test.js",
+    "miniprogram/index.html",
+    "miniprogram/main.js",
+    "miniprogram/manifest.json",
+    "miniprogram/package.json",
+    "miniprogram/pages.json",
+    "miniprogram/pages/bind/addDevice.vue",
+    "miniprogram/pages/bind/bluetooth.vue",
+    "miniprogram/pages/bind/qrcode.vue",
+    "miniprogram/pages/bind/repairing.vue",
+    "miniprogram/pages/clips/customize.vue",
+    "miniprogram/pages/clips/foodcast.vue",
+    "miniprogram/pages/clips/index.vue",
+    "miniprogram/pages/device/detail.vue",
+    "miniprogram/pages/device/index.vue",
+    "miniprogram/pages/launch/index.vue",
+    "miniprogram/pages/live/index.vue",
+    "miniprogram/pages/live/overview.vue",
+    "miniprogram/pages/live/replay.vue",
+    "miniprogram/pages/login/index.vue",
+    "miniprogram/pages/login/profile-setup.vue",
+    "miniprogram/pages/profile/cats.vue",
+    "miniprogram/pages/profile/device-storage.vue",
+    "miniprogram/pages/profile/feedback.vue",
+    "miniprogram/pages/profile/foodcast-preferences.vue",
+    "miniprogram/pages/profile/index.vue",
+    "miniprogram/pages/profile/notifications.vue",
+    "miniprogram/pages/profile/settings.vue",
+    "miniprogram/pages/profile/share-device.vue",
+    "miniprogram/pages/share/accept.vue",
+    "miniprogram/pages/today/detail.vue",
+    "miniprogram/pages/today/index.vue",
+    "miniprogram/project.config.json",
+    "miniprogram/static/images/bobbo-logo.png",
+    "miniprogram/static/images/cat-avatar.svg",
+    "miniprogram/static/images/clip-1.svg",
+    "miniprogram/static/images/clip-2.svg",
+    "miniprogram/static/images/clip-3.svg",
+    "miniprogram/static/images/clip-4.svg",
+    "miniprogram/static/images/clip-5.svg",
+    "miniprogram/static/images/clip-6.svg",
+    "miniprogram/static/images/cool-cat-avatar.svg",
+    "miniprogram/static/images/device-bowl.svg",
+    "miniprogram/static/images/featured-cover.svg",
+    "miniprogram/static/images/feeding-activity-curve.svg",
+    "miniprogram/static/images/live-thumb.svg",
+    "miniprogram/static/images/me-active.png",
+    "miniprogram/static/images/me.png",
+    "miniprogram/static/images/meal-1.svg",
+    "miniprogram/static/images/meal-2.svg",
+    "miniprogram/static/images/meal-3.svg",
+    "miniprogram/static/images/replay-loading-spinner.png",
+    "miniprogram/static/images/user-avatar.svg",
+    "miniprogram/uni.scss",
+    "miniprogram/utils/accessibleDeviceStatus.js",
+    "miniprogram/utils/accessibleDeviceStatus.test.js",
+    "miniprogram/utils/appAuth.js",
+    "miniprogram/utils/appAuth.test.js",
+    "miniprogram/utils/appLaunch.js",
+    "miniprogram/utils/appLaunch.test.js",
+    "miniprogram/utils/backendClient.js",
+    "miniprogram/utils/backendClient.test.js",
+    "miniprogram/utils/catAge.js",
+    "miniprogram/utils/catAge.test.js",
+    "miniprogram/utils/catAvatarUpload.js",
+    "miniprogram/utils/catAvatarUpload.test.js",
+    "miniprogram/utils/catProfiles.js",
+    "miniprogram/utils/catProfiles.test.js",
+    "miniprogram/utils/cloudRuntime.js",
+    "miniprogram/utils/cloudRuntime.test.js",
+    "miniprogram/utils/demoCloud.js",
+    "miniprogram/utils/demoCloud.test.js",
+    "miniprogram/utils/demoDiary.js",
+    "miniprogram/utils/demoDiary.test.js",
+    "miniprogram/utils/deviceCoverSync.js",
+    "miniprogram/utils/deviceCoverSync.test.js",
+    "miniprogram/utils/deviceIp.js",
+    "miniprogram/utils/deviceIp.test.js",
+    "miniprogram/utils/deviceMediaState.js",
+    "miniprogram/utils/deviceMediaState.test.js",
+    "miniprogram/utils/deviceTokenRefresh.js",
+    "miniprogram/utils/deviceTokenRefresh.test.js",
+    "miniprogram/utils/durationLabel.js",
+    "miniprogram/utils/durationLabel.test.js",
+    "miniprogram/utils/factoryResetFlow.js",
+    "miniprogram/utils/factoryResetFlow.test.js",
+    "miniprogram/utils/feedAnalysis.js",
+    "miniprogram/utils/feedAnalysis.test.js",
+    "miniprogram/utils/foodcast.js",
+    "miniprogram/utils/foodcast.test.js",
+    "miniprogram/utils/foodcastCatalog.js",
+    "miniprogram/utils/foodcastCatalog.test.js",
+    "miniprogram/utils/foodcastEditor.js",
+    "miniprogram/utils/foodcastEditor.test.js",
+    "miniprogram/utils/foodcastMusic.js",
+    "miniprogram/utils/foodcastMusic.test.js",
+    "miniprogram/utils/hotspot.js",
+    "miniprogram/utils/liveMediaActionGuard.js",
+    "miniprogram/utils/liveMediaActionGuard.test.js",
+    "miniprogram/utils/liveMediaControl.js",
+    "miniprogram/utils/liveMediaControl.test.js",
+    "miniprogram/utils/liveMediaState.js",
+    "miniprogram/utils/liveMediaState.test.js",
+    "miniprogram/utils/livePlaybackDiagnostics.js",
+    "miniprogram/utils/livePlaybackDiagnostics.test.js",
+    "miniprogram/utils/livePlaybackHealth.js",
+    "miniprogram/utils/livePlaybackHealth.test.js",
+    "miniprogram/utils/liveRoutePreference.js",
+    "miniprogram/utils/liveRoutePreference.test.js",
+    "miniprogram/utils/loginLayout.js",
+    "miniprogram/utils/loginLayout.test.js",
+    "miniprogram/utils/loginRetry.js",
+    "miniprogram/utils/loginRetry.test.js",
+    "miniprogram/utils/mediaAlbum.js",
+    "miniprogram/utils/mediaAlbum.test.js",
+    "miniprogram/utils/notificationDelivery.js",
+    "miniprogram/utils/notificationDelivery.test.js",
+    "miniprogram/utils/ownedDeviceCache.js",
+    "miniprogram/utils/ownedDeviceCache.test.js",
+    "miniprogram/utils/pageDataCache.js",
+    "miniprogram/utils/pageDataCache.test.js",
+    "miniprogram/utils/pendingDeviceBind.js",
+    "miniprogram/utils/pendingDeviceBind.test.js",
+    "miniprogram/utils/projectConfig.test.js",
+    "miniprogram/utils/qrImageLoader.js",
+    "miniprogram/utils/qrImageLoader.test.js",
+    "miniprogram/utils/replayPlaybackRate.js",
+    "miniprogram/utils/replayPlaybackRate.test.js",
+    "miniprogram/utils/replaySeek.js",
+    "miniprogram/utils/replaySeek.test.js",
+    "miniprogram/utils/replayTimeline.js",
+    "miniprogram/utils/replayTimeline.test.js",
+    "miniprogram/utils/sdkVendor.test.js",
+    "miniprogram/utils/shareInvite.js",
+    "miniprogram/utils/shareInvite.test.js",
+    "miniprogram/utils/sharedLiveAccess.js",
+    "miniprogram/utils/sharedLiveAccess.test.js",
+    "miniprogram/utils/todayDeviceState.js",
+    "miniprogram/utils/todayDeviceState.test.js",
+    "miniprogram/utils/userAvatar.js",
+    "miniprogram/utils/userAvatar.test.js",
+    "miniprogram/utils/util.js",
+    "miniprogram/utils/vueSourceSanity.test.js",
+    "miniprogram/utils/wechatDeviceSubscriptions.js",
+    "miniprogram/utils/wechatDeviceSubscriptions.test.js",
+    "miniprogram/utils/wechatSubscriptions.js",
+    "miniprogram/utils/wechatSubscriptions.test.js",
+    "miniprogram/utils/wxPusherClawBot.js",
+    "miniprogram/utils/wxPusherClawBot.test.js",
+    "new-frontend/pages.json",
+    "new-frontend/pages/clips/index.vue",
+    "new-frontend/pages/profile/index.vue",
+    "new-frontend/pages/today/index.vue",
+    "new-frontend/static/images/cat-avatar.svg",
+    "new-frontend/static/images/clip-1.svg",
+    "new-frontend/static/images/clip-2.svg",
+    "new-frontend/static/images/clip-3.svg",
+    "new-frontend/static/images/clip-4.svg",
+    "new-frontend/static/images/clip-5.svg",
+    "new-frontend/static/images/clip-6.svg",
+    "new-frontend/static/images/device-bowl.svg",
+    "new-frontend/static/images/featured-cover.svg",
+    "new-frontend/static/images/live-thumb.svg",
+    "new-frontend/static/images/meal-1.svg",
+    "new-frontend/static/images/meal-2.svg",
+    "new-frontend/static/images/meal-3.svg",
+    "new-frontend/static/images/user-avatar.svg",
+    "new-frontend/鏁村悎璇存槑.md",
+    "project.config.json",
+    "public/index.html",
+    "public/test.html",
+    "server/.env.example",
+    "server/bgm-library.example.json",
+    "server/package-lock.json",
+    "server/package.json",
+    "server/scripts/dev-http-proxy.js",
+    "server/scripts/dev-http-proxy.test.js",
+    "server/scripts/dev-local.js",
+    "server/scripts/ecs-cloudflared-named.sh",
+    "server/scripts/ecs-cloudflared-named.test.js",
+    "server/scripts/ecs-deploy.sh",
+    "server/scripts/ecs-deploy.test.js",
+    "server/scripts/ecs-retention-policy.js",
+    "server/scripts/ecs-retention-policy.test.js",
+    "server/scripts/ecs-retention.sh",
+    "server/scripts/ecs-vision-worker-deploy.sh",
+    "server/scripts/elastic-vision-worker-controller.js",
+    "server/scripts/elastic-vision-worker-controller.service",
+    "server/scripts/elastic-vision-worker-controller.test.js",
+    "server/scripts/generate-certs.js",
+    "server/scripts/probe-device-live.js",
+    "server/scripts/rebuild-daily-foodcast.js",
+    "server/scripts/swas-api-deploy.sh",
+    "server/scripts/swas-api-deploy.test.js",
+    "server/scripts/swas-elastic-worker-controller.sh",
+    "server/scripts/swas-elastic-worker-controller.test.js",
+    "server/scripts/swas-vision-ssh-tunnel.sh",
+    "server/scripts/swas-vision-ssh-tunnel.test.js",
+    "server/scripts/validate-feeding-window.js",
+    "server/scripts/validate-feeding-window.test.js",
+    "server/src/accountSyncAudit.js",
+    "server/src/accountSyncAudit.test.js",
+    "server/src/appDataStore.js",
+    "server/src/appDataStore.test.js",
+    "server/src/appSession.js",
+    "server/src/appSession.test.js",
+    "server/src/automationRecoveryWorkflow.test.js",
+    "server/src/cloudDeviceRegistryStore.js",
+    "server/src/cloudDeviceRegistryStore.test.js",
+    "server/src/cloudHostingDockerfile.test.js",
+    "server/src/cloudHostingWorkflow.test.js",
+    "server/src/config.js",
+    "server/src/config.test.js",
+    "server/src/deviceRegistry.js",
+    "server/src/deviceRegistry.test.js",
+    "server/src/deviceSettingsSummary.js",
+    "server/src/deviceSettingsSummary.test.js",
+    "server/src/feedAnalysis/activityTestService.js",
+    "server/src/feedAnalysis/activityTestService.test.js",
+    "server/src/feedAnalysis/alarmAdapter.js",
+    "server/src/feedAnalysis/alarmAdapter.test.js",
+    "server/src/feedAnalysis/analysisQueue.js",
+    "server/src/feedAnalysis/analysisQueue.test.js",
+    "server/src/feedAnalysis/annotate_video.py",
+    "server/src/feedAnalysis/cloudRecordingStore.js",
+    "server/src/feedAnalysis/cloudRecordingStore.test.js",
+    "server/src/feedAnalysis/cloudSettingsStore.js",
+    "server/src/feedAnalysis/cloudSettingsStore.test.js",
+    "server/src/feedAnalysis/coordinator.js",
+    "server/src/feedAnalysis/coordinator.test.js",
+    "server/src/feedAnalysis/deviceTime.js",
+    "server/src/feedAnalysis/deviceTime.test.js",
+    "server/src/feedAnalysis/deviceTimeSync.js",
+    "server/src/feedAnalysis/deviceTimeSync.test.js",
+    "server/src/feedAnalysis/elasticWorkerBudget.js",
+    "server/src/feedAnalysis/elasticWorkerBudget.test.js",
+    "server/src/feedAnalysis/feedingStartConfirmation.js",
+    "server/src/feedAnalysis/feedingStartConfirmation.test.js",
+    "server/src/feedAnalysis/feedingStats.js",
+    "server/src/feedAnalysis/feedingStats.test.js",
+    "server/src/feedAnalysis/foodcastAlgorithmTestService.js",
+    "server/src/feedAnalysis/foodcastAlgorithmTestService.test.js",
+    "server/src/feedAnalysis/model.js",
+    "server/src/feedAnalysis/model.test.js",
+    "server/src/feedAnalysis/officialAlarm.js",
+    "server/src/feedAnalysis/officialAlarm.test.js",
+    "server/src/feedAnalysis/officialConfig.js",
+    "server/src/feedAnalysis/officialConfig.test.js",
+    "server/src/feedAnalysis/pushPlusDelivery.test.js",
+    "server/src/feedAnalysis/store.js",
+    "server/src/feedAnalysis/store.test.js",
+    "server/src/feedAnalysis/test_vision_worker_v1.py",
+    "server/src/feedAnalysis/visionHttpClient.js",
+    "server/src/feedAnalysis/visionHttpClient.test.js",
+    "server/src/feedAnalysis/visionHttpServer.js",
+    "server/src/feedAnalysis/visionHttpServer.test.js",
+    "server/src/feedAnalysis/visionWorker.js",
+    "server/src/feedAnalysis/visionWorker.test.js",
+    "server/src/feedAnalysis/vision_worker.py",
+    "server/src/feedAnalysis/vision_worker_v32.py",
+    "server/src/feedAnalysis/workerDemand.js",
+    "server/src/feedAnalysis/workerDemand.test.js",
+    "server/src/foodcast/automationService.js",
+    "server/src/foodcast/automationService.test.js",
+    "server/src/foodcast/bgmLibrary.js",
+    "server/src/foodcast/bgmLibrary.test.js",
+    "server/src/foodcast/cloudMaterialCatalog.js",
+    "server/src/foodcast/continuitySelector.js",
+    "server/src/foodcast/continuitySelector.test.js",
+    "server/src/foodcast/customService.js",
+    "server/src/foodcast/customService.test.js",
+    "server/src/foodcast/factory.js",
+    "server/src/foodcast/factory.test.js",
+    "server/src/foodcast/materialCatalog.contract.test.js",
+    "server/src/foodcast/materialCatalog.js",
+    "server/src/foodcast/materialModel.js",
+    "server/src/foodcast/materialModel.test.js",
+    "server/src/foodcast/mediaStorage.js",
+    "server/src/foodcast/mediaStorage.test.js",
+    "server/src/foodcast/model.js",
+    "server/src/foodcast/model.test.js",
+    "server/src/foodcast/renderer.integration.test.js",
+    "server/src/foodcast/renderer.js",
+    "server/src/foodcast/renderer.test.js",
+    "server/src/foodcast/service.js",
+    "server/src/foodcast/service.test.js",
+    "server/src/foodcast/store.js",
+    "server/src/foodcast/store.test.js",
+    "server/src/jf/crypto.js",
+    "server/src/jf/crypto.test.js",
+    "server/src/jf/device.js",
+    "server/src/jf/deviceApi.test.js",
+    "server/src/jf/devicePriClient.js",
+    "server/src/jf/devicePriClient.test.js",
+    "server/src/jf/http.js",
+    "server/src/jf/http.test.js",
+    "server/src/liveMedia/cloudLiveRecordingStore.js",
+    "server/src/liveMedia/cloudLiveRecordingStore.test.js",
+    "server/src/liveMedia/factory.js",
+    "server/src/liveMedia/factory.test.js",
+    "server/src/liveMedia/liveRecordingSession.js",
+    "server/src/liveMedia/liveRecordingSession.test.js",
+    "server/src/liveMedia/liveRecordingSourceManager.js",
+    "server/src/liveMedia/liveRecordingSourceManager.test.js",
+    "server/src/liveMedia/liveRecordingStore.contract.js",
+    "server/src/liveMedia/liveRecordingStore.js",
+    "server/src/liveMedia/liveRecordingStore.test.js",
+    "server/src/liveMedia/mediaControlGateway.js",
+    "server/src/liveMedia/mediaControlGateway.test.js",
+    "server/src/liveMedia/protocol.js",
+    "server/src/liveMedia/protocol.test.js",
+    "server/src/liveMedia/sdRecordingExportSession.js",
+    "server/src/liveMedia/sdRecordingExportSession.test.js",
+    "server/src/liveMedia/talkbackSession.js",
+    "server/src/liveMedia/talkbackSession.test.js",
+    "server/src/livePlaybackDiagnostics.js",
+    "server/src/livePlaybackDiagnostics.test.js",
+    "server/src/liveSnapshot.js",
+    "server/src/liveSnapshot.test.js",
+    "server/src/motionAlerts.js",
+    "server/src/motionAlerts.test.js",
+    "server/src/networkServer.js",
+    "server/src/networkServer.test.js",
+    "server/src/notifications/pushPlusBindingService.js",
+    "server/src/notifications/pushPlusBindingService.test.js",
+    "server/src/notifications/pushPlusNotifier.js",
+    "server/src/notifications/pushPlusNotifier.test.js",
+    "server/src/notifications/pushPlusOpenApi.js",
+    "server/src/notifications/pushPlusOpenApi.test.js",
+    "server/src/notifications/wechatDeviceMessageService.js",
+    "server/src/notifications/wechatDeviceMessageService.test.js",
+    "server/src/notifications/wechatDeviceNotificationCoordinator.js",
+    "server/src/notifications/wechatDeviceNotificationCoordinator.test.js",
+    "server/src/notifications/wechatHybridNotificationCoordinator.js",
+    "server/src/notifications/wechatHybridNotificationCoordinator.test.js",
+    "server/src/notifications/wechatMiniSubscriptionService.js",
+    "server/src/notifications/wechatNotificationCoordinator.js",
+    "server/src/notifications/wechatNotificationCoordinator.test.js",
+    "server/src/notifications/wechatOfficialAccountService.js",
+    "server/src/notifications/wechatOfficialAccountService.test.js",
+    "server/src/notifications/wxPusherBindingService.js",
+    "server/src/notifications/wxPusherBindingService.test.js",
+    "server/src/notifications/wxPusherService.js",
+    "server/src/notifications/wxPusherService.test.js",
+    "server/src/replay/flvRelay.js",
+    "server/src/replay/hlsTranscodeSessionManager.js",
+    "server/src/replay/hlsTranscodeSessionManager.test.js",
+    "server/src/replay/nativeHlsSourceController.js",
+    "server/src/replay/nativeHlsSourceController.test.js",
+    "server/src/replay/recordingThumbnailService.js",
+    "server/src/replay/recordingThumbnailService.test.js",
+    "server/src/replay/replaySessionManager.js",
+    "server/src/replay/replaySessionManager.test.js",
+    "server/src/requestAuth.js",
+    "server/src/requestAuth.test.js",
+    "server/src/routes.js",
+    "server/src/routesPublicApi.test.js",
+    "server/src/server.js",
+    "server/src/tokenCache.js",
+    "server/src/tokenCache.test.js",
+    "server/src/videoFilters/cutePreset.js",
+    "server/src/videoFilters/cutePreset.test.js",
+    "server/src/wechatLogin.js",
+    "server/src/wechatLogin.test.js",
+    "server/src/wechatMiniCode.js",
+    "server/src/wechatMiniCode.test.js",
+    "vision-v32/FROZEN.md",
+    "vision-v32/src/__init__.py",
+    "vision-v32/src/analyzer.py",
+    "vision-v32/src/animal_pose.py",
+    "vision-v32/src/cat_face.py",
+    "vision-v32/src/cat_segmentation.py",
+    "vision-v32/src/cli.py",
+    "vision-v32/src/cute_highlights.py",
+    "vision-v32/src/detectors.py",
+    "vision-v32/src/feeding_behavior.py",
+    "vision-v32/src/markers.py",
+    "vision-v32/src/opencv_cascades.py",
+    "vision-v32/src/video.py",
+    "vision/UPSTREAM.md",
+    "vision/annotation/README.md",
+    "vision/annotation/app.js",
+    "vision/annotation/index.html",
+    "vision/annotation/styles.css",
+    "vision/evaluation/README.md",
+    "vision/evaluation/__init__.py",
+    "vision/evaluation/cat_chew_adapter.py",
+    "vision/evaluation/cli.py",
+    "vision/evaluation/cute_annotation.py",
+    "vision/evaluation/cute_cli.py",
+    "vision/evaluation/cute_segments.py",
+    "vision/evaluation/cute_select_cli.py",
+    "vision/evaluation/dataset.py",
+    "vision/evaluation/metrics.py",
+    "vision/evaluation/render_cute_overlay.py",
+    "vision/models/README.md",
+    "vision/models/behavior-models.sha256",
+    "vision/models/yolo11s.pt.sha256",
+    "vision/requirements-cloud.txt",
+    "vision/requirements.txt",
+    "vision/src/__init__.py",
+    "vision/src/analyzer.py",
+    "vision/src/animal_pose.py",
+    "vision/src/cat_face.py",
+    "vision/src/cat_segmentation.py",
+    "vision/src/cli.py",
+    "vision/src/cute_highlights.py",
+    "vision/src/detectors.py",
+    "vision/src/feeding_behavior.py",
+    "vision/src/ffmpeg_capture.py",
+    "vision/src/markers.py",
+    "vision/src/opencv_cascades.py",
+    "vision/src/orientation.py",
+    "vision/src/video.py",
+    "vision/tests/__init__.py",
+    "vision/tests/test_analyzer.py",
+    "vision/tests/test_animal_pose.py",
+    "vision/tests/test_cat_face.py",
+    "vision/tests/test_cli.py",
+    "vision/tests/test_cute_annotation.py",
+    "vision/tests/test_cute_highlights.py",
+    "vision/tests/test_cute_segments.py",
+    "vision/tests/test_cute_select_cli.py",
+    "vision/tests/test_detectors.py",
+    "vision/tests/test_evaluation_dataset.py",
+    "vision/tests/test_feeding_behavior.py",
+    "vision/tests/test_ffmpeg_capture.py",
+    "vision/tests/test_markers.py",
+    "vision/tests/test_orientation.py",
+    "vision/tests/test_video.py"
+  ],
+  "excluded": [
+    {
+      "path": ".gitignore",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "AGENTS.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "README.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "bgm/1.m4a",
+      "reason": "Runtime, private data, credentials, archive or separately supplied binary"
+    },
+    {
+      "path": "bgm/2.m4a",
+      "reason": "Runtime, private data, credentials, archive or separately supplied binary"
+    },
+    {
+      "path": "bgm/3.m4a",
+      "reason": "Runtime, private data, credentials, archive or separately supplied binary"
+    },
+    {
+      "path": "bgm/4.m4a",
+      "reason": "Runtime, private data, credentials, archive or separately supplied binary"
+    },
+    {
+      "path": "bgm/5.m4a",
+      "reason": "Runtime, private data, credentials, archive or separately supplied binary"
+    },
+    {
+      "path": "bgm/6.m4a",
+      "reason": "Runtime, private data, credentials, archive or separately supplied binary"
+    },
+    {
+      "path": "bgm/7.m4a",
+      "reason": "Runtime, private data, credentials, archive or separately supplied binary"
+    },
+    {
+      "path": "bgm/library.json",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "bgm/歌曲信息.txt",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "cloudbaserc.json",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "deploy.zip",
+      "reason": "Runtime, private data, credentials, archive or separately supplied binary"
+    },
+    {
+      "path": "docs/bobbo_v1.4_已实现能力补充汇报.docx",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/cat-feeding-ui-function-summary.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/cloud-hosting-deployment.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/ecs-deployment-and-backups.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/elastic-vision-worker.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/plans/2026-07-30-local-self-hosted-login-design.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/plans/2026-07-30-local-self-hosted-login.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/plans/2026-07-31-1440p-h264-recording-compatibility.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/plans/2026-07-31-fullscreen-live-recording.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/plans/2026-08-03-native-live-player-experiment.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/plans/2026-08-04-profile-recording-unbind-live-cover-design.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/plans/2026-08-05-live-stall-cover-session-fix-design.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/plans/2026-08-05-live-stream-priority-and-health-design.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/plans/2026-08-05-restore-sdk-live-backend-recording-design.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/plans/2026-08-05-shared-live-recording-stream-design.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/plans/2026-08-22-shared-device-family-assets.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/plans/2026-08-26-permanent-backend-ingress-design.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/plans/2026-08-27-direct-hls-replay-speed-design.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/plans/2026-08-28-alarm-feeding-pipeline-design.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/plans/2026-08-28-alarm-feeding-pipeline.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/plans/2026-08-28-bobbo-cat-city-gameplay-mechanism-design.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/plans/2026-08-28-feeding-record-notification-closure.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/plans/2026-08-29-feeding-fine-pass-design.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/plans/2026-08-30-fast-feeding-start-notification.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/plans/2026-08-31-clawbot-first-login-fix.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/plans/2026-08-31-motion-alerts-replay-timeline-player-design.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/plans/2026-08-31-motion-alerts-replay-timeline-player.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/plans/2026-08-31-replay-fullscreen-ui-rollback.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/plans/2026-08-31-replay-progress-gesture-reliability.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/plans/2026-08-31-replay-seek-day-timeline-redesign.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/plans/2026-08-31-replay-seek-release-and-meal-intervals.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/plans/2026-08-31-wxpusher-binding-unification.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/plans/2026-09-05-login-reliability-and-audit.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-15-pushplus-feeding-notification.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-15-pushplus-friend-binding.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-17-embedded-cat-model-v1.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-17-foodcast-portrait-composition.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-18-cute-video-filter-debug-preset.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-18-cute-video-filter.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-19-foodcast-cute-highlights.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-20-cute-duration-selection.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-20-cute-score.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-20-foodcast-editing-modes.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-21-foodcast-music-selection.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-21-initial-four-tab-ui-refresh.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-22-wechat-cloud-hosting-config.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-23-main-cloud-hosting-cd.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-24-live-today-ui-polish.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-24-login-brand-welcome.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-24-miniapp-cool-white-ui.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-24-pushplus-cloud-config.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-24-wechat-device-ownership-security.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-25-bobbo-prototype-ui-restoration.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-25-cloud-model-e2e.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-26-automatic-foodcast-material-editor.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-26-default-quick-cut.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-26-foodcast-mode-duration-presets.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-27-incremental-recording-analysis.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-27-landscape-live-controls.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-27-live-control-retry-polish.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-28-analysis-material-sync-recovery.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-28-cloudbase-automation-trigger.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-28-feed-analysis-capacity.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-28-feed-analysis-cloud-persistence.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-28-filter-cat-recordings.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-28-replay-analysis-status-badges.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-29-recover-analysis-queue.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-29-sd-recording-export.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-31-second-live-stream-recording.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-07-15-pushplus-feeding-notification-design.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-07-15-pushplus-friend-binding-design.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-07-17-embedded-cat-model-v1-design.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-07-17-foodcast-video-orientation-design.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-07-18-cute-video-filter-debug-preset-design.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-07-18-cute-video-filter-design.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-07-19-foodcast-cute-highlights-design.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-07-20-cute-duration-selection-design.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-07-20-cute-score-design.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-07-20-foodcast-editing-modes-design.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-07-21-foodcast-music-selection-design.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-07-23-main-cloud-hosting-cd-design.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-07-24-live-today-ui-polish-design.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-07-24-login-brand-welcome-design.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-07-24-miniapp-cool-white-ui-design.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-07-24-pushplus-cloud-config-design.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-07-24-wechat-device-ownership-security-design.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-07-25-bobbo-prototype-ui-restoration-design.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-07-25-cloud-model-e2e-design.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-07-26-automatic-foodcast-material-editor-design.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-07-26-default-quick-cut-design.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-07-26-foodcast-mode-duration-presets-design.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-07-27-incremental-recording-analysis-design.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-07-27-landscape-live-controls-design.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-07-27-live-control-retry-polish-design.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-07-28-analysis-material-sync-recovery-design.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-07-28-cloudbase-automation-trigger-design.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-07-28-feed-analysis-capacity-design.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-07-28-filter-cat-recordings-design.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-07-28-replay-analysis-status-badges-design.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-07-29-sd-recording-export-design.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-07-31-second-live-stream-recording-design.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/.gitignore",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/App.vue",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/common/uqrcode.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/common/weapp-qrcode.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/components/j-cell/j-cell.vue",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/components/j-panel/j-panel.vue",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/components/j-switch/j-switch.vue",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/jlink-wx-sdk/dist/jlink-wx-sdk.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/jlink-wx-sdk/dist/jlink-wx-sdk.js.LICENSE.txt",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/jlink-wx-sdk/dist/jlink-wx-sdk.js.map",
+      "reason": "Runtime, private data, credentials, archive or separately supplied binary"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/main.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/manifest.json",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/pages.json",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/pages/API/API.vue",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/pages/API/addRecord.vue",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/pages/API/info.vue",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/pages/index/addDevice.vue",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/pages/index/bleConnectDevice.vue",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/pages/index/index.vue",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/pages/index/live.vue",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/pages/index/repairing.vue",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/pages/index/replay.vue",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/pages/index/webrtc/components/singleWayWebrtc.vue",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/pages/index/webrtc/components/twoWayWebrtc.vue",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/pages/index/webrtc/mixins/singleWayWebrtcMixin.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/pages/index/webrtc/mixins/twoWayVideoWebrtcMixin.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/pages/index/webrtc/singleWayVideoDemoPage.vue",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/pages/index/webrtc/twoWayVideoDemoPage.vue",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/pages/mixins/account.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/pages/mixins/ptz.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/static/iconfont.css",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/static/iconfont.ttf",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/static/images/menus/icon-cloud-HL.png",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/static/images/menus/icon-cloud.png",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/static/images/menus/icon-device-HL.png",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/static/images/menus/icon-device.png",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/static/images/menus/icon-mine-HL.png",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/static/images/menus/icon-mine.png",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/static/images/menus/icon-scene-HL.png",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/static/images/menus/icon-scene.png",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/static/logo.png",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni.scss",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-badge/changelog.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-badge/components/uni-badge/uni-badge.vue",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-badge/package.json",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-badge/readme.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-easyinput/changelog.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-easyinput/components/uni-easyinput/common.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-easyinput/components/uni-easyinput/uni-easyinput.vue",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-easyinput/package.json",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-easyinput/readme.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-icons/changelog.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-icons/components/uni-icons/uni-icons.uvue",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-icons/components/uni-icons/uni-icons.vue",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-icons/components/uni-icons/uniicons.css",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-icons/components/uni-icons/uniicons.ttf",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-icons/components/uni-icons/uniicons_file.ts",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-icons/components/uni-icons/uniicons_file_vue.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-icons/package.json",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-icons/readme.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-list/changelog.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-list/components/uni-list-ad/uni-list-ad.vue",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-list/components/uni-list-chat/uni-list-chat.scss",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-list/components/uni-list-chat/uni-list-chat.vue",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-list/components/uni-list-item/uni-list-item.vue",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-list/components/uni-list/uni-list.vue",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-list/components/uni-list/uni-refresh.vue",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-list/components/uni-list/uni-refresh.wxs",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-list/package.json",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-list/readme.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-popup/changelog.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-popup/components/uni-popue-sheet/uni-popup-sheet.vue",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-popup/components/uni-popup-dialog/keypress.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-popup/components/uni-popup-dialog/uni-popup-dialog.vue",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-popup/components/uni-popup-message/uni-popup-message.vue",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-popup/components/uni-popup-share/uni-popup-share.vue",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-popup/components/uni-popup/i18n/en.json",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-popup/components/uni-popup/i18n/index.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-popup/components/uni-popup/i18n/zh-Hans.json",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-popup/components/uni-popup/i18n/zh-Hant.json",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-popup/components/uni-popup/keypress.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-popup/components/uni-popup/popup.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-popup/components/uni-popup/uni-popup.uvue",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-popup/components/uni-popup/uni-popup.vue",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-popup/package.json",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-popup/readme.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-scss/changelog.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-scss/index.scss",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-scss/package.json",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-scss/readme.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-scss/styles/index.scss",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-scss/styles/setting/_border.scss",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-scss/styles/setting/_color.scss",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-scss/styles/setting/_radius.scss",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-scss/styles/setting/_space.scss",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-scss/styles/setting/_styles.scss",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-scss/styles/setting/_text.scss",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-scss/styles/setting/_variables.scss",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-scss/styles/tools/functions.scss",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-scss/theme.scss",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-scss/variables.scss",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-transition/changelog.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-transition/components/uni-transition/createAnimation.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-transition/components/uni-transition/uni-transition.vue",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-transition/package.json",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/uni_modules/uni-transition/readme.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "jlink-wx-sdk-demo/utils/util.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "miniprogram.zip",
+      "reason": "Runtime, private data, credentials, archive or separately supplied binary"
+    },
+    {
+      "path": "miniprogram/jlink-wx-sdk/dist/jlink-wx-sdk.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "miniprogram/jlink-wx-sdk/dist/jlink-wx-sdk.js.LICENSE.txt",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "miniprogram/project.private.config.json",
+      "reason": "Runtime, private data, credentials, archive or separately supplied binary"
+    },
+    {
+      "path": "project.private.config.json",
+      "reason": "Runtime, private data, credentials, archive or separately supplied binary"
+    },
+    {
+      "path": "public/player/auth/AuthConstants.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/auth/AuthFactory.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/auth/AuthManager.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/auth/AuthRequester.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/auth/AuthStorage.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/auth/AuthUtils.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/auth/AuthValidator.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/auth/DataEncryptor.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/auth/SignatureGenerator.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/common.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/core/CallbackHandler.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/core/EnhancedBaseProtocol.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/core/PropertySyncManager.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/core/ProtocolFactory.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/core/base-protocol.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/core/config.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/core/pcm-player.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/core/webgl.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/events/baseEnums.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/events/callbackEvent.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/events/decodeType.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/events/deviceType.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/events/errorCodes.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/events/imgBase64.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/events/index.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/events/playerCore.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/events/playerStatus.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/events/protocolType.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/index.html",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/loggers/NodeThrottleLogger.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/loggers/index.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/loggers/logger.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/player.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/protocol/devicePRI/DeviceMain.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/protocol/devicePRI/DevicePriProtocol.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/protocol/devicePRI/DevicePriTalk.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/protocol/devicePRI/loader-devicePRI.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/protocol/devicePRI/loader-localHttp.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/protocol/devicePRI/module/jsbn.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/protocol/devicePRI/module/prng4.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/protocol/devicePRI/module/rng.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/protocol/devicePRI/module/rsa.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/protocol/flv-wsFlv-mp4/FlvProtocol.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/protocol/flv-wsFlv-mp4/loader-http.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/protocol/hls/HlsProtocol.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/protocol/hls/loader-hls.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/protocol/index.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/protocol/webRTC/WebRtcProtocol.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/protocol/webRTC/webrtc.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/protocol/wsPRI/loader-ws.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/utils/ability/flv.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/utils/ability/hls.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/utils/ability/index.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/utils/encryption/DES.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/utils/encryption/Signature.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/utils/encryption/TimeMillisUtil.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/utils/encryption/crypto-js.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/utils/function.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/utils/helps/FileInfo.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/utils/helps/FpsCalPrint.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/utils/helps/FunExtend_NotStream.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/utils/helps/FunsExtend_Stream.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/utils/helps/TimerCheck.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/utils/helps/error-mapping.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/utils/md5.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/utils/tools/PCMAudioPlayer.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/utils/tools/VideoMagnifier.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/utils/tools/VideoRecorder.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/utils/tools/WebGLCanvasRecorder.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/utils/tools/YUV2PNG.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/utils/tools/reocrder.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/web/debug/browserES.min.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/web/debug/performance.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/web/debug/vconsole.min.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/web/font/AlibabaPuHuiTi-3-45-Light.eot",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/web/font/AlibabaPuHuiTi-3-45-Light.otf",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/web/font/AlibabaPuHuiTi-3-45-Light.ttf",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/web/font/AlibabaPuHuiTi-3-45-Light.woff",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/web/font/AlibabaPuHuiTi-3-45-Light.woff2",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/web/font/__MACOSX/._AlibabaPuHuiTi-3-45-Light",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/web/font/__MACOSX/AlibabaPuHuiTi-3-45-Light/._AlibabaPuHuiTi-3-45-Light.eot",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/web/font/__MACOSX/AlibabaPuHuiTi-3-45-Light/._AlibabaPuHuiTi-3-45-Light.otf",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/web/font/__MACOSX/AlibabaPuHuiTi-3-45-Light/._AlibabaPuHuiTi-3-45-Light.ttf",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/web/font/__MACOSX/AlibabaPuHuiTi-3-45-Light/._AlibabaPuHuiTi-3-45-Light.woff",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/web/font/__MACOSX/AlibabaPuHuiTi-3-45-Light/._AlibabaPuHuiTi-3-45-Light.woff2",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/web/img/FastPlayback.png",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/web/img/FastRewind.png",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/web/img/audio.png",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/web/img/brightness.png",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/web/img/cancelFullscreen.png",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/web/img/capture.png",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/web/img/clearConsole.png",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/web/img/contrast.png",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/web/img/digitZoom.png",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/web/img/fullscreen.png",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/web/img/hue.png",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/web/img/logo.png",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/web/img/logo2.png",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/web/img/mute.png",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/web/img/nextFrame.png",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/web/img/pause.png",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/web/img/play.png",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/web/img/rec.png",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/web/img/recorder.png",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/web/img/replay.png",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/web/img/saturation.png",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/web/img/setting.png",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/web/img/stop.png",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/web/img/volume.png",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/web/img/zoomRestore.png",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/web/styles/style.css",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/workers/decoder.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/workers/decoder_worker.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/workers/downloader.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/workers/downloader_worker.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/workers/libwasm.js",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "public/player/workers/libwasm.wasm",
+      "reason": "Third-party distribution requires separate license confirmation"
+    },
+    {
+      "path": "vision/evaluation/datasets/meal-001.json",
+      "reason": "Private evaluation data"
+    },
+    {
+      "path": "vision/models/cat-face/cat_face_landmarks_full.tflite",
+      "reason": "Runtime, private data, credentials, archive or separately supplied binary"
+    },
+    {
+      "path": "vision/models/cat-face/cat_face_localizer.tflite",
+      "reason": "Runtime, private data, credentials, archive or separately supplied binary"
+    },
+    {
+      "path": "vision/models/vitpose-s-apt36k.onnx",
+      "reason": "Runtime, private data, credentials, archive or separately supplied binary"
+    },
+    {
+      "path": "vision/models/yolo11s.pt",
+      "reason": "Runtime, private data, credentials, archive or separately supplied binary"
+    },
+    {
+      "path": "work/flv-sdk/auth/AuthConstants.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/auth/AuthFactory.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/auth/AuthManager.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/auth/AuthRequester.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/auth/AuthStorage.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/auth/AuthUtils.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/auth/AuthValidator.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/auth/DataEncryptor.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/auth/SignatureGenerator.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/common.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/core/CallbackHandler.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/core/EnhancedBaseProtocol.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/core/PropertySyncManager.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/core/ProtocolFactory.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/core/base-protocol.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/core/config.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/core/pcm-player.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/core/webgl.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/events/baseEnums.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/events/callbackEvent.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/events/decodeType.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/events/deviceType.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/events/errorCodes.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/events/imgBase64.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/events/index.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/events/playerCore.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/events/playerStatus.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/events/protocolType.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/index.html",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/loggers/NodeThrottleLogger.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/loggers/index.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/loggers/logger.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/player.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/protocol/flv-wsFlv-mp4/FlvProtocol.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/protocol/flv-wsFlv-mp4/loader-http.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/protocol/index.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/utils/ability/flv.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/utils/ability/index.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/utils/encryption/DES.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/utils/encryption/Signature.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/utils/encryption/TimeMillisUtil.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/utils/encryption/crypto-js.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/utils/function.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/utils/helps/FileInfo.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/utils/helps/FpsCalPrint.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/utils/helps/FunExtend_NotStream.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/utils/helps/FunsExtend_Stream.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/utils/helps/TimerCheck.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/utils/helps/error-mapping.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/utils/md5.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/utils/tools/PCMAudioPlayer.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/utils/tools/VideoMagnifier.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/utils/tools/VideoRecorder.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/utils/tools/WebGLCanvasRecorder.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/utils/tools/YUV2PNG.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/utils/tools/reocrder.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/web/debug/browserES.min.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/web/debug/performance.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/web/debug/vconsole.min.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/web/font/AlibabaPuHuiTi-3-45-Light.eot",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/web/font/AlibabaPuHuiTi-3-45-Light.otf",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/web/font/AlibabaPuHuiTi-3-45-Light.ttf",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/web/font/AlibabaPuHuiTi-3-45-Light.woff",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/web/font/AlibabaPuHuiTi-3-45-Light.woff2",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/web/font/__MACOSX/._AlibabaPuHuiTi-3-45-Light",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/web/font/__MACOSX/AlibabaPuHuiTi-3-45-Light/._AlibabaPuHuiTi-3-45-Light.eot",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/web/font/__MACOSX/AlibabaPuHuiTi-3-45-Light/._AlibabaPuHuiTi-3-45-Light.otf",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/web/font/__MACOSX/AlibabaPuHuiTi-3-45-Light/._AlibabaPuHuiTi-3-45-Light.ttf",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/web/font/__MACOSX/AlibabaPuHuiTi-3-45-Light/._AlibabaPuHuiTi-3-45-Light.woff",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/web/font/__MACOSX/AlibabaPuHuiTi-3-45-Light/._AlibabaPuHuiTi-3-45-Light.woff2",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/web/img/FastPlayback.png",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/web/img/FastRewind.png",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/web/img/audio.png",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/web/img/brightness.png",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/web/img/cancelFullscreen.png",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/web/img/capture.png",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/web/img/clearConsole.png",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/web/img/contrast.png",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/web/img/digitZoom.png",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/web/img/fullscreen.png",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/web/img/hue.png",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/web/img/logo.png",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/web/img/logo2.png",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/web/img/mute.png",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/web/img/nextFrame.png",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/web/img/pause.png",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/web/img/play.png",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/web/img/rec.png",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/web/img/recorder.png",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/web/img/replay.png",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/web/img/saturation.png",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/web/img/setting.png",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/web/img/stop.png",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/web/img/volume.png",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/web/img/zoomRestore.png",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/web/styles/style.css",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/workers/decoder.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/workers/decoder_worker.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/workers/downloader.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/workers/downloader_worker.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/workers/libwasm.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "work/flv-sdk/workers/libwasm.wasm",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "小程序文档/WEB播放器下载.pdf",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "小程序文档/jlink-wx-sdk-master.zip",
+      "reason": "Runtime, private data, credentials, archive or separately supplied binary"
+    },
+    {
+      "path": "小程序文档/jlink-wx-sdk-master/README.en.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "小程序文档/jlink-wx-sdk-master/README.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "小程序文档/jlink-wx-sdk-master/dist/jlink-wx-sdk.js",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "小程序文档/jlink-wx-sdk-master/dist/jlink-wx-sdk.js.LICENSE.txt",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "小程序文档/jlink-wx-sdk-master/dist/jlink-wx-sdk.js.map",
+      "reason": "Runtime, private data, credentials, archive or separately supplied binary"
+    },
+    {
+      "path": "小程序文档/接入地址.pdf",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "小程序文档/接入指引.pdf",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "小程序文档/时间戳算法.pdf",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "小程序文档/签名算法.pdf",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "小程序文档/获取设备接入地址.pdf",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "小程序文档/获取设备接口访问令牌.pdf",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "小程序文档/获取设备状态.pdf",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "小程序文档/获取设备直播地址.pdf",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "小程序文档/获取设备直播地址（多种类型直播地址）.pdf",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "小程序文档/获取设备直播状态信息.pdf",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "小程序文档/设备分享参数加密算法.pdf",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "小程序文档/设备列表.pdf",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "小程序文档/设备登录.pdf",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "小程序文档/设备绑定.pdf",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "猫饭日记小程序-开发日程表.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    },
+    {
+      "path": "猫饭日记小程序-第一版需求文档.md",
+      "reason": "Internal documents, vendor distribution, archives or operational configuration"
+    }
+  ],
+  "relocated": [
+    {
+      "source": ".github/workflows/deploy-cloud-hosting.yml",
+      "path": "docs/deployment/deploy-cloud-hosting.yml.example"
+    },
+    {
+      "source": ".github/workflows/automation-recovery.yml",
+      "path": "docs/deployment/automation-recovery.yml.example"
+    }
+  ]
+}

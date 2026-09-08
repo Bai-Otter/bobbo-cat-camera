@@ -1,0 +1,10 @@
+{
+  "name": "cat-camera-miniprogram",
+  "version": "1.0.0",
+  "description": "布卜布卜 - 宠物碗架摄像头配套小程序",
+  "main": "main.js",
+  "scripts": {},
+  "keywords": ["uniapp","miniprogram","weixin","camera","jlink"],
+  "author": "",
+  "license": "MIT"
+}

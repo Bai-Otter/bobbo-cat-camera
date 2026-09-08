@@ -1,0 +1,14 @@
+# Runtime-only dependencies for the in-process Cloud Hosting vision worker.
+# The local FastAPI bridge is not started inside this container.
+numpy>=1.26,<2.0
+filelock>=3.16.1
+# Debian PyTorch already brings the OpenCV runtime libraries; Docker installs
+# python3-opencv so this environment does not duplicate them with a pip wheel.
+onnxruntime>=1.22,<2.0
+ai-edge-litert>=2.1,<3.0
+matplotlib>=3.3.0
+pillow>=7.1.2
+pyyaml>=5.3.1
+requests>=2.23.0
+psutil>=5.8.0
+tqdm>=4.64.0

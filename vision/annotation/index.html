@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>布卜布卜 · 可爱瞬间标注</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">BOBBO VISION LAB</p>
+        <h1>可爱瞬间标注</h1>
+        <p class="subhead">本机工具 · 视频不会上传</p>
+      </div>
+      <div class="actions">
+        <button id="importDataset" class="button secondary">导入标注</button>
+        <button id="exportDataset" class="button primary">导出标注</button>
+        <input id="datasetInput" type="file" accept="application/json" hidden>
+      </div>
+    </header>
+
+    <section class="import-panel panel">
+      <div class="field">
+        <label for="videoInput">视频文件</label>
+        <input id="videoInput" type="file" accept="video/*">
+      </div>
+      <div class="field">
+        <label for="timelineInput">分析结果 timeline.json</label>
+        <input id="timelineInput" type="file" accept="application/json">
+      </div>
+      <button id="loadFiles" class="button primary">加载当前视频</button>
+      <span id="status" class="status">请选择视频和 timeline.json</span>
+    </section>
+
+    <section class="workspace">
+      <div class="viewer panel">
+        <div class="video-wrap">
+          <video id="video" controls playsinline></video>
+          <div id="videoEmpty" class="video-empty">加载视频后开始标注</div>
+        </div>
+        <div class="time-readout"><span id="currentTime">00:00.0</span><span id="duration">00:00.0</span></div>
+        <input id="seek" class="seek" type="range" min="0" max="0" value="0" step="0.1">
+        <div id="timeline" class="timeline" aria-label="可爱候选时间轴"></div>
+        <div class="legend"><span><i class="dot candidate"></i>算法候选</span><span><i class="dot cute"></i>已标可爱</span><span><i class="dot exclude"></i>已排除</span></div>
+        <div class="frame-inspector">
+          <div>
+            <span class="label">当前帧指标</span>
+            <strong id="frameRelation">暂无</strong>
+          </div>
+          <div class="metrics" id="metrics"></div>
+        </div>
+      </div>
+
+      <aside class="controls">
+        <section class="panel label-panel">
+          <div class="panel-title"><h2>标注时间段</h2><span id="rangeHint">未选择</span></div>
+          <div class="range-fields">
+            <label>开始 <input id="startSec" type="number" min="0" step="0.1" value="0"></label>
+            <button id="useCurrentStart" class="icon-button" title="使用当前时间">设为当前</button>
+            <label>结束 <input id="endSec" type="number" min="0" step="0.1" value="0"></label>
+            <button id="useCurrentEnd" class="icon-button" title="使用当前时间">设为当前</button>
+          </div>
+          <div class="button-row">
+            <button id="markStart" class="button secondary">从当前开始</button>
+            <button id="markEnd" class="button secondary">到当前结束</button>
+          </div>
+          <div class="verdict-row">
+            <button data-verdict="cute" class="verdict cute-verdict">可爱</button>
+            <button data-verdict="exclude" class="verdict exclude-verdict">排除</button>
+          </div>
+          <label class="score-field">可爱值 <select id="cuteValue"><option value="5">5 · 非常可爱</option><option value="4">4 · 值得保留</option><option value="3" selected>3 · 一般</option><option value="2">2 · 不太可爱</option><option value="1">1 · 明显不喜欢</option></select></label>
+          <div class="tag-list" id="tagList"></div>
+          <textarea id="note" rows="2" placeholder="备注（可选）"></textarea>
+          <button id="saveLabel" class="button primary full">保存这段标注</button>
+        </section>
+
+        <section class="panel labels-panel">
+          <div class="panel-title"><h2>已标注片段</h2><span id="labelCount">0 段</span></div>
+          <div id="labels" class="labels"></div>
+        </section>
+      </aside>
+    </section>
+
+    <section class="panel help-panel">
+      <div><strong>操作提示</strong><span>空格播放/暂停 · [ 设置开始 · ] 设置结束 · S 保存可爱 · X 保存排除</span></div>
+      <div id="datasetSummary">尚未加载数据集</div>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

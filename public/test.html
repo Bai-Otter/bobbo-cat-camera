@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>播放器最小测试 (H.265)</title>
+</head>
+<body>
+  <h3>摄像头播放测试 - H.265 编码</h3>
+  <div style="position:relative;width:640px;height:360px;background:#000;">
+    <canvas id="canvas1" width="640" height="360"></canvas>
+    <video name="videoElement" playsinline style="width:100%;height:100%;display:none;"></video>
+  </div>
+  <br>
+  <button id="btnFlv">播放 FLV (H.265)</button>
+  <button id="btnHls">播放 HLS</button>
+  <button id="btnStop">停止</button>
+  <div id="log" style="margin-top:10px;font-size:12px;font-family:monospace;max-height:200px;overflow:auto;"></div>
+
+  <script type="module">
+    import { Player } from './player/player.js';
+
+    const log = msg => {
+      document.getElementById('log').innerHTML += msg + '<br>';
+      console.log(msg);
+    };
+
+    const canvas = document.getElementById('canvas1');
+    const videoEle = document.getElementsByName('videoElement')[0];
+    let player = null;
+
+    async function init() {
+      log('获取鉴权...');
+      const res = await fetch('/api/player-auth');
+      const auth = (await res.json()).data;
+      player = new Player({
+        dir: '.',
+        uuid: auth.uuid,
+        appkey: auth.appkey,
+        appsecret: auth.appsecret,
+        movedcard: auth.movedcard,
+        logLevel: 3,
+        outputConsole: true,
+      });
+      player.fnSetVideoEle(videoEle);
+      log('播放器就绪 (H.265 解码已启用)');
+    }
+
+    async function play(protocol, urlProto) {
+      log('获取 ' + protocol + ' 地址...');
+      const res = await fetch('/get' + protocol + 'Url');
+      const data = await res.json();
+      if (data.code !== 0) { log('错误: ' + data.msg); return; }
+      log('URL: ' + data.url.substring(0, 50) + '...');
+      player.fnStop();
+      player.fnPlay({
+        url: data.url,
+        isStream: true,
+        urlProto: urlProto,
+        // 关键：启用 H.265 解码
+        enableHEVC: true,
+        decodeType: 'WASM',
+        bufferTime: 2000,
+        reconnect: true,
+        reconnectInterval: 2000,
+        maxReconnectAttempts: 3,
+      }, canvas, e => log('回调: ret=' + e.ret + ' status=' + e.status));
+    }
+
+    document.getElementById('btnFlv').onclick = () => play('Flv', 'httpFlv');
+    document.getElementById('btnHls').onclick = () => play('Hls', 'httpHls');
+    document.getElementById('btnStop').onclick = () => { player.fnStop(); log('已停止'); };
+
+    init().catch(e => log('初始化失败: ' + e.message));
+  </script>
+</body>
+</html>

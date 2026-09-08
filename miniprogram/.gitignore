@@ -1,0 +1,15 @@
+node_modules/
+unpackage/
+dist/
+!jlink-wx-sdk/
+!jlink-wx-sdk/dist/
+!jlink-wx-sdk/dist/jlink-wx-sdk.js
+!jlink-wx-sdk/dist/jlink-wx-sdk.js.LICENSE.txt
+.hbuilderx/
+.env
+.env.local
+*.log
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

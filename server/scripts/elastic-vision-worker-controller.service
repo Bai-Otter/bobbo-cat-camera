@@ -1,0 +1,19 @@
+[Unit]
+Description=BOBBO elastic vision worker controller
+After=network-online.target bobbo-backend.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+EnvironmentFile=/opt/bobbo/secrets/elastic-worker.env
+ExecStartPre=-/usr/bin/docker rm -f bobbo-elastic-vision-worker-controller
+ExecStart=/usr/bin/docker run --rm --name bobbo-elastic-vision-worker-controller --network host --env-file /opt/bobbo/secrets/elastic-worker.env --read-only --tmpfs /tmp:rw,nosuid,nodev,size=64m -v /opt/bobbo/bin/elastic-vision-worker-controller.js:/opt/bobbo/bin/elastic-vision-worker-controller.js:ro -v /opt/bobbo/src/feedAnalysis:/opt/bobbo/src/feedAnalysis:ro -v /opt/bobbo/elastic-worker:/opt/bobbo/elastic-worker -v /root/.aliyun:/root/.aliyun:ro -v /usr/local/bin/aliyun:/usr/local/bin/aliyun:ro --entrypoint /usr/local/bin/node bobbo-controller-runtime:node22 /opt/bobbo/bin/elastic-vision-worker-controller.js
+ExecStop=/usr/bin/docker stop -t 20 bobbo-elastic-vision-worker-controller
+Restart=always
+RestartSec=10
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

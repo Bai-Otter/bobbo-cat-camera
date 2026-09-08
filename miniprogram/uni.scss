@@ -1,0 +1,41 @@
+﻿/* uni.scss - 全局样式变量 */
+
+/* 主题色 */
+$uni-color-primary: #2f7fe8;
+$uni-color-success: #34c759;
+$uni-color-warning: #f59e0b;
+$uni-color-error: #ef4444;
+
+/* 文字颜色 */
+$uni-text-color: #1a1d21;
+$uni-text-color-grey: #8e949c;
+$uni-text-color-placeholder: #aeb4bd;
+
+/* 背景色 */
+$uni-bg-color: #f4f5f7;
+$uni-bg-color-grey: #edf1f6;
+$uni-bg-color-hover: #e7ecf3;
+$uni-bg-color-mask: rgba(0, 0, 0, 0.4);
+
+/* 边框颜色 */
+$uni-border-color: #e5e7eb;
+
+/* 尺寸 */
+$uni-border-radius-sm: 12rpx;
+$uni-border-radius-base: 16rpx;
+$uni-border-radius-lg: 24rpx;
+$uni-border-radius-circle: 50%;
+
+/* 间距 */
+$uni-spacing-row-sm: 16rpx;
+$uni-spacing-row-base: 24rpx;
+$uni-spacing-row-lg: 32rpx;
+$uni-spacing-col-sm: 12rpx;
+$uni-spacing-col-base: 16rpx;
+$uni-spacing-col-lg: 24rpx;
+
+/* 字号 */
+$uni-font-size-sm: 24rpx;
+$uni-font-size-base: 28rpx;
+$uni-font-size-lg: 32rpx;
+$uni-font-size-xl: 36rpx;

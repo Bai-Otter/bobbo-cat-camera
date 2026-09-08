@@ -1,0 +1,21 @@
+{
+    "name":  "布卜布卜",
+    "appid":  "__UNI__CATCAM",
+    "description":  "PetBuddy宠物碗架摄像头配套小程序",
+    "versionName":  "1.0.0",
+    "versionCode":  "100",
+    "transformPx":  false,
+    "mp-weixin":  {
+                      "appid":  "touristappid",
+                      "setting":  {
+                                      "urlCheck":  false,
+                                      "es6":  false,
+                                      "enhance":  false,
+                                      "minified":  true,
+                                      "postcss":  true
+                                  },
+                      "usingComponents":  true,
+                      "cloudfunctionRoot":  "cloudfunctions/"
+                  },
+    "vueVersion":  "2"
+}

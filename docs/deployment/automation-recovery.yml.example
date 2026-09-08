@@ -1,0 +1,30 @@
+name: Trigger Automation Recovery
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: automation-recovery
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Trigger protected automation recovery
+        env:
+          AUTOMATION_TICK_SECRET: ${{ secrets.AUTOMATION_TICK_SECRET }}
+        shell: bash
+        run: |
+          test -n "$AUTOMATION_TICK_SECRET"
+          curl --fail-with-body --silent --show-error \
+            --max-time 55 \
+            --request POST \
+            --header "x-automation-tick-secret: $AUTOMATION_TICK_SECRET" \
+            "https://api.example.com/api/internal/automation/tick"

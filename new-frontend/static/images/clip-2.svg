@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="280" viewBox="0 0 400 280">
+  <rect width="400" height="280" fill="#EDE6D8"/>
+  <rect width="400" height="280" fill="url(#g)" opacity="0.5"/>
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#F2EDE4"/><stop offset="1" stop-color="#E0D5C0"/>
+  </linearGradient></defs>
+  <text x="50%" y="46%" font-size="56" text-anchor="middle" dominant-baseline="middle">▶</text>
+  <text x="50%" y="72%" font-size="20" fill="#A99C84" text-anchor="middle" font-family="sans-serif">片段2</text>
+</svg>

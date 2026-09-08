@@ -1,0 +1,28 @@
+{
+  "name": "cat-camera-remote-server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "布卜布卜·摄像头远程观看 - Node.js 后端(杰峰OpenAPI代理)",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev:local": "node scripts/dev-local.js",
+    "dev:proxy": "node scripts/dev-http-proxy.js",
+    "test:signature": "node src/jf/crypto.test.js"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "dependencies": {
+    "@cloudbase/node-sdk": "3.18.3",
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "https-proxy-agent": "^7.0.6",
+    "ws": "^8.21.0"
+  },
+  "devDependencies": {
+    "selfsigned": "^5.5.0"
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "description": "布卜布卜微信小程序项目配置",
+  "appid": "touristappid",
+  "projectname": "布卜布卜",
+  "compileType": "miniprogram",
+  "miniprogramRoot": "miniprogram/unpackage/dist/dev/mp-weixin/",
+  "cloudfunctionRoot": "miniprogram/cloudfunctions/",
+  "cloudbaseRoot": "miniprogram/cloudfunctions/",
+  "setting": {
+    "urlCheck": true,
+    "es6": false,
+    "postcss": true,
+    "minified": true,
+    "newFeature": true,
+    "bigPackageSizeSupport": true,
+    "compileWorklet": false,
+    "uglifyFileName": false,
+    "uploadWithSourceMap": true,
+    "enhance": false,
+    "packNpmManually": false,
+    "packNpmRelationList": [],
+    "minifyWXSS": true,
+    "minifyWXML": true,
+    "localPlugins": false,
+    "useLanDebug": false,
+    "disableUseStrict": false,
+    "useCompilerPlugins": false,
+    "condition": false,
+    "swc": false,
+    "disableSWC": true,
+    "babelSetting": {
+      "ignore": [],
+      "disablePlugins": [],
+      "outputPath": ""
+    }
+  },
+  "condition": {
+    "miniprogram": {
+      "current": -1,
+      "list": []
+    }
+  },
+  "simulatorPluginLibVersion": {},
+  "packOptions": {
+    "ignore": [],
+    "include": []
+  },
+  "editorSetting": {}
+}
