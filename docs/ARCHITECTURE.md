@@ -1,58 +1,63 @@
-# 系统架构
+# 手机、摄像头和服务器各做什么？
 
-[返回首页](../README.md) · [算法说明](ALGORITHMS.md)
+[返回首页](../README.md) · [进食识别与吃播](ALGORITHMS.md)
 
-## 组件职责
+可以把 BOBBO 看成三个部分一起工作：摄像头负责看，服务器负责整理，小程序负责让你查看和操作。
 
-| 组件 | 入口 | 职责 |
-| --- | --- | --- |
-| 微信小程序 | [miniprogram/App.vue](../miniprogram/App.vue) | 登录、交互、播放、设置、统计与素材展示 |
-| Node API | [server.js](../server/src/server.js)、[routes.js](../server/src/routes.js) | 鉴权、设备权限、API、服务装配 |
-| 设备平台适配 | [jf/device.js](../server/src/jf/device.js) | 厂商接口、设备查询、直播与录像控制 |
-| 分析调度 | [coordinator.js](../server/src/feedAnalysis/coordinator.js) | 警报/录像分析、重试、取流、时钟和用户回放占用协调 |
-| 视觉 worker | [visionWorker.js](../server/src/feedAnalysis/visionWorker.js)、[visionHttpServer.js](../server/src/feedAnalysis/visionHttpServer.js) | 本地 Python 子进程或独立 HTTP 分析服务 |
-| 进食统计 | [feedingStats.js](../server/src/feedAnalysis/feedingStats.js) | 证据转时间轴、事件、餐次及统计 |
-| 素材与吃播 | [foodcast/automationService.js](../server/src/foodcast/automationService.js) | 每顿素材、全天精选、去重与渲染 |
+## 摄像头：提供画面和录像
 
-小程序端不执行 Python 模型推理或服务器 FFmpeg 渲染。摄像头移动警报只是触发信号，不是猫识别结果；设备端识别能力取决于实际硬件/SDK。
+摄像头提供实时画面、历史录像和移动警报。移动警报表示画面发生变化，不代表摄像头已经确认猫在吃饭。
 
-## 数据流与存储
+能不能调倍速、同时看几路视频，以及录像如何读取，取决于摄像头和厂商提供的接入工具，不是所有设备都一样。
 
-```text
-设备警报 / 录像目录
-  → 分析任务与回放 URL
-  → 图像证据
-  → 结构化进食结果
-  → 每顿原始素材
-  → 当天多餐精选
-  → 小程序展示 / 下载
-```
+## 服务器：把录像变成记录和吃播
 
-数据持久化采用代码中的存储适配层，不要求所有部署使用相同存储：
+服务器接收警报或安排录像检查，读取需要分析的画面，判断猫咪和进食情况，再整理时长、餐次和对应的片段。
 
-- [appDataStore.js](../server/src/appDataStore.js)：账户和应用数据。
-- [feedAnalysis/store.js](../server/src/feedAnalysis/store.js)：分析状态与结果；另有云存储适配。
-- [foodcast/materialCatalog.js](../server/src/foodcast/materialCatalog.js)：素材目录。
-- [foodcast/store.js](../server/src/foodcast/store.js)、[mediaStorage.js](../server/src/foodcast/mediaStorage.js)：吃播状态与媒体。
+它也负责开始进食提醒、保存每顿素材，以及把一天里的好镜头剪成带音乐的精选。
 
-分析临时文件、每顿素材和精选成片是不同生命周期。保留时间、清理策略与容量上限需按 `.env.example` 和具体部署配置；开源不包含用户数据库与视频。
+当前项目的画面分析和吃播制作都在服务器侧完成，不是在微信小程序后台偷偷运行。需要更多计算能力时，负责分析的程序可以和管理账号、页面数据的程序放在不同服务器上。
 
-## 时间坐标：最容易集成错的部分
+## 小程序：查看、播放和设置
 
-1. **设备录像时间**：厂商录像目录与设备时钟使用的时间。
-2. **分析偏移**：`offsetSec` 相对本次分析输入开头，不是 Unix 时间戳。
-3. **片段/素材偏移**：多个录像区间剪辑后，在输出视频中的位置。
+你在手机上看到的四个主要页面分别是：
 
-把采样时间转成时间轴要使用正确的录像起点；把高光转回原素材要使用输出映射。倍速取流、裁剪前滚、画面旋转与时钟同步都不能靠修改 UI 时间标签来替代底层映射。
+| 页面 | 用来做什么 |
+| --- | --- |
+| 今日 | 查看进食记录和当天汇总 |
+| 实时 | 看摄像头、移动警报和历史录像 |
+| 吃播 | 按日期查看每顿片段和当天精选 |
+| 我的 | 管理猫咪档案、设备共享、通知和吃播偏好 |
 
-相关入口：[deviceTime.js](../server/src/feedAnalysis/deviceTime.js)、[deviceTimeSync.js](../server/src/feedAnalysis/deviceTimeSync.js)、协调器中的 `trimAnalysisToTargetWindow()` 和吃播服务的素材映射。
+## 视频和记录存在哪里？
 
-## 部署边界
+它们不是同一种东西，需要分别管理：
 
-- API 和视觉 worker 可在同机或分机运行；HTTP worker 的授权令牌不应公开。
-- HLS 取流请求、解码采样率、模型推理吞吐是三个不同指标。
-- 设备通道可能被用户回放占用，后台分析需要暂停/释放/重试，而不是无限开流。
-- 生产工作流以 `.example` 保存于 `docs/deployment/`；启用前替换配置并审查权限。
-- 模型与厂商 SDK 不在仓库中，参见 [安装指南](DEPENDENCIES.md)。
+- **摄像头原录像**：由设备及其录像服务提供，具体位置取决于设备配置。
+- **进食记录**：由服务器保存，例如哪天吃了几顿、各段的时间。
+- **分析时临时读取的视频**：用于分析，不应和最终作品混在一起无限保留。
+- **每顿片段和精选视频**：由服务器侧的视频存储保存，供小程序播放和下载。
 
-这份架构说明描述源码职责，不保证所有厂商设备支持相同协议、倍速或并发通道数。
+具体保留多久、占用多少空间，需要部署时设置保存和清理规则。开源仓库不包含用户的记录或录像。
+
+## 为什么时间对齐很重要？
+
+例如，原录像从 10:00 开始，猫在第 5 分钟吃饭，那么记录对应的是 10:05。把这段剪成一个新视频后，它又可能出现在新视频的第 0 秒。
+
+原录像时间、分析时的位置、剪辑后的位置不能混用，否则就会出现“颜色标在这里，点开却不是这一段”的问题。只改页面上的时间文字并不能解决它。
+
+同样，用户正在看回放时，后台分析也需要协调摄像头的使用，避免互相抢占导致播放失败。
+
+## 开发者从哪里找实现？
+
+| 功能 | 代码位置 |
+| --- | --- |
+| 小程序页面 | [miniprogram/](../miniprogram/README.md) |
+| 连接和控制摄像头 | [device.js](../server/src/jf/device.js) |
+| 安排录像分析 | [coordinator.js](../server/src/feedAnalysis/coordinator.js) |
+| 整理进食数据 | [feedingStats.js](../server/src/feedAnalysis/feedingStats.js) |
+| 保存素材、制作每日精选 | [automationService.js](../server/src/foodcast/automationService.js) |
+| 视频存储 | [mediaStorage.js](../server/src/foodcast/mediaStorage.js) |
+| 处理录像时间 | [deviceTime.js](../server/src/feedAnalysis/deviceTime.js) |
+
+安装步骤见 [开发者安装指南](GETTING_STARTED.md)，识别细节见 [算法技术参考](ALGORITHM_REFERENCE.md)。本文说明代码的分工，不代表任意新设备都已完成测试。
