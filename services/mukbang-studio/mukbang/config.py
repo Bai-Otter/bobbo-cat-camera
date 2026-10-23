@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import ipaddress
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -14,6 +15,23 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULTS = {"sample_interval": 1.0, "frames_per_sheet": 60,
             "target_duration": 40.0, "min_duration": 30.0, "max_duration": 50.0}
 LIMITS = {"max_upload_mb": 512, "max_duration_seconds": 600}
+DEFAULT_TIMEOUT_SECONDS = 600.0
+MIN_TIMEOUT_SECONDS = 30.0
+MAX_TIMEOUT_SECONDS = 1800.0
+
+
+def validate_timeout_seconds(value) -> float:
+    """One bounded timeout contract for environment and direct transport users."""
+    message = "AI请求总时限必须为30–1800秒的有限数值，请检查 MUKBANG_VISION_TIMEOUT_SECONDS"
+    if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+        raise ValueError(message)
+    try:
+        seconds = float(value)
+    except (ValueError, OverflowError):
+        raise ValueError(message) from None
+    if not math.isfinite(seconds) or not MIN_TIMEOUT_SECONDS <= seconds <= MAX_TIMEOUT_SECONDS:
+        raise ValueError(message)
+    return seconds
 
 
 def validate_base_url(value: str, *, trusted_http_base_url: str | None = None) -> str:
@@ -61,7 +79,8 @@ def _load_local_env() -> None:
         return
     allowed = {"MUKBANG_VISION_BASE_URL", "MUKBANG_VISION_MODEL", "MUKBANG_VISION_API_STYLE",
                "MUKBANG_VISION_API_KEY", "DASHSCOPE_API_KEY", "OPENAI_BASE_URL", "OPENAI_API_KEY",
-               "MUKBANG_VISION_USE_CODEX_PROVIDER", "MUKBANG_CODEX_HOME"}
+               "MUKBANG_VISION_USE_CODEX_PROVIDER", "MUKBANG_CODEX_HOME",
+               "MUKBANG_VISION_TIMEOUT_SECONDS", "MUKBANG_FFPROBE_THREADS"}
     for line in path.read_text(encoding="utf-8-sig").splitlines():
         if not line.strip() or line.lstrip().startswith("#") or "=" not in line:
             continue
@@ -112,6 +131,8 @@ class ProviderConfig:
         self._trusted_http_base = None
         self._configuration_source = "manual"
         self._responses_stream = False
+        self._timeout_seconds = validate_timeout_seconds(
+            os.getenv("MUKBANG_VISION_TIMEOUT_SECONDS", str(DEFAULT_TIMEOUT_SECONDS)))
         if os.getenv("MUKBANG_VISION_USE_CODEX_PROVIDER", "").lower() in {"1", "true", "yes"}:
             current = _current_gpt_connection()
             base = current["base_url"]
@@ -145,6 +166,7 @@ class ProviderConfig:
             return {"configured": bool(self._key) or local,
                     "provider": {"base_url": self._base, "model": self._model,
                                  "api_style": self._style, "key_configured": bool(self._key),
+                                 "timeout_seconds": self._timeout_seconds,
                                  "configuration_source": self._configuration_source,
                                  "transport_warning": warning}}
 
@@ -177,6 +199,6 @@ class ProviderConfig:
             if not self.public()["configured"]:
                 raise ValueError("请先在“模型连接”填写视觉模型的 API Key；密钥只保留在本地服务内存中")
             return {"base_url": self._base, "model": self._model, "api_style": self._style,
-                    "api_key": self._key, "timeout_seconds": 240,
+                    "api_key": self._key, "timeout_seconds": self._timeout_seconds,
                     "stream": self._responses_stream and self._style == "responses", "store": False,
                     "trusted_http_base_url": self._trusted_http_base}

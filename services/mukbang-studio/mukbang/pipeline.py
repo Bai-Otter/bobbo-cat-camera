@@ -91,7 +91,8 @@ def _run_pipeline(job_dir: Path, source_path: Path, options: dict, model_config:
             if not source_path.is_file() or not source_path.is_relative_to(job_dir):
                 raise ValueError("任务视频必须位于当前任务文件夹内")
             media.check_cancelled(cancelled)
-            metadata = media.probe(source_path, cancelled)
+            with timings.measure_detail("source_probe", "metadata", "读取源片元信息"):
+                metadata = media.probe(source_path, cancelled)
             # Reject an advertised overlong source before decoding its entire
             # PTS index; check the frame-derived duration again below.
             video_stream = next((s for s in metadata.get("streams", []) if s.get("codec_type") == "video"), None)
@@ -105,12 +106,14 @@ def _run_pipeline(job_dir: Path, source_path: Path, options: dict, model_config:
                     advertised_duration = None
                 if advertised_duration is not None and (not math.isfinite(advertised_duration) or advertised_duration > 600.001):
                     raise ValueError("视频超过10分钟限制或时长无效，请先截取需要分析的一段")
-            frames = media.frame_times(source_path, cancelled)
-            info = media.video_info(metadata, frames)
+            with timings.measure_detail("source_probe", "frame_index", "解码源片建立帧时间戳"):
+                frames = media.frame_times(source_path, cancelled)
+                info = media.video_info(metadata, frames)
             if info["duration"] > 600.001:
                 raise ValueError("视频超过10分钟限制，请先截取需要分析的一段")
             source = _public_source(info, job_dir, source_path)
-            original_hash = media.sha256(source_path)
+            with timings.measure_detail("source_probe", "source_digest", "源片完整性摘要"):
+                original_hash = media.sha256(source_path)
             media.write_json(job_dir / "source-metadata.json", metadata)
             media.write_json(job_dir / "source-pts.json", {"time_base": info["time_base"], "origin_pts": info["origin_pts"],
                                                         "end_pts": info["end_pts"], "pts": info["pts"]})
@@ -228,7 +231,10 @@ def render_choices(job_dir: Path, source_path: Path, options: dict, info: dict, 
     emit({"status": "rendering", "progress": 60, "stage": "自动剪辑精选", "message": f"渲染{len(clips)}段，共{duration:.2f}秒；保留原速、原画幅和原声，不加BGM"})
     output_rel = Path("highlights.mp4")
     with timings.measure("render_highlight"):
-        validation = media.render_video(source_path, job_dir / output_rel, clips, info, cancelled)
+        validation = media.render_video(
+            source_path, job_dir / output_rel, clips, info, cancelled,
+            on_step=lambda ident, label, seconds, status: timings.record_detail(
+                "render_highlight", ident, label, seconds, status))
     memes = []
     if choices["memes"]:
         with timings.measure("export_memes"):
@@ -239,7 +245,10 @@ def render_choices(job_dir: Path, source_path: Path, options: dict, info: dict, 
                 quantized_meme = media.quantize_clips([meme], info)
                 _retain_quantized_evidence(quantized_meme, sampling["frames"], choices["adjustments"])
                 actual_refs = quantized_meme[0]["frame_ids"]
-                memes.append(media.render_meme(source_path, job_dir, {**meme, "frame_ids": actual_refs}, info, cancelled))
+                memes.append(media.render_meme(
+                    source_path, job_dir, {**meme, "frame_ids": actual_refs}, info, cancelled,
+                    on_step=lambda ident, label, seconds, status, number=index + 1: timings.record_detail(
+                        "export_memes", f"meme_{number}.{ident}", f"表情包{number} · {label}", seconds, status)))
     with timings.measure("final_validation"):
         unchanged = media.sha256(source_path) == original_hash
         if not unchanged:

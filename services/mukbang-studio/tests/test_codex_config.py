@@ -9,7 +9,8 @@ from mukbang import config
 def codex_home(tmp_path, monkeypatch):
     for name in ("MUKBANG_VISION_BASE_URL", "MUKBANG_VISION_MODEL", "MUKBANG_VISION_API_STYLE",
                  "MUKBANG_VISION_API_KEY", "DASHSCOPE_API_KEY", "OPENAI_BASE_URL", "OPENAI_API_KEY",
-                 "MUKBANG_VISION_USE_CODEX_PROVIDER", "MUKBANG_CODEX_HOME"):
+                 "MUKBANG_VISION_USE_CODEX_PROVIDER", "MUKBANG_CODEX_HOME",
+                 "MUKBANG_VISION_TIMEOUT_SECONDS"):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setattr(config, "ROOT", tmp_path / "project")
     home = tmp_path / "codex"
@@ -27,6 +28,16 @@ def test_current_relay_requires_explicit_opt_in(codex_home):
     provider = config.ProviderConfig()
     assert not provider.public()["configured"]
     assert provider.public()["provider"]["model"] == "qwen-vl-max"
+
+
+def test_local_env_loads_probe_decoder_thread_setting(codex_home, monkeypatch):
+    # Register a teardown value before .env parsing mutates the real mapping.
+    monkeypatch.setenv("MUKBANG_FFPROBE_THREADS", "0")
+    monkeypatch.delenv("MUKBANG_FFPROBE_THREADS", raising=False)
+    config.ROOT.mkdir()
+    (config.ROOT / ".env").write_text("MUKBANG_FFPROBE_THREADS=4\n", encoding="utf-8")
+    config.ProviderConfig()
+    assert config.os.environ["MUKBANG_FFPROBE_THREADS"] == "4"
 
 
 def test_exact_current_relay_model_and_key_are_imported_without_copy(codex_home, monkeypatch):
@@ -83,3 +94,38 @@ def test_codex_settings_and_auth_are_never_modified(codex_home, monkeypatch):
     provider = config.ProviderConfig()
     provider.update({"model": "gpt-6.1-sol"})
     assert before == {path.name: path.read_bytes() for path in codex_home.iterdir()}
+
+
+@pytest.mark.parametrize("use_codex", [False, True])
+def test_timeout_defaults_are_public_and_private(codex_home, monkeypatch, use_codex):
+    monkeypatch.setenv("MUKBANG_VISION_USE_CODEX_PROVIDER", str(int(use_codex)))
+    monkeypatch.setenv("MUKBANG_VISION_BASE_URL", "http://localhost:9999/v1")
+    provider = config.ProviderConfig()
+    assert provider.private()["timeout_seconds"] == 600
+    assert provider.public()["provider"]["timeout_seconds"] == 600
+
+
+@pytest.mark.parametrize("seconds", ["30", "900", "1800", "600.5"])
+def test_timeout_environment_is_used_without_240_second_clamp(codex_home, monkeypatch, seconds):
+    monkeypatch.setenv("MUKBANG_VISION_BASE_URL", "http://localhost:9999/v1")
+    monkeypatch.setenv("MUKBANG_VISION_TIMEOUT_SECONDS", seconds)
+    provider = config.ProviderConfig()
+    assert provider.private()["timeout_seconds"] == float(seconds)
+    assert provider.public()["provider"]["timeout_seconds"] == float(seconds)
+
+
+@pytest.mark.parametrize("seconds", ["0", "29.99", "1800.01", "inf", "nan", "banana", ""])
+def test_invalid_timeout_environment_is_rejected(codex_home, monkeypatch, seconds):
+    monkeypatch.setenv("MUKBANG_VISION_TIMEOUT_SECONDS", seconds)
+    with pytest.raises(ValueError, match="30.*1800"):
+        config.ProviderConfig()
+
+
+def test_timeout_can_be_loaded_from_local_env_and_process_env_takes_precedence(codex_home, monkeypatch):
+    config.ROOT.mkdir()
+    (config.ROOT / ".env").write_text(
+        "MUKBANG_VISION_BASE_URL=http://localhost:9999/v1\nMUKBANG_VISION_TIMEOUT_SECONDS=900\n",
+        encoding="utf-8")
+    assert config.ProviderConfig().private()["timeout_seconds"] == 900
+    monkeypatch.setenv("MUKBANG_VISION_TIMEOUT_SECONDS", "750")
+    assert config.ProviderConfig().private()["timeout_seconds"] == 750

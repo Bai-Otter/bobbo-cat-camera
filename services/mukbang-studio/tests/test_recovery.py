@@ -87,6 +87,7 @@ def saved_failure(tmp_path, synthetic_failure, monkeypatch):
     monkeypatch.setattr(vision, "make_payload", forbidden)
     monkeypatch.setattr(vision, "build_prompts", forbidden)
     monkeypatch.setattr(vision.httpx.Client, "send", forbidden)
+    monkeypatch.setattr(vision.httpx.AsyncClient, "send", forbidden)
     monkeypatch.setattr(media, "sample_video", forbidden)
     monkeypatch.setattr(media, "create_sheets", forbidden)
     return data

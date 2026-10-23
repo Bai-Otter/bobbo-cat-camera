@@ -106,7 +106,26 @@
       const ratio = el("span", "timing-stage-percent", percent === null ? "—" : `${Number(percent.toFixed(1))}%`);
       const duration = el("span", "timing-stage-duration", seconds === null ? "—" : formatElapsed(seconds));
       duration.title = seconds === null ? notExecuted ? timingStageStatuses[stageStatus] : "此环节未记录有效耗时" : `${seconds} 秒，${timingStageStatuses[stageStatus]}`;
-      append(row, name, bar, ratio, duration); rows.append(row);
+      append(row, name, bar, ratio, duration);
+      const details = Array.isArray(stage.details) ? stage.details.filter((detail) => detail && typeof detail === "object" && !Array.isArray(detail)) : [];
+      if (details.length) {
+        const group = el("div", "timing-details");
+        const list = el("ol", "timing-stage-details"); list.setAttribute("aria-label", "本环节内部耗时细项，不额外相加");
+        group.append(el("p", "timing-detail-note", "以下细项已包含在本环节耗时中，不额外相加。"), list);
+        details.forEach((detail) => {
+          const detailStatus = Object.hasOwn(timingStageStatuses, detail.status) ? detail.status : "unrecorded";
+          const unexecuted = ["pending", "skipped", "unrecorded"].includes(detailStatus);
+          const detailSeconds = unexecuted ? null : measuredSeconds(detail.seconds);
+          const item = el("li", `timing-detail-row timing-detail-${detailStatus}`); item.dataset.detailId = String(detail.id || "");
+          const detailName = el("div", "timing-detail-name");
+          append(detailName, el("span", "", detail.label || String(detail.id || "未命名细项")), el("span", "timing-detail-state", timingStageStatuses[detailStatus]));
+          const detailDuration = el("span", "timing-detail-duration", detailSeconds === null ? "—" : formatElapsed(detailSeconds));
+          detailDuration.title = detailSeconds === null ? unexecuted ? timingStageStatuses[detailStatus] : "此细项未记录有效耗时" : `${detailSeconds} 秒，${timingStageStatuses[detailStatus]}；已包含在本环节耗时中`;
+          append(item, detailName, detailDuration); list.append(item);
+        });
+        row.append(group);
+      }
+      rows.append(row);
     }); panel.append(rows);
     const notes = el("div", "timings-notes");
     if (isRecovery(job)) notes.append(el("p", "", "本次仅统计本地恢复；来源任务的 AI 请求、用量和等待时间不计入本次。"));

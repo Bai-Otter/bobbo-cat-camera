@@ -93,11 +93,17 @@ def instrumented_pipeline(tmp_path, monkeypatch):
         clock.advance(.5)
         return original_quantize(*args)
     monkeypatch.setattr(media, "quantize_clips", quantize)
-    def highlight(*args):
+    def highlight(*args, on_step=None):
         clock.advance(5)
+        if on_step:
+            on_step("encode", "视频编码", 3., "completed")
+            on_step("scan", "逐帧检查", 2., "completed")
         return {"actual_container_duration_seconds": 8}
-    def meme(source, job_dir, clip, *args):
+    def meme(source, job_dir, clip, *args, on_step=None):
         clock.advance(2)
+        if on_step:
+            on_step("encode", "MP4与GIF联合编码", 1.5, "completed")
+            on_step("scan", "逐帧检查", .5, "completed")
         return {**clip, "gif_url": "/fixture.gif", "video_url": "/fixture.mp4"}
     monkeypatch.setattr(media, "render_video", highlight)
     monkeypatch.setattr(media, "render_meme", meme)
@@ -127,6 +133,13 @@ def test_all_success_phases_are_separate_and_completion_has_final_timings(tmp_pa
     assert sum(row["seconds"] or 0 for row in timings["stages"]) == timings["total_seconds"]
     assert updates[-1]["status"] == "completed" and updates[-1]["timings"]["status"] == "completed"
     assert json.loads((tmp_path / "timings.json").read_text(encoding="utf-8")) == timings
+    assert timing_row(timings, "source_probe")["details"] == [
+        {"id": "metadata", "label": "读取源片元信息", "seconds": 3, "status": "completed", "percent": 50.0},
+        {"id": "frame_index", "label": "解码源片建立帧时间戳", "seconds": 2, "status": "completed", "percent": 33.33},
+        {"id": "source_digest", "label": "源片完整性摘要", "seconds": 1, "status": "completed", "percent": 16.67}]
+    assert [detail["seconds"] for detail in timing_row(timings, "render_highlight")["details"]] == [3, 2]
+    assert [detail["id"] for detail in timing_row(timings, "export_memes")["details"]] == ["meme_1.encode", "meme_1.scan"]
+    assert timing_row(timings, "export_memes")["details"][0]["label"] == "表情包1 · MP4与GIF联合编码"
 
 
 def test_shared_renderer_reports_zero_new_ai_calls_for_recovery(tmp_path, instrumented_pipeline):

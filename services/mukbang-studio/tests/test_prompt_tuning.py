@@ -211,22 +211,25 @@ def test_call_tuning_delegates_once_with_zero_sheets_and_unchanged_configuration
 
 def test_real_transport_is_one_text_post_with_existing_key_redaction(monkeypatch, sources):
     calls = []
-    class Client:
-        def __init__(self, **kwargs):
-            assert kwargs["trust_env"] is False
-        def __enter__(self): return self
-        def __exit__(self, *args): pass
-        def post(self, endpoint, *, headers, json):
-            calls.append((endpoint, headers, json))
-            return httpx.Response(200, json={"output_text": "OFFLINE_KEY_TEXT response", "usage": {"input_tokens": 5}})
-    monkeypatch.setattr(vision.httpx, "Client", Client)
+    real_client = httpx.AsyncClient
+    async def handler(request):
+        calls.append(request)
+        return httpx.Response(200, json={"output_text": "OFFLINE_KEY_TEXT response", "usage": {"input_tokens": 5}})
+    def client(**kwargs):
+        assert kwargs["trust_env"] is False
+        return real_client(transport=httpx.MockTransport(handler), **kwargs)
+    monkeypatch.setattr(vision.httpx, "AsyncClient", client)
+    monkeypatch.setattr(vision.httpx, "Client", lambda **kwargs: pytest.fail("text tuning must use the mocked async transport"))
     config = {"base_url": "https://example.com/v1", "api_style": "responses", "model": "gpt-6.1-sol", "api_key": "OFFLINE_KEY_TEXT"}
     result = prompt_tuning.call_tuning(prompt_tuning.build_tuning_prompts(BASE, sources), config)
     assert len(calls) == 1
-    payload = calls[0][2]
+    assert calls[0].method == "POST" and str(calls[0].url) == "https://example.com/v1/responses"
+    assert calls[0].headers["authorization"] == "Bearer OFFLINE_KEY_TEXT"
+    payload = json.loads(calls[0].content)
     assert payload["model"] == "gpt-6.1-sol"
     assert [item["type"] for item in payload["input"][0]["content"]] == ["input_text"]
     assert "OFFLINE_KEY_TEXT" not in result["text"] + json.dumps(result["envelope"])
+    assert result["usage"] == {"input_tokens": 5}
 
 
 def test_provider_failure_does_not_retry(monkeypatch):

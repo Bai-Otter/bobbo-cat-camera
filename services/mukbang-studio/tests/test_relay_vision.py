@@ -1,6 +1,8 @@
 """Offline Codex-relay transport fixtures: no real credential/network/image."""
+import asyncio
 import hashlib
 import json
+import time
 
 import httpx
 import pytest
@@ -36,8 +38,8 @@ def completed(text='{"ok":true}', **extra):
 
 
 def install_transport(monkeypatch, handler):
-    real_client = httpx.Client
-    monkeypatch.setattr(vision.httpx, "Client", lambda **kwargs: real_client(transport=httpx.MockTransport(handler), **kwargs))
+    real_client = httpx.AsyncClient
+    monkeypatch.setattr(vision.httpx, "AsyncClient", lambda **kwargs: real_client(transport=httpx.MockTransport(handler), **kwargs))
 
 
 def test_trusted_http_is_exact_base_only():
@@ -134,8 +136,8 @@ def test_nonstream_json_failed_status_is_not_success(tmp_path, monkeypatch, stat
 
 def test_sse_success_with_unicode_split_across_bytes(tmp_path, monkeypatch):
     raw = completed('{"猫":"可爱"}').encode("utf-8")
-    class Split(httpx.SyncByteStream):
-        def __iter__(self):
+    class Split(httpx.AsyncByteStream):
+        async def __aiter__(self):
             for i in range(0, len(raw), 7):
                 yield raw[i:i + 7]
     install_transport(monkeypatch, lambda request: httpx.Response(200, headers={"content-type": "text/event-stream"}, stream=Split()))
@@ -158,10 +160,10 @@ def test_sse_byte_limit_and_no_retry(tmp_path, monkeypatch):
 def test_sse_total_timeout_preserves_partial_raw(tmp_path, monkeypatch):
     clock = [0.0]
     calls = []
-    class Slow(httpx.SyncByteStream):
-        def __iter__(self):
+    class Slow(httpx.AsyncByteStream):
+        async def __aiter__(self):
             yield b": already received\n\n"
-            clock[0] = 241.0
+            clock[0] = 901.0
             yield b": late heartbeat\n\n"
     def handler(request):
         calls.append(request)
@@ -169,6 +171,170 @@ def test_sse_total_timeout_preserves_partial_raw(tmp_path, monkeypatch):
     install_transport(monkeypatch, handler)
     monkeypatch.setattr(vision.time, "monotonic", lambda: clock[0])
     with pytest.raises(vision.VisionError, match="总时限") as failure:
-        vision.call_vision({"system": "s", "user": "u"}, sheets(tmp_path), tmp_path, config())
+        vision.call_vision({"system": "s", "user": "u"}, sheets(tmp_path), tmp_path, config(timeout_seconds=900))
     assert len(calls) == 1
     assert "already received" in failure.value.raw_text
+    assert "900" in str(failure.value)
+
+
+def test_sse_can_finish_after_old_240_second_limit(tmp_path, monkeypatch):
+    clock, calls = [0.0], []
+    class Slow(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            yield event("response.output_text.delta", delta='{"ok":').encode()
+            clock[0] = 300.0
+            yield completed().encode()
+    def handler(request):
+        calls.append(request)
+        assert request.extensions["timeout"]["read"] == 600
+        return httpx.Response(200, headers={"content-type": "text/event-stream"}, stream=Slow())
+    install_transport(monkeypatch, handler)
+    monkeypatch.setattr(vision.time, "monotonic", lambda: clock[0])
+    result = vision.call_vision({"system": "s", "user": "u"}, sheets(tmp_path), tmp_path,
+                                config(timeout_seconds=600))
+    assert result["text"] == '{"ok":true}'
+    assert result["elapsed_seconds"] == 300
+    assert len(calls) == 1
+
+
+@pytest.mark.parametrize("seconds", [0, 29.9, 1801, float("nan"), float("inf"), True, "invalid", None])
+def test_invalid_direct_transport_timeout_never_sends_request(tmp_path, monkeypatch, seconds):
+    def forbidden(**kwargs):
+        raise AssertionError("invalid timeout must fail before creating a client")
+    monkeypatch.setattr(vision.httpx, "AsyncClient", forbidden)
+    with pytest.raises(vision.VisionError, match="30.*1800"):
+        vision.call_vision({"system": "s", "user": "u"}, sheets(tmp_path), tmp_path,
+                           config(timeout_seconds=seconds))
+
+
+def test_request_manifest_records_effective_timeout_without_secret(tmp_path):
+    manifest = vision.request_manifest({"system": "s", "user": "u"}, sheets(tmp_path),
+                                      config(timeout_seconds=900))
+    assert manifest["timeout_seconds"] == 900
+    assert "OFFLINE_FIXTURE_SECRET" not in json.dumps(manifest)
+
+
+@pytest.mark.parametrize("style, streaming", [
+    ("responses", True), ("responses", False), ("chat_completions", False),
+])
+@pytest.mark.parametrize("mode", ["continuous_drip", "blocked_read"])
+def test_absolute_deadline_cancels_and_closes_all_wire_formats(tmp_path, monkeypatch, style, streaming, mode):
+    """A short internal deadline proves cancellation without a 30-second test."""
+    state = {"calls": 0, "cancelled": False, "closed": False, "client_closed": False}
+    real_timeout = asyncio.timeout
+    real_client = httpx.AsyncClient
+    def short_timeout(seconds):
+        assert 0 < seconds <= 30  # The public setting still passed normal validation.
+        return real_timeout(0.075)
+    monkeypatch.setattr(asyncio, "timeout", short_timeout)
+    class Slow(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            yield b': received OFFLINE_FIXTURE_SECRET\n\n' if streaming else b'{"received":"OFFLINE_FIXTURE_SECRET",'
+            try:
+                if mode == "blocked_read":
+                    await asyncio.sleep(60)
+                else:
+                    while True:
+                        await asyncio.sleep(0.01)
+                        yield b" "
+            except asyncio.CancelledError:
+                state["cancelled"] = True
+                raise
+        async def aclose(self):
+            state["closed"] = True
+    async def handler(request):
+        state["calls"] += 1
+        assert request.method == "POST"
+        content_type = "text/event-stream" if streaming else "application/json"
+        return httpx.Response(200, headers={"content-type": content_type}, stream=Slow())
+    class Transport(httpx.MockTransport):
+        async def aclose(self):
+            state["client_closed"] = True
+            await super().aclose()
+    monkeypatch.setattr(vision.httpx, "AsyncClient",
+                        lambda **kwargs: real_client(transport=Transport(handler), **kwargs))
+    def forbid_sync_client(**kwargs):
+        raise AssertionError("a per-read sync client cannot enforce the absolute deadline")
+    monkeypatch.setattr(vision.httpx, "Client", forbid_sync_client)
+    started = time.perf_counter()
+    with pytest.raises(vision.VisionError, match="总时限") as failure:
+        vision.call_vision({"system": "s", "user": "u"}, sheets(tmp_path), tmp_path,
+                           config(api_style=style, stream=streaming, timeout_seconds=30))
+    elapsed = time.perf_counter() - started
+    assert 0.04 <= elapsed < 2.0
+    assert state == {"calls": 1, "cancelled": True, "closed": True, "client_closed": True}
+    assert "received" in failure.value.raw_text and "[REDACTED]" in failure.value.raw_text
+    assert "OFFLINE_FIXTURE_SECRET" not in failure.value.raw_text
+
+
+def test_absolute_deadline_also_cancels_waiting_for_response_headers(tmp_path, monkeypatch):
+    state = {"calls": 0, "cancelled": False, "client_closed": False}
+    real_timeout, real_client = asyncio.timeout, httpx.AsyncClient
+    monkeypatch.setattr(asyncio, "timeout", lambda _seconds: real_timeout(0.05))
+    async def handler(request):
+        state["calls"] += 1
+        try:
+            await asyncio.sleep(60)
+        except asyncio.CancelledError:
+            state["cancelled"] = True
+            raise
+        raise AssertionError("unreachable")
+    class Transport(httpx.MockTransport):
+        async def aclose(self):
+            state["client_closed"] = True
+            await super().aclose()
+    monkeypatch.setattr(vision.httpx, "AsyncClient",
+                        lambda **kwargs: real_client(transport=Transport(handler), **kwargs))
+    monkeypatch.setattr(vision.httpx, "Client", lambda **kwargs: pytest.fail("must use cancellable async transport"))
+    with pytest.raises(vision.VisionError, match="总时限") as failure:
+        vision.call_vision({"system": "s", "user": "u"}, sheets(tmp_path), tmp_path,
+                           config(timeout_seconds=30))
+    assert state == {"calls": 1, "cancelled": True, "client_closed": True}
+    assert failure.value.raw_text == ""
+
+
+@pytest.mark.parametrize("style, streaming", [
+    ("responses", True), ("responses", False), ("chat_completions", False),
+])
+def test_incremental_json_success_is_unchanged_for_all_wire_formats(tmp_path, monkeypatch, style, streaming):
+    calls = []
+    text = '{"猫":"可爱"}'
+    envelope = ({"status": "completed", "output_text": text} if style == "responses" else
+                {"choices": [{"message": {"content": text}}]})
+    raw = json.dumps(envelope, ensure_ascii=False).encode()
+    class Split(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            for i in range(0, len(raw), 7):
+                yield raw[i:i + 7]
+    def handler(request):
+        calls.append(request)
+        return httpx.Response(200, headers={"content-type": "application/json"}, stream=Split())
+    install_transport(monkeypatch, handler)
+    result = vision.call_vision({"system": "s", "user": "u"}, sheets(tmp_path), tmp_path,
+                                config(api_style=style, stream=streaming))
+    assert len(calls) == 1
+    assert result["text"] == text
+    assert result["envelope"] == envelope
+
+
+@pytest.mark.parametrize("style, streaming", [
+    ("responses", True), ("responses", False), ("chat_completions", False),
+])
+def test_network_read_timeout_retains_partial_and_closes_without_retry(tmp_path, monkeypatch, style, streaming):
+    state = {"calls": 0, "closed": False}
+    class Broken(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            yield b'received OFFLINE_FIXTURE_SECRET'
+            raise httpx.ReadTimeout("private transport error OFFLINE_FIXTURE_SECRET")
+        async def aclose(self):
+            state["closed"] = True
+    def handler(request):
+        state["calls"] += 1
+        return httpx.Response(200, stream=Broken())
+    install_transport(monkeypatch, handler)
+    with pytest.raises(vision.VisionError, match="超时") as failure:
+        vision.call_vision({"system": "s", "user": "u"}, sheets(tmp_path), tmp_path,
+                           config(api_style=style, stream=streaming))
+    assert state == {"calls": 1, "closed": True}
+    assert "received [REDACTED]" == failure.value.raw_text
+    assert "OFFLINE_FIXTURE_SECRET" not in str(failure.value)

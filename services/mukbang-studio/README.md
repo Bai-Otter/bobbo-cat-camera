@@ -58,6 +58,10 @@ Copy-Item .env.example .env
 
 `.env` 只解析允许的变量，不执行脚本；已有进程环境变量优先。请不要提交 `.env`、API Key 或真实配置。
 
+AI 单请求默认最多等待 **600 秒**，可在 `.env` 中以 `MUKBANG_VISION_TIMEOUT_SECONDS` 设置 **30–1800 秒**的有限数值，重启服务生效。实际值可在配置接口和任务请求清单里核对。超时保留已收到的返回，不自动再发请求；延长等待不保证远端一定成功。
+
+逐帧时间戳读取默认使用 **4 个解码线程**，避免本次 Windows 笔记本上自动线程过多造成的明显开销。`MUKBANG_FFPROBE_THREADS` 接受 **0–32** 的整数，`0` 恢复 FFmpeg 自动设置；只影响 ffprobe 的帧扫描，不改变主片编码线程、画幅、帧率或画质。不同机器可按实测调整。
+
 可选复用你自己的现有 Codex provider：将 `MUKBANG_VISION_USE_CODEX_PROVIDER` 设为 `1`，必要时通过 `MUKBANG_CODEX_HOME` 指向本机配置目录。服务只读当前 provider 和凭证，不复制或修改原文件；重启会重新读取。不要把 `config.toml` 或 `auth.json` 放进仓库。网页中更换服务域名但未提供新密钥时，会清空旧密钥，防止误发。
 
 远程手动连接要求 HTTPS，本地模型可用 localhost HTTP。显式继承的既有远程 HTTP provider 有完整地址限定的兼容例外，网页会持续提示明文传输风险；建议切换 HTTPS，不建议在公网明文发送图像和凭证。
@@ -98,6 +102,8 @@ Copy-Item .env.example .env
 ## 耗时和本机数据
 
 页面显示每轮总耗时，以及接收保存、排队、源信息、抽帧、拼图、准备 Prompt、AI 请求、选择验证、圈图、精选剪辑、表情包和最终检查等环节。反馈重选标为复用采样缓存。统计从本地服务收到请求到处理结束，不包含请求抵达前的上传时间、用户操作或页面轮询延迟；AI 请求包含编码、传输、等待和接收。
+
+新任务还会缩进显示源片索引、编码、输出元信息、逐帧时间轴检查、完整解码和 GIF 检查等细项；这些已包含在所属环节内，不再相加。旧任务不补造内部明细。MP4 的计帧与时间戳检查共用一次扫描，表情包 MP4/GIF 共用一次源片解码；GIF 直接来自未编码画面，不经过有损 MP4 二次取材。主片编码参数和质量检查不因提速而取消。
 
 数据保留在本服务的 `data/`，默认不自动清理，且已被 Git 忽略：
 
@@ -140,9 +146,11 @@ node --test scripts/test_frontend.cjs
 
 媒体测试会实际运行 FFmpeg；未安装媒体工具时部分测试可能跳过。历史导入测试使用临时合成资料，不依赖某台电脑上的家庭录像。本次同步的实际测试结果、环境和限制见 [验证说明](docs/verification.md)。
 
+后续本地媒体提速、请求时限与边界修复的实测范围、保真证据和配置见 [优化验证](docs/optimization-2026-10-23.md)。
+
 - `mukbang/`：API、模型连接、抽帧 / 剪辑、选择验证、反馈、计时、Prompt 版本 / 提炼和离线恢复。
 - `web/`：静态网页，无前端构建依赖。
-- `scripts/`：前端离线测试、恢复和历史导入。
+- `scripts/`：前端离线测试、恢复、历史导入和零 AI 本地媒体基准。
 - `tests/`：Python 单元、接口及真实合成媒体集成测试。
 - [API contract](docs/api-contract.md)、[同视频反馈决策](docs/adr/0001-same-video-feedback-iterations.md)、[通用 Prompt 决策](docs/adr/0002-reusable-prompt-standards.md)。
 

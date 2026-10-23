@@ -29,6 +29,23 @@ def _score(row: dict) -> float:
     return value
 
 
+def _reference_details(refs: list[str], frames: dict, start: float, end: float) -> str:
+    """Explain exact evidence boundaries without rounding/relaxing validation."""
+    details = []
+    for ident in refs:
+        moment = frames[ident]["time"]
+        if moment < start:
+            position = f"早于起点{start - moment:.9g}秒"
+        elif moment == end:
+            position = "等于右端点，半开区间不包含该帧"
+        elif moment > end:
+            position = f"晚于右端点{moment - end:.9g}秒"
+        else:
+            position = "位于区间内"
+        details.append(f"{ident}={moment:.12g}秒（{position}）")
+    return "；".join(details)
+
+
 def _validate_clips(rows, name: str, frames: dict, selected: set, duration: float, *, meme=False) -> list:
     if not isinstance(rows, list) or len(rows) > (4 if meme else 100):
         raise SelectionError(f"AI返回的{name}列表无效或条数过多")
@@ -51,7 +68,8 @@ def _validate_clips(rows, name: str, frames: dict, selected: set, duration: floa
         refs = list(dict.fromkeys(refs))
         # Exact source sampling times are known. Do not accept unrelated evidence.
         if not any(start <= frames[x]["time"] < end for x in refs):
-            raise SelectionError(f"{name} {ident} 内没有任何所引用的采样帧")
+            raise SelectionError(f"{name} {ident} [{start:.12g},{end:.12g}) 秒内没有任何所引用的采样帧："
+                                 + _reference_details(refs, frames, start, end))
         item = {"id": ident, "start": start, "end": min(duration, end),
                 "title": text(row.get("title"), "片段标题", limit=300),
                 "reason": text(row.get("reason"), "选片理由"), "score": _score(row), "frame_ids": refs}
@@ -60,8 +78,10 @@ def _validate_clips(rows, name: str, frames: dict, selected: set, duration: floa
             right = number(row.get("context_end"), "上下文结束时间")
             if not 0 <= left <= start < end <= right <= duration + 0.000001:
                 raise SelectionError(f"精选 {ident} 的模型批准上下文无效")
-            if any(not left <= frames[x]["time"] < right for x in refs):
-                raise SelectionError(f"精选 {ident} 引用了不在批准上下文里的帧")
+            outside = [x for x in refs if not left <= frames[x]["time"] < right]
+            if outside:
+                raise SelectionError(f"精选 {ident} 引用了不在批准上下文 [{left:.12g},{right:.12g}) 秒里的帧："
+                                     + _reference_details(outside, frames, left, right))
             item.update(context_start=left, context_end=min(duration, right))
         result.append(item)
     return result

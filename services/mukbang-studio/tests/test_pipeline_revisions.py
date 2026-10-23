@@ -85,7 +85,7 @@ def cached_round(tmp_path, monkeypatch):
             if frame["selected"]:
                 frame.update({key: chosen[frame["id"]][key] for key in ("score", "reason", "labels")})
     monkeypatch.setattr(media, "annotate_sheets", annotate)
-    monkeypatch.setattr(media, "render_video", lambda *args: {"actual_container_duration_seconds": 8})
+    monkeypatch.setattr(media, "render_video", lambda *args, **kwargs: {"actual_container_duration_seconds": 8})
     return state
 
 

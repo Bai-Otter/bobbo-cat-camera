@@ -4,6 +4,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 from copy import deepcopy
 from datetime import datetime
+import math
 from threading import RLock
 import time
 
@@ -44,6 +45,7 @@ class JobTimings:
         self._finished_at = None
         self._status = "running"
         self._rows = {key: {"elapsed": 0.0, "status": "pending"} for key in STAGES}
+        self._details = {}
         self._active = None
         self._active_start = None
         self._failed_stage = None
@@ -92,6 +94,43 @@ class JobTimings:
             self._end_locked(stage_id, status, self._clock())
         self._notify()
 
+    def record_detail(self, stage_id: str, detail_id: str, label: str, seconds: float, status: str) -> None:
+        """Publish measured child work; it is already included in its parent.
+
+        Details are observations, not nested stage timers or additions to the
+        total. The caller measures sequential media operations with monotonic
+        time, including the partial duration of a failed operation.
+        """
+        with self._lock:
+            if self._status in TERMINAL or self._active != stage_id:
+                raise RuntimeError("只能在所属环节运行时记录媒体细项")
+            if (isinstance(seconds, bool) or not isinstance(seconds, (int, float)) or
+                    not math.isfinite(seconds) or seconds < 0 or status not in TERMINAL):
+                raise ValueError("媒体细项必须包含有效的耗时和结束状态")
+            if (not isinstance(detail_id, str) or not detail_id or not isinstance(label, str) or not label):
+                raise ValueError("媒体细项缺少标识或名称")
+            details = self._details.setdefault(stage_id, {})
+            previous = details.get(detail_id)
+            if previous is not None and previous["label"] != label:
+                raise ValueError("同一媒体细项的名称不能改变")
+            details[detail_id] = {"id": detail_id, "label": label,
+                                  "seconds": (previous["seconds"] if previous else 0.0) + seconds,
+                                  "status": status if status != "completed" or previous is None else previous["status"]}
+        self._notify()
+
+    @contextmanager
+    def measure_detail(self, stage_id: str, detail_id: str, label: str):
+        with self._lock:
+            if self._status in TERMINAL or self._active != stage_id:
+                raise RuntimeError("只能在所属环节运行时记录媒体细项")
+            started = self._clock()
+        status = "failed"
+        try:
+            yield
+            status = "completed"
+        finally:
+            self.record_detail(stage_id, detail_id, label, max(0.0, self._clock() - started), status)
+
     @contextmanager
     def measure(self, stage_id: str):
         self.begin(stage_id)
@@ -116,6 +155,10 @@ class JobTimings:
                 for row in self._rows.values():
                     if row["status"] == "failed":
                         row["status"] = status
+                for details in self._details.values():
+                    for detail in details.values():
+                        if detail["status"] == "failed":
+                            detail["status"] = status
                 self._failed_stage = None
             elif status == "failed" and self._failed_stage is None:
                 self._failed_stage = "overhead"
@@ -138,9 +181,14 @@ class JobTimings:
                 recorded = row["status"] not in {"pending", "skipped"}
                 seconds = round(elapsed, 6) if recorded else None
                 accounted += elapsed
-                stages.append({"id": key, "label": STAGES.get(key, "处理任务"),
-                               "seconds": seconds, "status": row["status"],
-                               "percent": round(elapsed / total * 100, 2) if recorded and total > 0 else 0 if recorded else None})
+                stage = {"id": key, "label": STAGES.get(key, "处理任务"),
+                         "seconds": seconds, "status": row["status"],
+                         "percent": round(elapsed / total * 100, 2) if recorded and total > 0 else 0 if recorded else None}
+                if self._details.get(key):
+                    stage["details"] = [{**detail, "seconds": round(detail["seconds"], 6),
+                                         "percent": round(detail["seconds"] / elapsed * 100, 2) if elapsed > 0 else 0}
+                                        for detail in self._details[key].values()]
+                stages.append(stage)
             overhead = max(0.0, total - accounted)
             stages.append({"id": "overhead", "label": "调度与记录", "seconds": round(overhead, 6),
                            "status": "failed" if self._failed_stage == "overhead" else
@@ -163,4 +211,7 @@ def interrupted_snapshot(saved: dict) -> dict:
             row["status"] = "interrupted"
         elif row.get("status") == "pending":
             row["status"] = "skipped"
+        for detail in row.get("details", []):
+            if detail.get("status") == "running":
+                detail["status"] = "interrupted"
     return value

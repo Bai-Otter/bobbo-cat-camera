@@ -2,11 +2,12 @@
 from __future__ import annotations
 
 from bisect import bisect_left
-from contextlib import nullcontext
+from contextlib import contextmanager, nullcontext
 from fractions import Fraction
 import hashlib
 import json
 import math
+import os
 from pathlib import Path
 import re
 import shutil
@@ -280,8 +281,24 @@ def probe(path: Path, cancelled=None, *, count=False) -> dict:
     return json.loads(run(args + SAFE_INPUT_OPTIONS + ["-show_streams", "-show_format", "-of", "json", str(path)], cancelled))
 
 
+def frame_probe_threads() -> int:
+    """Bound only ffprobe's frame-scan decoder; zero preserves FFmpeg auto."""
+    raw = os.environ.get("MUKBANG_FFPROBE_THREADS", "4")
+    error = "MUKBANG_FFPROBE_THREADS 必须是 0–32 之间的整数（0 表示自动）"
+    if re.fullmatch(r"[0-9]+", raw) is None:
+        raise ValueError(error)
+    try:
+        threads = int(raw)
+    except ValueError:
+        raise ValueError(error) from None
+    if not 0 <= threads <= 32:
+        raise ValueError(error)
+    return threads
+
+
 def frame_times(path: Path, cancelled=None) -> list[dict]:
-    value = json.loads(run(["ffprobe", "-v", "error"] + SAFE_INPUT_OPTIONS + ["-select_streams", "v:0", "-show_frames",
+    value = json.loads(run(["ffprobe", "-v", "error"] + SAFE_INPUT_OPTIONS + ["-threads:v", str(frame_probe_threads()),
+                           "-select_streams", "v:0", "-show_frames",
                            "-show_entries", "frame=best_effort_timestamp,best_effort_timestamp_time,duration,duration_time",
                            "-of", "json", str(path)], cancelled))
     return value.get("frames", [])
@@ -533,13 +550,40 @@ def filter_graph(clips: list[dict], info: dict) -> str:
     return ";".join(rows)
 
 
-def render_video(source: Path, destination: Path, clips: list[dict], info: dict, cancelled=None) -> dict:
+@contextmanager
+def _media_step(on_step, ident: str, label: str):
+    """Report one actual, non-overlapping operation; observers may fail loudly."""
+    if on_step is None:
+        yield
+        return
+    started, status = time.monotonic(), "completed"
+    try:
+        yield
+    except BaseException as exc:
+        status = "cancelled" if isinstance(exc, (Cancelled, KeyboardInterrupt)) else "failed"
+        raise
+    finally:
+        on_step(ident, label, max(0.0, time.monotonic() - started), status)
+
+
+def _render_command(source: Path, destination: Path, clips: list[dict], info: dict,
+                    *, gif_destination: Path | None = None) -> list[str]:
+    """Build one source decode, optionally sharing native pixels with a GIF."""
     destination.parent.mkdir(exist_ok=True)
     graph_path = destination.with_suffix(".filters.txt")
-    graph_path.write_text(filter_graph(clips, info), encoding="utf-8")
+    graph = filter_graph(clips, info)
+    video_output = "[vout]"
+    if gif_destination is not None:
+        # Branch before either output's encoder/format conversion.  In
+        # particular, the GIF never decodes the already-lossy MP4 output.
+        graph += (";[vout]split=2[vmp4][vgif];[vgif]fps=10,scale=320:-2:flags=lanczos,"
+                  "split[gif_a][gif_b];[gif_a]palettegen=stats_mode=diff[gif_palette];"
+                  "[gif_b][gif_palette]paletteuse=dither=sierra2_4a[gifout]")
+        video_output = "[vmp4]"
+    graph_path.write_text(graph, encoding="utf-8")
     tb = Fraction(info["time_base"])
     args = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin", "-y"] + SAFE_INPUT_OPTIONS + [
-            "-i", str(source), "-filter_complex_script", str(graph_path), "-map", "[vout]"]
+            "-i", str(source), "-filter_complex_script", str(graph_path), "-map", video_output]
     audio = info["audio_stream"]
     if audio:
         sr, channels = int(audio["sample_rate"]), int(audio["channels"])
@@ -558,8 +602,17 @@ def render_video(source: Path, destination: Path, clips: list[dict], info: dict,
              "-pix_fmt", "yuv420p", "-fps_mode:v", "vfr", "-enc_time_base:v", info["time_base"],
              "-video_track_timescale", str(tb.denominator), "-bsf:v", duration_bsf,
              "-movflags", "+faststart", str(destination)]
-    run(args, cancelled)
-    return verify_video(destination, clips, info, cancelled)
+    if gif_destination is not None:
+        args += ["-map", "[gifout]", "-an", "-sn", "-dn", "-map_metadata", "-1", "-loop", "0", str(gif_destination)]
+    return args
+
+
+def render_video(source: Path, destination: Path, clips: list[dict], info: dict, cancelled=None,
+                 *, on_step=None) -> dict:
+    """Render with optional on_step(id, label, seconds, status) observations."""
+    with _media_step(on_step, "encode_video", "源视频解码与MP4编码"):
+        run(_render_command(source, destination, clips, info), cancelled)
+    return verify_video(destination, clips, info, cancelled, on_step=on_step)
 
 
 def _effective_color_range(stream: dict) -> str:
@@ -580,53 +633,56 @@ def _effective_color_range(stream: dict) -> str:
     return effective
 
 
-def verify_video(path: Path, clips: list[dict], info: dict, cancelled=None) -> dict:
-    metadata = probe(path, cancelled, count=True)
-    video = next(s for s in metadata["streams"] if s["codec_type"] == "video")
-    audio = next((s for s in metadata["streams"] if s["codec_type"] == "audio"), None)
+def verify_video(path: Path, clips: list[dict], info: dict, cancelled=None, *, on_step=None) -> dict:
     expected_count = sum(c["frame_count"] for c in clips)
     expected_duration = sum(c["duration"] for c in clips)
-    if video.get("codec_name") != "h264" or video.get("pix_fmt") not in ("yuv420p", "yuvj420p"):
-        raise RuntimeError("输出视频编码或像素格式不符")
     source_video = info.get("video_stream", {})
-    source_range, output_range = _effective_color_range(source_video), _effective_color_range(video)
-    if source_range != "unknown" and output_range != source_range:
-        raise RuntimeError("输出未保留原始视频色阶范围")
-    if source_range == "unknown" and output_range == "full":
-        raise RuntimeError("源视频未声明色阶范围，不能验证全范围输出")
-    if (video["width"], video["height"]) != (info["width"], info["height"]):
-        raise RuntimeError("输出画面尺寸发生变化")
-    if int(video["nb_read_frames"]) != expected_count:
-        raise RuntimeError("输出帧数不符，存在丢帧或重复帧")
-    if bool(audio) != bool(info["audio_stream"]):
-        raise RuntimeError("输出音轨数量与输入不符")
-    if audio and (int(audio["sample_rate"]), int(audio["channels"])) != (info["audio_sample_rate"], info["audio_channels"]):
-        raise RuntimeError("输出未保留原始采样率或声道")
-    if audio:
-        expected_samples = sum(round(c["duration"] * info["audio_sample_rate"]) for c in clips)
-        audio_duration = float(audio.get("duration", 0))
-        if abs(audio_duration - expected_samples / info["audio_sample_rate"]) > max(0.002, 2 / info["audio_sample_rate"]):
-            raise RuntimeError("输出音轨未保持剪辑时长，可能发生截断或时轴偏移")
-    expected_times, offset = [], 0.0
     tb = float(Fraction(info["time_base"]))
-    for clip in clips:
-        expected_times += [offset + (pts - clip["source_start_pts"]) * tb
-                           for pts in info["pts"][clip["source_first_frame_index"]:clip["source_end_frame_index_exclusive"]]]
-        offset += clip["duration"]
-    actual_times = [float(row["best_effort_timestamp_time"]) for row in frame_times(path, cancelled)]
-    if len(actual_times) != len(expected_times):
-        raise RuntimeError("输出帧时间戳数目不符")
-    error = max(abs(a - b) for a, b in zip(actual_times, expected_times))
-    if error > max(0.004, tb * 2):
-        raise RuntimeError("输出发生非预期变速或拼接时轴偏移")
-    actual_duration = float(metadata["format"]["duration"])
-    tolerance = max(0.1, 1024 / info["audio_sample_rate"] + 0.002) if audio else max(0.1, tb * 2)
-    if abs(actual_duration - expected_duration) > tolerance:
-        raise RuntimeError("输出时长与原速剪辑时间轴不符")
-    run(["ffmpeg", "-v", "error", "-xerror", "-nostdin"] + SAFE_INPUT_OPTIONS + ["-i", str(path), "-map", "0:v:0",
-         "-map", "0:a:0?", "-f", "null", "-"], cancelled)
+    with _media_step(on_step, "probe_output", "读取输出元信息并校验画幅、色阶与音轨"):
+        # Counting here would decode the video once more.  The mandatory PTS
+        # scan below supplies the real decoded frame count as well as timing.
+        metadata = probe(path, cancelled)
+        video = next(s for s in metadata["streams"] if s["codec_type"] == "video")
+        audio = next((s for s in metadata["streams"] if s["codec_type"] == "audio"), None)
+        if video.get("codec_name") != "h264" or video.get("pix_fmt") not in ("yuv420p", "yuvj420p"):
+            raise RuntimeError("输出视频编码或像素格式不符")
+        source_range, output_range = _effective_color_range(source_video), _effective_color_range(video)
+        if source_range != "unknown" and output_range != source_range:
+            raise RuntimeError("输出未保留原始视频色阶范围")
+        if source_range == "unknown" and output_range == "full":
+            raise RuntimeError("源视频未声明色阶范围，不能验证全范围输出")
+        if (video["width"], video["height"]) != (info["width"], info["height"]):
+            raise RuntimeError("输出画面尺寸发生变化")
+        if bool(audio) != bool(info["audio_stream"]):
+            raise RuntimeError("输出音轨数量与输入不符")
+        if audio and (int(audio["sample_rate"]), int(audio["channels"])) != (info["audio_sample_rate"], info["audio_channels"]):
+            raise RuntimeError("输出未保留原始采样率或声道")
+        if audio:
+            expected_samples = sum(round(c["duration"] * info["audio_sample_rate"]) for c in clips)
+            audio_duration = float(audio.get("duration", 0))
+            if abs(audio_duration - expected_samples / info["audio_sample_rate"]) > max(0.002, 2 / info["audio_sample_rate"]):
+                raise RuntimeError("输出音轨未保持剪辑时长，可能发生截断或时轴偏移")
+        actual_duration = float(metadata["format"]["duration"])
+        tolerance = max(0.1, 1024 / info["audio_sample_rate"] + 0.002) if audio else max(0.1, tb * 2)
+        if abs(actual_duration - expected_duration) > tolerance:
+            raise RuntimeError("输出时长与原速剪辑时间轴不符")
+    with _media_step(on_step, "scan_frames", "单次逐帧扫描，核对帧数及原速时间轴"):
+        expected_times, offset = [], 0.0
+        for clip in clips:
+            expected_times += [offset + (pts - clip["source_start_pts"]) * tb
+                               for pts in info["pts"][clip["source_first_frame_index"]:clip["source_end_frame_index_exclusive"]]]
+            offset += clip["duration"]
+        actual_times = [float(row["best_effort_timestamp_time"]) for row in frame_times(path, cancelled)]
+        if len(actual_times) != expected_count or len(actual_times) != len(expected_times):
+            raise RuntimeError("输出帧数不符，存在丢帧或重复帧")
+        error = max(abs(a - b) for a, b in zip(actual_times, expected_times))
+        if error > max(0.004, tb * 2):
+            raise RuntimeError("输出发生非预期变速或拼接时轴偏移")
+    with _media_step(on_step, "strict_decode", "严格完整解码输出音视频"):
+        run(["ffmpeg", "-v", "error", "-xerror", "-nostdin"] + SAFE_INPUT_OPTIONS + ["-i", str(path), "-map", "0:v:0",
+             "-map", "0:a:0?", "-f", "null", "-"], cancelled)
     return {"full_decode_pass": True, "frame_count_match": True, "expected_frames": expected_count,
-            "decoded_frames": int(video["nb_read_frames"]), "source_speed_preserved": True,
+            "decoded_frames": len(actual_times), "source_speed_preserved": True,
             "max_frame_timestamp_error_seconds": error, "native_dimensions_preserved": True,
             "native_audio_sample_rate_preserved": bool(audio), "native_audio_channels_preserved": bool(audio),
             "audio_sample_rate": int(audio["sample_rate"]) if audio else None,
@@ -642,23 +698,22 @@ def verify_video(path: Path, clips: list[dict], info: dict, cancelled=None) -> d
             "bytes": path.stat().st_size, "sha256": sha256(path), "manual_visual_review_count": 0}
 
 
-def render_meme(source: Path, job_dir: Path, meme: dict, info: dict, cancelled=None) -> dict:
+def render_meme(source: Path, job_dir: Path, meme: dict, info: dict, cancelled=None, *, on_step=None) -> dict:
     folder = job_dir / "memes"
     folder.mkdir(exist_ok=True)
     quantized = quantize_clips([meme], info)
     clip = quantized[0]
     video_rel = Path("memes") / f"{meme['id']}.mp4"
-    validation = render_video(source, job_dir / video_rel, quantized, info, cancelled)
     gif_rel = Path("memes") / f"{meme['id']}.gif"
-    graph = (f"trim=start_pts={clip['source_start_pts']}:end_pts={clip['source_end_pts']},setpts=PTS-STARTPTS,"
-             "fps=10,scale=320:-2:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff[p];"
-             "[b][p]paletteuse=dither=sierra2_4a")
-    run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin", "-y"] + SAFE_INPUT_OPTIONS + [
-         "-i", str(source), "-filter_complex", graph, "-an", "-loop", "0", str(job_dir / gif_rel)], cancelled)
+    with _media_step(on_step, "encode_av_gif", "同一次源解码，分别编码MP4与原始画面GIF"):
+        args = _render_command(source, job_dir / video_rel, quantized, info, gif_destination=job_dir / gif_rel)
+        run(args, cancelled)
+    validation = verify_video(job_dir / video_rel, quantized, info, cancelled, on_step=on_step)
     # Decoder/metadata checks are technical, not an additional image review.
-    gif_metadata = probe(job_dir / gif_rel, cancelled, count=True)
-    if gif_metadata["streams"][0]["codec_name"] != "gif":
-        raise RuntimeError("表情包GIF验证失败")
+    with _media_step(on_step, "verify_gif", "完整读取并检查独立GIF"):
+        gif_metadata = probe(job_dir / gif_rel, cancelled, count=True)
+        if gif_metadata["streams"][0]["codec_name"] != "gif":
+            raise RuntimeError("表情包GIF验证失败")
     return {**clip, "gif_url": artifact_url(job_dir, gif_rel), "video_url": artifact_url(job_dir, video_rel),
             "gif_path": gif_rel.as_posix(), "video_path": video_rel.as_posix(), "validation": validation,
             "gif_fps": 10, "speed": 1, "repeated_in_main_video": False}

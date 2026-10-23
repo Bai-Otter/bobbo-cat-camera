@@ -1,5 +1,7 @@
 {
   "schema_version": 1,
+  "record_type": "historical_initial_import_snapshot",
+  "note": "File hashes below describe the initial import only, before subsequent optimization commits. Current source and changes are tracked by Git; this is not a current-deployment checksum manifest.",
   "imported_on": "2026-10-23",
   "destination": "services/mukbang-studio",
   "source": "Approved standalone BOBBO local mukbang debugging service",

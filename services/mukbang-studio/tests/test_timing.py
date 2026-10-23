@@ -160,3 +160,80 @@ def test_interruption_freezes_only_last_saved_measurements():
     assert row(value, "ai_request")["status"] == "interrupted"
     assert row(value, "render_highlight")["status"] == "skipped"
     assert "最后" in value["note"]
+
+
+def test_media_details_are_non_additive_and_accumulate_within_parent():
+    clock = Clock()
+    timer = JobTimings(clock=clock)
+    timer.begin("render_highlight")
+    clock.advance(2)
+    timer.record_detail("render_highlight", "encode", "编码", 2, "completed")
+    clock.advance(1)
+    timer.record_detail("render_highlight", "scan", "逐帧检查", 1, "completed")
+    timer.end("render_highlight")
+    with timer.measure("export_memes"):
+        clock.advance(0.5)
+        timer.record_detail("export_memes", "meme_1.encode", "表情包1 · 编码", 0.5, "completed")
+        clock.advance(0.5)
+        timer.record_detail("export_memes", "meme_1.encode", "表情包1 · 编码", 0.5, "completed")
+    snapshot = timer.finish("completed")
+    assert snapshot["total_seconds"] == 4
+    assert sum(stage["seconds"] or 0 for stage in snapshot["stages"]) == 4
+    parent = row(snapshot, "render_highlight")
+    assert parent["seconds"] == 3
+    assert parent["details"][0] == {"id": "encode", "label": "编码", "seconds": 2,
+                                    "status": "completed", "percent": 66.67}
+    assert row(snapshot, "export_memes")["details"][0]["seconds"] == 1
+    assert "details" not in row(snapshot, "ai_request")
+
+
+def test_detail_validation_and_snapshot_copy_do_not_change_timing_totals():
+    clock, updates = Clock(), []
+    timer = JobTimings(clock=clock, on_update=updates.append)
+    with pytest.raises(RuntimeError):
+        timer.record_detail("render_highlight", "encode", "编码", 1, "completed")
+    timer.begin("render_highlight")
+    for seconds in (-1, float("nan"), float("inf"), True):
+        with pytest.raises(ValueError):
+            timer.record_detail("render_highlight", "encode", "编码", seconds, "completed")
+    with pytest.raises(ValueError):
+        timer.record_detail("render_highlight", "encode", "编码", 0, "running")
+    clock.advance(1)
+    timer.record_detail("render_highlight", "encode", "编码", 1, "completed")
+    saved = timer.snapshot()
+    row(saved, "render_highlight")["details"][0]["seconds"] = 999
+    assert row(timer.snapshot(), "render_highlight")["details"][0]["seconds"] == 1
+    assert row(updates[-1], "render_highlight")["details"][0]["seconds"] == 1
+    timer.end("render_highlight")
+    timer.finish("completed")
+    with pytest.raises(RuntimeError):
+        timer.record_detail("render_highlight", "encode", "编码", 1, "completed")
+
+
+def test_cancelled_media_details_keep_partial_time_with_correct_state():
+    clock = Clock()
+    timer = JobTimings(clock=clock)
+    timer.begin("export_memes")
+    clock.advance(2)
+    timer.record_detail("export_memes", "meme_1.encode", "表情包1 · 编码", 2, "failed")
+    value = timer.finish("cancelled")
+    assert row(value, "export_memes")["details"][0]["status"] == "cancelled"
+    assert row(value, "export_memes")["details"][0]["seconds"] == 2
+
+
+def test_detail_context_records_failed_partial_operation_without_finishing_parent():
+    clock = Clock()
+    timer = JobTimings(clock=clock)
+    with pytest.raises(RuntimeError, match="所属环节"):
+        with timer.measure_detail("source_probe", "frame_index", "建立帧索引"):
+            pytest.fail("Must reject a detail before its parent starts")
+    timer.begin("source_probe")
+    with pytest.raises(RuntimeError, match="fixture decode error"):
+        with timer.measure_detail("source_probe", "frame_index", "建立帧索引"):
+            clock.advance(3)
+            raise RuntimeError("fixture decode error")
+    assert row(timer.snapshot(), "source_probe")["status"] == "running"
+    assert row(timer.snapshot(), "source_probe")["details"][0]["status"] == "failed"
+    snapshot = timer.finish("failed")
+    assert row(snapshot, "source_probe")["seconds"] == 3
+    assert snapshot["total_seconds"] == 3

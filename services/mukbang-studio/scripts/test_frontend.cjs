@@ -280,6 +280,7 @@ async function openFixtureJob(job, extra = {}) {
 }
 
 function timingRow(panel, id) { return descendants(panel, (node) => node.dataset.stageId === id)[0]; }
+function timingDetail(row, id) { return descendants(row, (node) => node.dataset.detailId === id)[0]; }
 
 test("timing ledger uses measured server total, zero and tiny fractions; all stages and JSON are inspectable", async () => {
   const job = timingJob(timingFixture());
@@ -298,6 +299,115 @@ test("timing ledger uses measured server total, zero and tiny fractions; all sta
   assert.equal(calls.some((call) => call.options.method === "POST"), false);
   assert.equal([...timers.values()].filter((timer) => timer.milliseconds === 1200).length, 0, "completed jobs cannot need local timing updates");
   assert.ok(html.indexOf('id="timings-panel"') < html.indexOf('id="results"'), "Timing panel must remain outside result tabs");
+});
+
+test("timing substeps nest within their parent without adding to totals, percentages or top-level rows", async () => {
+  const timings = timingFixture();
+  const highlight = timings.stages.find((stage) => stage.id === "render_highlight");
+  highlight.details = [
+    { id: "encode", label: "编码精选", seconds: 14, status: "completed", percent: 100 * 14 / 21 },
+    { id: "metadata", label: "普通信息检查", seconds: .5, status: "completed", percent: 100 * .5 / 21 },
+    { id: "frames", label: "逐帧检查", seconds: 3, status: "completed", percent: 100 * 3 / 21 },
+    { id: "decode", label: "完整解码", seconds: 3.5, status: "completed", percent: 100 * 3.5 / 21 }
+  ];
+  timings.stages.find((stage) => stage.id === "export_memes").details = [
+    { id: "meme-1-dual", label: "表情包 1 · 同一源双输出 MP4 / GIF", seconds: 7.5, status: "completed", percent: 100 }
+  ];
+  const before = JSON.stringify(timings);
+  const { nodes, calls } = await openFixtureJob(timingJob(timings));
+  const panel = nodes["timings-panel"];
+  const row = timingRow(panel, "render_highlight");
+  assert.equal(withClass(panel, "timing-stage-row").length, 13);
+  assert.equal(withClass(panel, "timing-stage-percent").length, 13, "Substeps must not add top-level percentages");
+  assert.equal(withClass(panel, "timing-stage-duration").length, 13);
+  assert.equal(withClass(panel, "timings-total").length, 1);
+  assert.match(allText(withClass(panel, "timings-total")[0]), /2 分 5\.4 秒/);
+  assert.equal(withClass(row, "timing-stage-duration")[0].textContent, "21 秒");
+  assert.equal(withClass(row, "timing-stage-percent")[0].textContent, "16.7%");
+  assert.equal(withClass(panel, "timing-detail-row").length, 5);
+  assert.equal(withClass(timingDetail(row, "metadata"), "timing-detail-duration")[0].textContent, "0.5 秒");
+  assert.match(allText(row), /编码精选.*普通信息检查.*逐帧检查.*完整解码/);
+  assert.match(allText(row), /细项已包含在本环节耗时中，不额外相加/);
+  assert.match(allText(timingRow(panel, "export_memes")), /表情包 1 · 同一源双输出 MP4 \/ GIF/);
+  assert.equal(JSON.stringify(timings), before, "Rendering must not recalculate or mutate the server ledger");
+  assert.equal(calls.some((call) => call.options.method === "POST"), false);
+});
+
+test("timing substeps retain actual failed or interrupted work without marking pending work as completed", async () => {
+  for (const status of ["failed", "cancelled", "interrupted"]) {
+    const timings = timingFixture({ status, is_partial: status === "interrupted", total_seconds: 15 });
+    const stage = timings.stages.find((row) => row.id === "render_highlight");
+    Object.assign(stage, { status, seconds: 11.25, percent: 75, details: [
+      { id: "encode", label: "编码精选", seconds: 10, status: "completed" },
+      { id: "frames", label: "逐帧检查", seconds: 1.25, status },
+      { id: "decode", label: "完整解码", seconds: 42, status: "pending" },
+      { id: "unrecorded", label: "未记录细项", seconds: 5 }
+    ] });
+    const { nodes } = await openFixtureJob(timingJob(timings, status));
+    const row = timingRow(nodes["timings-panel"], "render_highlight");
+    assert.equal(withClass(timingDetail(row, "encode"), "timing-detail-state")[0].textContent, "已完成");
+    assert.equal(withClass(timingDetail(row, "encode"), "timing-detail-duration")[0].textContent, "10 秒");
+    assert.equal(withClass(timingDetail(row, "frames"), "timing-detail-duration")[0].textContent, "1.25 秒");
+    assert.ok(["失败", "已取消", "已中断"].includes(withClass(timingDetail(row, "frames"), "timing-detail-state")[0].textContent));
+    assert.equal(withClass(timingDetail(row, "decode"), "timing-detail-state")[0].textContent, "未执行");
+    assert.equal(withClass(timingDetail(row, "decode"), "timing-detail-duration")[0].textContent, "—");
+    assert.equal(withClass(timingDetail(row, "unrecorded"), "timing-detail-state")[0].textContent, "未记录");
+    assert.equal(withClass(timingDetail(row, "unrecorded"), "timing-detail-duration")[0].textContent, "—");
+    assert.equal(withClass(row, "timing-stage-duration")[0].textContent, "11.25 秒");
+    assert.match(allText(withClass(nodes["timings-panel"], "timings-total")[0]), /15 秒/);
+  }
+});
+
+test("timing substeps remain absent for old or malformed detail records without fabricating breakdowns", async () => {
+  for (const details of [undefined, null, [], {}, [null, false, 7, "bad", []]]) {
+    const timings = timingFixture();
+    if (details !== undefined) timings.stages[9].details = details;
+    const { nodes } = await openFixtureJob(timingJob(timings));
+    const panel = nodes["timings-panel"];
+    assert.equal(withClass(panel, "timing-stage-row").length, 13);
+    assert.equal(withClass(panel, "timing-detail-row").length, 0);
+    assert.doesNotMatch(allText(panel), /细项已包含|编码精选|同一源双输出/);
+    assert.match(allText(withClass(panel, "timings-total")[0]), /2 分 5\.4 秒/);
+    assert.equal(withClass(timingRow(panel, "render_highlight"), "timing-stage-duration")[0].textContent, "21 秒");
+  }
+});
+
+test("timing substeps reject invalid seconds instead of coercing them into elapsed time", async () => {
+  for (const seconds of [null, undefined, -1, NaN, Infinity, "5", true]) {
+    const timings = timingFixture();
+    timings.stages[9].details = [
+      { id: "invalid", label: "逐帧检查", seconds, status: "completed" },
+      { id: "zero", label: "普通信息检查", seconds: 0, status: "completed" },
+      { id: "tiny", label: "完整解码", seconds: .004, status: "completed" }
+    ];
+    const { nodes } = await openFixtureJob(timingJob(timings));
+    const row = timingRow(nodes["timings-panel"], "render_highlight");
+    assert.equal(withClass(timingDetail(row, "invalid"), "timing-detail-duration")[0].textContent, "—");
+    assert.equal(withClass(timingDetail(row, "zero"), "timing-detail-duration")[0].textContent, "0 秒");
+    assert.equal(withClass(timingDetail(row, "tiny"), "timing-detail-duration")[0].textContent, "<0.01 秒");
+    assert.doesNotMatch(allText(row), /NaN|Infinity|undefined/);
+  }
+});
+
+test("timing substeps update only from server polling, not browser-side estimates", async () => {
+  const timings = timingFixture({ status: "running", total_seconds: 10, finished_at: null });
+  Object.assign(timings.stages[9], { status: "running", seconds: 3, percent: 30, details: [
+    { id: "encode", label: "编码精选", seconds: 2.1, status: "running" }
+  ] });
+  const job = timingJob(timings, "rendering");
+  const run = await openFixtureJob(job);
+  const panel = run.nodes["timings-panel"];
+  assert.equal(withClass(timingDetail(timingRow(panel, "render_highlight"), "encode"), "timing-detail-duration")[0].textContent, "2.1 秒");
+  const before = allText(panel);
+  job.timings = { ...timings, total_seconds: 10.9, stages: timings.stages.map((stage) => stage.id === "render_highlight" ? {
+    ...stage, seconds: 3.9, details: [{ id: "encode", label: "编码精选", seconds: 2.9, status: "running" }]
+  } : stage) };
+  assert.equal(allText(panel), before);
+  await run.poll();
+  const row = timingRow(panel, "render_highlight");
+  assert.equal(withClass(timingDetail(row, "encode"), "timing-detail-duration")[0].textContent, "2.9 秒");
+  assert.equal(withClass(timingDetail(row, "encode"), "timing-detail-state")[0].textContent, "进行中");
+  assert.equal(withClass(row, "timing-stage-duration")[0].textContent, "3.9 秒");
 });
 
 test("running timings change only on server polling; pending and skipped never appear as zero", async () => {

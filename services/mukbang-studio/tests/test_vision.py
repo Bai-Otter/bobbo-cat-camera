@@ -22,6 +22,18 @@ def test_actual_duration_values_in_sent_prompt():
     assert "自定义测试" in prompts["user"]
 
 
+def test_system_prompt_explains_all_context_refs_and_actual_decimal_source_times():
+    options, source, sampling = prompt_input()
+    sampling["frames"][0]["time"] = 37.975
+    prompts = vision.build_prompts(options, source, sampling)
+    assert "全部引用帧" in prompts["system"]
+    assert "context_start<=帧时间<context_end" in prompts["system"]
+    assert "实际小数时间" in prompts["system"]
+    assert "不能取整" in prompts["system"]
+    assert '"time":37.975' in prompts["user"]
+    assert prompts["user"].startswith("自定义测试")
+
+
 def _sheets(tmp_path):
     (tmp_path / "a.jpg").write_bytes(b"synthetic-placeholder-not-viewed")
     return [{"id": "S01", "path": "a.jpg", "width": 2, "height": 2,
@@ -43,14 +55,12 @@ def test_all_images_in_one_request_and_no_key_in_manifest(tmp_path, style):
 
 def test_http_failure_no_auto_retry_or_key_leak(tmp_path, monkeypatch):
     calls = []
-    class Client:
-        def __init__(self, **kwargs): pass
-        def __enter__(self): return self
-        def __exit__(self, *args): pass
-        def post(self, *args, **kwargs):
-            calls.append(args)
-            return httpx.Response(429, text="SECRET_TEST_KEY quota exceeded")
-    monkeypatch.setattr(vision.httpx, "Client", Client)
+    real_client = httpx.AsyncClient
+    async def handler(request):
+        calls.append(request)
+        return httpx.Response(429, text="SECRET_TEST_KEY quota exceeded")
+    monkeypatch.setattr(vision.httpx, "AsyncClient",
+                        lambda **kwargs: real_client(transport=httpx.MockTransport(handler), **kwargs))
     config = {"model": "test", "api_style": "chat_completions", "base_url": "https://example.com/v1", "api_key": "SECRET_TEST_KEY"}
     with pytest.raises(vision.VisionError) as caught:
         vision.call_vision(vision.build_prompts(*prompt_input()), _sheets(tmp_path), tmp_path, config)
