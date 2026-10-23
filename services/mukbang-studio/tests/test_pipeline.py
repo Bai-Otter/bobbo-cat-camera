@@ -1,5 +1,6 @@
 import json
 import shutil
+from copy import deepcopy
 
 import pytest
 
@@ -140,6 +141,50 @@ def test_all_success_phases_are_separate_and_completion_has_final_timings(tmp_pa
     assert [detail["seconds"] for detail in timing_row(timings, "render_highlight")["details"]] == [3, 2]
     assert [detail["id"] for detail in timing_row(timings, "export_memes")["details"]] == ["meme_1.encode", "meme_1.scan"]
     assert timing_row(timings, "export_memes")["details"][0]["label"] == "表情包1 · MP4与GIF联合编码"
+
+
+def test_redundant_outside_references_are_audited_without_changing_raw_or_recalling_ai(tmp_path, instrumented_pipeline):
+    state, updates = instrumented_pipeline, []
+    state["parsed"]["highlight_clips"][0]["frame_ids"].append("F0009")
+    state["parsed"]["memes"][0]["frame_ids"].append("F0009")
+    original = deepcopy(state["parsed"])
+    result = pipeline.run_pipeline(tmp_path, state["source"], state["options"], state["config"], updates.append, lambda: False)
+    assert result["status"] == "completed"
+    assert state["calls"] == result["ai"]["call_count"] == 1
+    assert result["result"]["validation"]["visual_api_call_count"] == 1
+    assert state["parsed"] == result["ai"]["parsed"] == original
+    assert json.loads(result["ai"]["raw_response"]) == original
+    assert json.loads((tmp_path / "ai-raw-response.txt").read_text(encoding="utf-8")) == original
+    assert json.loads((tmp_path / "ai-selection-original.json").read_text(encoding="utf-8")) == original
+    assert result["result"]["clips"][0]["frame_ids"] == ["F0003"]
+    assert result["result"]["clips"][1]["frame_ids"] == ["F0009"]
+    assert result["result"]["memes"][0]["frame_ids"] == ["F0003"]
+    assert {row["id"] for row in result["result"]["selected_frames"]} == {"F0003", "F0009"}
+    for ident, collection, interval in (("c01", "highlight_clips", [0.0, 5.0]),
+                                       ("m01", "memes", [1.5, 3.0])):
+        audit = next(row for row in result["result"]["adjustments"] if row.get("clip_id") == ident
+                     and row.get("before") == ["F0003", "F0009"] and row.get("after") == ["F0003"])
+        assert audit["type"] == "drop_out_of_interval_references"
+        assert audit["collection"] == collection
+        assert audit["interval"] == interval
+        assert audit["removed"] == [{"frame_id": "F0009", "time": 8.0}]
+        assert any(ident in warning and "F0009" in warning for warning in result["result"]["warnings"])
+    saved = json.loads((tmp_path / "result.json").read_text(encoding="utf-8"))
+    assert saved["adjustments"] == result["result"]["adjustments"]
+    assert saved["warnings"] == result["result"]["warnings"]
+    assert updates[-1]["status"] == "completed"
+
+
+@pytest.mark.parametrize("invalid_ref", ["F0012", "F9999"])
+def test_outside_reference_cannot_hide_unknown_or_not_selected_evidence(tmp_path, instrumented_pipeline, invalid_ref):
+    state = instrumented_pipeline
+    state["parsed"]["highlight_clips"][0]["frame_ids"].append(invalid_ref)
+    original = deepcopy(state["parsed"])
+    with pytest.raises(SelectionError, match="不存在或没有被AI选中"):
+        pipeline.run_pipeline(tmp_path, state["source"], state["options"], state["config"], lambda row: None, lambda: False)
+    assert state["calls"] == 1 and state["parsed"] == original
+    assert json.loads((tmp_path / "ai-selection-original.json").read_text(encoding="utf-8")) == original
+    assert not (tmp_path / "result.json").exists()
 
 
 def test_shared_renderer_reports_zero_new_ai_calls_for_recovery(tmp_path, instrumented_pipeline):

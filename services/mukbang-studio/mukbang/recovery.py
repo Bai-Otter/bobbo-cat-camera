@@ -22,7 +22,7 @@ from .timing import JobTimings, wall_now
 _JOB_ID = re.compile(r"[0-9a-f]{12}")
 _JOB_TERMINAL = {"completed", "failed", "cancelled"}
 _PROPOSAL_TERMINAL = {"completed", "failed", "interrupted"}
-_POST_SELECTION_FAILURES = {"render_highlight", "export_memes", "final_validation"}
+_RECOVERABLE_FAILURES = {"selection", "render_highlight", "export_memes", "final_validation"}
 _EVIDENCE = ("prompt.json", "request-manifest.json", "ai-raw-response.txt",
              "ai-selection-original.json", "ai-response-envelope.json")
 
@@ -124,8 +124,8 @@ def _evidence(directory: Path, ident: str) -> dict:
         raise ValueError("只允许恢复原始失败任务，不覆盖成功任务")
     timings = record.get("timings")
     stage = timings.get("failed_stage") if isinstance(timings, dict) else None
-    if stage not in _POST_SELECTION_FAILURES:
-        raise ValueError("原任务不是AI选片完成后的导出失败，不能使用离线恢复")
+    if stage not in _RECOVERABLE_FAILURES:
+        raise ValueError("原任务不是已有完整AI结果的选片或导出失败，不能使用离线恢复")
     if record.get("iteration") or record.get("feedback") or record.get("comparison"):
         raise ValueError("离线恢复暂不支持带人工反馈的迭代任务，避免绕开反馈约束")
     options = _options(record.get("options"))
@@ -190,7 +190,49 @@ def _evidence(directory: Path, ident: str) -> dict:
     if suffix not in {".mp4", ".mov", ".mkv", ".avi", ".webm", ".m4v"}:
         raise ValueError("原任务视频文件名或容器格式无效")
     return {"record": record, "options": options, "ai": ai, "prompts": prompts, "manifest": manifest,
+            "sampling": sampling,
             "parsed": parsed, "raw": raw, "source_name": "source" + suffix, "stage": stage}
+
+
+def _preflight_selection(directory: Path, evidence: dict) -> None:
+    """Reject unusable saved decisions without creating a destination.
+
+    Rebuild timing from cached native PTS, never rounded sampling targets. Full
+    input hashing/mapping verification still happens in reuse_inputs, followed
+    by another validation against those verified inputs before any rendering.
+    """
+    metadata = _read_json(_file(directory, "source-metadata.json"))
+    pts_record = _read_json(_file(directory, "source-pts.json"))
+    integrity_path = directory / "input-cache-integrity.json"
+    if integrity_path.exists():
+        integrity = _read_json(_file(directory, "input-cache-integrity.json"))
+        if (integrity.get("metadata_sha256") != media.sha256(directory / "source-metadata.json") or
+                integrity.get("pts_sha256") != media.sha256(directory / "source-pts.json")):
+            raise ValueError("原任务元数据或PTS摘要不一致；不会创建恢复任务")
+    try:
+        points, end_pts = pts_record["pts"], pts_record["end_pts"]
+        if (not isinstance(points, list) or not points or
+                any(type(point) is not int for point in points) or type(end_pts) is not int or
+                end_pts <= points[-1] or any(left >= right for left, right in zip(points, points[1:]))):
+            raise ValueError("原任务源PTS缓存无效")
+        restored = [{"best_effort_timestamp": point,
+                     "duration": (points[index + 1] if index + 1 < len(points) else end_pts) - point}
+                    for index, point in enumerate(points)]
+        info = media.video_info(metadata, restored)
+        if (any(info[name] != pts_record[name] for name in ("time_base", "origin_pts", "end_pts", "pts")) or
+                not 0 < info["duration"] <= 600.001):
+            raise ValueError("原任务元数据与源PTS不一致")
+        frames = evidence["sampling"]["frames"]
+        if (not isinstance(frames, list) or not frames or
+                any(not isinstance(frame, dict) or not isinstance(frame.get("id"), str) or
+                    isinstance(frame.get("time"), bool) or not isinstance(frame.get("time"), (int, float)) or
+                    not math.isfinite(frame["time"]) for frame in frames)):
+            raise ValueError("原任务采样帧时间清单无效")
+    except (KeyError, TypeError, IndexError, ZeroDivisionError, OverflowError):
+        raise ValueError("原任务采样或时间戳缓存无效；不会创建恢复任务") from None
+    choices = selection.validate_and_adjust(deepcopy(evidence["parsed"]), frames, info["duration"], evidence["options"])
+    if not choices["clips"]:
+        raise selection.SelectionError("保存的AI结果没有可用于精选的片段；不会创建恢复任务")
 
 
 def recover_render(data_dir: Path, source_job_id: str, *, job_id: str | None = None,
@@ -214,8 +256,12 @@ def recover_render(data_dir: Path, source_job_id: str, *, job_id: str | None = N
     target = jobs / ident
     if target.exists():
         raise ValueError("恢复任务目录已存在，拒绝覆盖")
-    evidence = _evidence(original, source_job_id)
     before = _hashes(original)
+    evidence = _evidence(original, source_job_id)
+    if evidence["stage"] == "selection":
+        _preflight_selection(original, evidence)
+    if _hashes(original) != before:
+        raise ValueError("读取或预检期间原任务文件发生变化；不会创建恢复任务")
     inherited = evidence["record"]
     provenance = {"source_job_id": source_job_id, "source_failed_stage": evidence["stage"],
                   "source_ai_call_count": 1, "source_response_sha256": before["ai-raw-response.txt"],
@@ -263,7 +309,7 @@ def recover_render(data_dir: Path, source_job_id: str, *, job_id: str | None = N
         persist({"source": public_source, "sampling": sampling, "progress": 25,
                  "message": "已核验并复用源片、原始拼图及真实AI返回；不发送任何新请求"})
         with timer.measure("selection"):
-            choices = selection.validate_and_adjust(evidence["parsed"], sampling["frames"], info["duration"], evidence["options"])
+            choices = selection.validate_and_adjust(deepcopy(evidence["parsed"]), sampling["frames"], info["duration"], evidence["options"])
         fields = pipeline.render_choices(target, source, evidence["options"], info, sampling, digest, choices,
                                          public_source, evidence["prompts"], ai, persist, lambda: False, timer,
                                          recovery=provenance)

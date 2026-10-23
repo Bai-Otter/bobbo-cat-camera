@@ -46,7 +46,8 @@ def _reference_details(refs: list[str], frames: dict, start: float, end: float) 
     return "；".join(details)
 
 
-def _validate_clips(rows, name: str, frames: dict, selected: set, duration: float, *, meme=False) -> list:
+def _validate_clips(rows, name: str, frames: dict, selected: set, duration: float, *,
+                    meme=False, reference_adjustments=None) -> list:
     if not isinstance(rows, list) or len(rows) > (4 if meme else 100):
         raise SelectionError(f"AI返回的{name}列表无效或条数过多")
     result, ids = [], set()
@@ -73,21 +74,45 @@ def _validate_clips(rows, name: str, frames: dict, selected: set, duration: floa
         item = {"id": ident, "start": start, "end": min(duration, end),
                 "title": text(row.get("title"), "片段标题", limit=300),
                 "reason": text(row.get("reason"), "选片理由"), "score": _score(row), "frame_ids": refs}
+        left, right = start, item["end"]
         if not meme:
             left = number(row.get("context_start"), "上下文开始时间")
             right = number(row.get("context_end"), "上下文结束时间")
             if not 0 <= left <= start < end <= right <= duration + 0.000001:
                 raise SelectionError(f"精选 {ident} 的模型批准上下文无效")
-            outside = [x for x in refs if not left <= frames[x]["time"] < right]
-            if outside:
-                raise SelectionError(f"精选 {ident} 引用了不在批准上下文 [{left:.12g},{right:.12g}) 秒里的帧："
-                                     + _reference_details(outside, frames, left, right))
-            item.update(context_start=left, context_end=min(duration, right))
+            right = min(duration, right)
+            item.update(context_start=left, context_end=right)
+        outside = [x for x in refs if not left <= frames[x]["time"] < right]
+        if outside:
+            boundary = "片段" if meme else "批准上下文"
+            details = _reference_details(outside, frames, left, right)
+            if reference_adjustments is None:
+                raise SelectionError(f"{name} {ident} 引用了不在{boundary} [{left:.12g},{right:.12g}) 秒里的帧："
+                                     + details)
+            # Only redundant references can be removed. Membership, all other
+            # fields, and an ORIGINAL reference inside the clip passed above.
+            # Do not infer evidence, change selected frames, or move boundaries.
+            inside = [x for x in refs if left <= frames[x]["time"] < right]
+            if not any(start <= frames[x]["time"] < item["end"] for x in inside):
+                raise SelectionError(f"{name} {ident} 移除越界引用后没有片段内证据；不会扩大区间或补造引用")
+            item["frame_ids"] = inside
+            reference_adjustments.append({
+                "type": "drop_out_of_interval_references",
+                "collection": "memes" if meme else "highlight_clips", "clip_id": ident,
+                "before": refs, "after": inside, "interval": [left, right],
+                "removed": [{"frame_id": x, "time": frames[x]["time"]} for x in outside],
+                "reason": f"{name} {ident} 已移除区间外的多余引用：{details}；"
+                          "原剪点和批准上下文未改变，仅保留原AI已选中的区间内证据，未新增AI调用。"})
         result.append(item)
     return result
 
 
 def validate_result(parsed: dict, frames: list[dict], duration: float) -> dict:
+    """Strict validation: never remove invalid references or relax boundaries."""
+    return _validate_result(parsed, frames, duration)
+
+
+def _validate_result(parsed: dict, frames: list[dict], duration: float, *, reference_adjustments=None) -> dict:
     if not isinstance(parsed, dict):
         raise SelectionError("AI结果必须是JSON对象")
     mapping = {f["id"]: f for f in frames}
@@ -111,8 +136,10 @@ def validate_result(parsed: dict, frames: list[dict], duration: float) -> dict:
     if not isinstance(warnings, list) or any(not isinstance(w, str) for w in warnings):
         raise SelectionError("AI warnings必须是文字数组")
     return {"summary": text(parsed.get("summary"), "总体判断"), "selected_frames": selected,
-            "highlight_clips": _validate_clips(parsed.get("highlight_clips"), "精选", mapping, ids, duration),
-            "memes": _validate_clips(parsed.get("memes"), "表情包", mapping, ids, duration, meme=True),
+            "highlight_clips": _validate_clips(parsed.get("highlight_clips"), "精选", mapping, ids, duration,
+                                                reference_adjustments=reference_adjustments),
+            "memes": _validate_clips(parsed.get("memes"), "表情包", mapping, ids, duration, meme=True,
+                                      reference_adjustments=reference_adjustments),
             "warnings": warnings[:]}
 
 
@@ -218,5 +245,15 @@ def adjust_duration(validated: dict, frames: list[dict], options: dict) -> dict:
 
 
 def validate_and_adjust(parsed: dict, frames: list[dict], duration: float, options: dict) -> dict:
-    validated = validate_result(parsed, frames, duration)
-    return {**adjust_duration(validated, frames, options), "validated": validated}
+    """Converge redundant references with an audit, then apply normal edit rules.
+
+    Raw decisions remain untouched. This is not an AI retry or a tolerance:
+    surviving evidence must pass the same exact half-open interval checks.
+    """
+    references = []
+    validated = _validate_result(parsed, frames, duration, reference_adjustments=references)
+    # Fail closed if a future normalization change ever weakens the invariant.
+    validated = validate_result(validated, frames, duration)
+    validated["warnings"].extend(row["reason"] for row in references)
+    adjusted = adjust_duration(validated, frames, options)
+    return {**adjusted, "adjustments": references + adjusted["adjustments"], "validated": validated}

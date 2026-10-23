@@ -129,3 +129,101 @@ def test_duplicate_meme_is_exported_once():
     assert len(output["memes"]) == 1
     assert output["memes"][0]["id"] == "m01"
     assert any(a["type"] == "drop_duplicate_meme" for a in output["adjustments"])
+
+
+@pytest.mark.parametrize("actual", [37.975, 38.0 - 1e-9, 48.0, 48.025])
+def test_export_removes_only_redundant_context_outliers_with_visible_audit(actual):
+    frames = [{"id": "F0039", "time": actual}, {"id": "F0040", "time": 39.0}]
+    source = fixture_result()
+    source["selected_frames"] = [
+        {"frame_id": f["id"], "score": 90, "reason": "可见吃饭动作", "labels": []} for f in frames]
+    source["highlight_clips"] = [{**source["highlight_clips"][0], "start": 38.0, "end": 48.0,
+                                  "context_start": 38.0, "context_end": 48.0,
+                                  "frame_ids": ["F0039", "F0040"]}]
+    source["memes"] = []
+    original = deepcopy(source)
+
+    output = validate_and_adjust(source, frames, 100, {
+        "target_duration": 10, "min_duration": 10, "max_duration": 10})
+
+    assert source == original
+    assert output["validated"]["selected_frames"] == source["selected_frames"]
+    assert output["validated"]["highlight_clips"] == [{**source["highlight_clips"][0], "frame_ids": ["F0040"]}]
+    assert output["clips"][0]["start"] == 38.0 and output["clips"][0]["end"] == 48.0
+    assert output["clips"][0]["context_start"] == 38.0 and output["clips"][0]["context_end"] == 48.0
+    audit = next(row for row in output["adjustments"] if row["type"] == "drop_out_of_interval_references")
+    assert audit["collection"] == "highlight_clips" and audit["clip_id"] == "c01"
+    assert audit["before"] == ["F0039", "F0040"] and audit["after"] == ["F0040"]
+    assert audit["interval"] == [38.0, 48.0]
+    assert audit["removed"] == [{"frame_id": "F0039", "time": actual}]
+    assert any("F0039" in warning for warning in output["warnings"])
+    assert validate_result(output["validated"], frames, 100) == output["validated"]
+    with pytest.raises(SelectionError, match="批准上下文"):
+        validate_result(source, frames, 100)
+
+
+def test_context_handles_remain_valid_even_outside_initial_clip():
+    source = fixture_result()
+    source["highlight_clips"] = [{**source["highlight_clips"][0], "context_end": 60.0,
+                                  "frame_ids": ["F0011", "F0051"]}]
+    source["memes"] = []
+    output = validate_and_adjust(source, FRAMES, 100, {
+        "target_duration": 6, "min_duration": 6, "max_duration": 6})
+    assert output["validated"]["highlight_clips"][0]["frame_ids"] == ["F0011", "F0051"]
+    assert not any(row["type"] == "drop_out_of_interval_references" for row in output["adjustments"])
+
+
+@pytest.mark.parametrize("actual", [9.5 - 1e-9, 11.0, 12.0])
+def test_meme_outside_references_are_audited_not_cited_as_part_of_clip(actual):
+    source = fixture_result()
+    frames = deepcopy(FRAMES)
+    frames[50]["time"] = actual
+    source["highlight_clips"] = source["highlight_clips"][:1]
+    source["memes"][0]["frame_ids"] = ["F0051", "F0011"]
+    original = deepcopy(source)
+    output = validate_and_adjust(source, frames, 100, {
+        "target_duration": 6, "min_duration": 6, "max_duration": 6})
+    assert source == original
+    assert output["memes"] == [{**source["memes"][0], "frame_ids": ["F0011"]}]
+    audit = next(row for row in output["adjustments"] if row["collection"] == "memes")
+    assert audit["interval"] == [9.5, 11.0]
+    assert audit["removed"] == [{"frame_id": "F0051", "time": actual}]
+    assert any("F0051" in warning for warning in output["warnings"])
+    assert validate_result(output["validated"], frames, 100) == output["validated"]
+    with pytest.raises(SelectionError, match="表情包"):
+        validate_result(source, frames, 100)
+
+
+@pytest.mark.parametrize("kind", ["highlight_clips", "memes"])
+@pytest.mark.parametrize("bad_ref", ["F9999", "F0099", 99])
+def test_export_never_launders_unknown_unselected_or_malformed_references(kind, bad_ref):
+    source = fixture_result()
+    source[kind][0]["frame_ids"].append(bad_ref)
+    with pytest.raises(SelectionError, match="不存在或没有被AI选中"):
+        validate_and_adjust(source, FRAMES, 100, {
+            "target_duration": 13, "min_duration": 10, "max_duration": 20})
+
+
+@pytest.mark.parametrize("kind", ["highlight_clips", "memes"])
+def test_export_still_rejects_no_original_evidence_inside_clip(kind):
+    source = fixture_result()
+    # F0051 is selected, but it cannot prove that either first clip contains a cute moment.
+    source[kind][0]["frame_ids"] = ["F0051"]
+    with pytest.raises(SelectionError, match="没有任何"):
+        validate_and_adjust(source, FRAMES, 100, {
+            "target_duration": 13, "min_duration": 10, "max_duration": 20})
+
+
+@pytest.mark.parametrize("mutation", [
+    lambda r: r["highlight_clips"][0].update(context_start=9),
+    lambda r: r["highlight_clips"][0].update(context_end=float("nan")),
+    lambda r: r["highlight_clips"][0].update(score=101),
+    lambda r: r["selected_frames"][1].update(reason=""),
+])
+def test_reference_convergence_does_not_hide_other_invalid_model_data(mutation):
+    source = fixture_result()
+    source["highlight_clips"][0]["frame_ids"].append("F0051")
+    mutation(source)
+    with pytest.raises(SelectionError):
+        validate_and_adjust(source, FRAMES, 100, {
+            "target_duration": 13, "min_duration": 10, "max_duration": 20})

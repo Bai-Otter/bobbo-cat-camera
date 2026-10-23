@@ -1,4 +1,5 @@
 """Offline saved-decision recovery: no credentials, provider call or re-sampling."""
+from copy import deepcopy
 import json
 from pathlib import Path
 import shutil
@@ -91,6 +92,216 @@ def saved_failure(tmp_path, synthetic_failure, monkeypatch):
     monkeypatch.setattr(media, "sample_video", forbidden)
     monkeypatch.setattr(media, "create_sheets", forbidden)
     return data
+
+
+def save_selection_failure(data_dir, mutate=None):
+    """Keep every saved representation of a fixture response consistent."""
+    directory = data_dir / "jobs" / SOURCE_ID
+    record = load(directory / "job.json")
+    parsed = deepcopy(record["ai"]["parsed"])
+    if mutate is not None:
+        mutate(parsed)
+    raw = json.dumps(parsed, ensure_ascii=False)
+    envelope = load(directory / "ai-response-envelope.json")
+    envelope["output_text"] = raw
+    record["timings"]["failed_stage"] = "selection"
+    record["error"] = "fixture selection failure with preserved completed AI response"
+    record["ai"].update(parsed=parsed, raw_response=raw)
+    for name, value in (("job.json", record), ("ai-selection-original.json", parsed),
+                        ("ai-response-envelope.json", envelope)):
+        media.write_json(directory / name, value)
+    (directory / "ai-raw-response.txt").write_text(raw, encoding="utf-8")
+    return parsed
+
+
+def test_complete_selection_failure_can_create_new_zero_call_recovery(saved_failure):
+    save_selection_failure(saved_failure)
+    original = saved_failure / "jobs" / SOURCE_ID
+    before = hashes(original)
+    record = recovery.recover_render(saved_failure, SOURCE_ID, job_id=RECOVERY_ID)
+    assert record["status"] == "completed"
+    assert record["ai"]["call_count"] == 0
+    assert record["recovery"]["source_failed_stage"] == "selection"
+    assert record["recovery"]["no_ai_calls"] is True
+    assert record["result"]["validation"]["visual_api_call_count"] == 0
+    assert record["result"]["video_duration"] == 3
+    assert hashes(original) == before
+
+
+def test_selection_failure_reuses_audited_redundant_reference_convergence(saved_failure):
+    def redundant(parsed):
+        parsed["selected_frames"].append({"frame_id": "F0003", "score": 91,
+                                          "reason": "genuine retained fixture evidence", "labels": ["test"]})
+        parsed["highlight_clips"][0].update(start=1.008333, context_start=1.008333,
+                                             frame_ids=["F0002", "F0003"])
+    parsed = save_selection_failure(saved_failure, redundant)
+    original = saved_failure / "jobs" / SOURCE_ID
+    before = hashes(original)
+    record = recovery.recover_render(saved_failure, SOURCE_ID, job_id=RECOVERY_ID)
+    assert record["status"] == "completed" and record["ai"]["call_count"] == 0
+    clip = next(row for row in record["result"]["clips"] if row["id"] == "c01")
+    assert clip["frame_ids"] == ["F0003"]
+    assert clip["context_start"] == clip["requested_start"] == 1.008333
+    assert clip["context_end"] == clip["requested_end"] == 3
+    assert "F0002" in {row["id"] for row in record["result"]["selected_frames"]}
+    assert "F0002" in json.dumps(record["result"]["adjustments"])
+    assert record["result"]["warnings"]
+    recovered = saved_failure / "jobs" / RECOVERY_ID
+    assert load(recovered / "ai-selection-original.json") == parsed
+    assert record["ai"]["parsed"] == parsed
+    assert (recovered / "ai-raw-response.txt").read_bytes() == (original / "ai-raw-response.txt").read_bytes()
+    assert hashes(original) == before
+
+
+@pytest.mark.parametrize("invalid", ["all_before_start", "at_exclusive_end", "unknown_frame"])
+def test_invalid_selection_is_rejected_before_destination_creation(saved_failure, invalid):
+    def corrupt(parsed):
+        clip = parsed["highlight_clips"][0]
+        if invalid == "all_before_start":
+            clip.update(start=1.008333, context_start=1.008333)
+        elif invalid == "at_exclusive_end":
+            clip.update(start=0, end=1, context_start=0, context_end=1)
+        else:
+            clip["frame_ids"] = ["F9999"]
+    save_selection_failure(saved_failure, corrupt)
+    original = saved_failure / "jobs" / SOURCE_ID
+    before = hashes(original)
+    with pytest.raises(ValueError, match="引用|证据|采样帧|不存在"):
+        recovery.recover_render(saved_failure, SOURCE_ID, job_id=RECOVERY_ID)
+    assert not (saved_failure / "jobs" / RECOVERY_ID).exists()
+    assert hashes(original) == before
+
+
+@pytest.mark.parametrize("key,value", [("status", "incomplete"), ("error", {"code": "interrupted"}),
+                                       ("incomplete_details", {"reason": "max_output_tokens"})])
+def test_selection_stage_does_not_make_incomplete_response_recoverable(saved_failure, key, value):
+    save_selection_failure(saved_failure)
+    directory = saved_failure / "jobs" / SOURCE_ID
+    envelope = load(directory / "ai-response-envelope.json")
+    envelope[key] = value
+    media.write_json(directory / "ai-response-envelope.json", envelope)
+    before = hashes(directory)
+    with pytest.raises(ValueError, match="已完成AI响应证据"):
+        recovery.recover_render(saved_failure, SOURCE_ID, job_id=RECOVERY_ID)
+    assert not (saved_failure / "jobs" / RECOVERY_ID).exists()
+    assert hashes(directory) == before
+
+
+@pytest.mark.parametrize("artifact", ["source-metadata.json", "source-pts.json"])
+def test_selection_preflight_rejects_bad_json_without_creating_job(saved_failure, artifact):
+    save_selection_failure(saved_failure)
+    directory = saved_failure / "jobs" / SOURCE_ID
+    (directory / artifact).write_text('{"broken":', encoding="utf-8")
+    before = hashes(directory)
+    with pytest.raises(ValueError, match="缺失或不可读取"):
+        recovery.recover_render(saved_failure, SOURCE_ID, job_id=RECOVERY_ID)
+    assert not (saved_failure / "jobs" / RECOVERY_ID).exists()
+    assert hashes(directory) == before
+
+
+@pytest.mark.parametrize("artifact", ["source-metadata.json", "source-pts.json"])
+def test_selection_preflight_rejects_changed_timing_digest(saved_failure, artifact):
+    save_selection_failure(saved_failure)
+    directory = saved_failure / "jobs" / SOURCE_ID
+    value = load(directory / artifact)
+    if artifact == "source-metadata.json":
+        value["streams"][0]["duration_ts"] += 1
+    else:
+        value["end_pts"] += 1
+    media.write_json(directory / artifact, value)
+    before = hashes(directory)
+    with pytest.raises(ValueError, match="摘要"):
+        recovery.recover_render(saved_failure, SOURCE_ID, job_id=RECOVERY_ID)
+    assert not (saved_failure / "jobs" / RECOVERY_ID).exists()
+    assert hashes(directory) == before
+
+
+def test_selection_preflight_does_not_trust_record_source_duration(saved_failure):
+    def outside_source(parsed):
+        parsed["highlight_clips"][0].update(start=4, end=8, context_start=4, context_end=8,
+                                             frame_ids=["F0005"])
+    save_selection_failure(saved_failure, outside_source)
+    directory = saved_failure / "jobs" / SOURCE_ID
+    record = load(directory / "job.json")
+    record["source"] = {"duration": 9000}
+    media.write_json(directory / "job.json", record)
+    before = hashes(directory)
+    with pytest.raises(ValueError, match="超出源视频"):
+        recovery.recover_render(saved_failure, SOURCE_ID, job_id=RECOVERY_ID)
+    assert not (saved_failure / "jobs" / RECOVERY_ID).exists()
+    assert hashes(directory) == before
+
+
+def test_selection_preflight_rejects_forged_metadata_despite_updated_digest(saved_failure):
+    save_selection_failure(saved_failure)
+    directory = saved_failure / "jobs" / SOURCE_ID
+    metadata = load(directory / "source-metadata.json")
+    metadata["streams"][0]["time_base"] = "1/1"
+    media.write_json(directory / "source-metadata.json", metadata)
+    integrity = load(directory / "input-cache-integrity.json")
+    integrity["metadata_sha256"] = media.sha256(directory / "source-metadata.json")
+    media.write_json(directory / "input-cache-integrity.json", integrity)
+    before = hashes(directory)
+    with pytest.raises(ValueError, match="元数据与源PTS不一致"):
+        recovery.recover_render(saved_failure, SOURCE_ID, job_id=RECOVERY_ID)
+    assert not (saved_failure / "jobs" / RECOVERY_ID).exists()
+    assert hashes(directory) == before
+
+
+@pytest.mark.parametrize("artifact", ["source-metadata.json", "source-pts.json"])
+def test_selection_preflight_rejects_resolved_cache_path_outside_job(saved_failure, tmp_path, monkeypatch, artifact):
+    save_selection_failure(saved_failure)
+    directory = saved_failure / "jobs" / SOURCE_ID
+    candidate = directory / artifact
+    outside = tmp_path / artifact
+    outside.write_bytes(candidate.read_bytes())
+    resolve = Path.resolve
+    monkeypatch.setattr(Path, "resolve", lambda path, *args, **kwargs:
+                        resolve(outside) if path == candidate else resolve(path, *args, **kwargs))
+    before = hashes(directory)
+    with pytest.raises(ValueError, match="越界"):
+        recovery.recover_render(saved_failure, SOURCE_ID, job_id=RECOVERY_ID)
+    assert not (saved_failure / "jobs" / RECOVERY_ID).exists()
+    assert hashes(directory) == before
+
+
+@pytest.mark.parametrize("artifact", ["source-metadata.json", "source-pts.json"])
+def test_selection_preflight_cannot_follow_escaping_cached_file(saved_failure, tmp_path, artifact):
+    save_selection_failure(saved_failure)
+    directory = saved_failure / "jobs" / SOURCE_ID
+    candidate = directory / artifact
+    outside = tmp_path / artifact
+    outside.write_bytes(candidate.read_bytes())
+    candidate.unlink()
+    try:
+        candidate.symlink_to(outside)
+    except OSError as exc:
+        pytest.skip(f"Symlink creation is unavailable: {exc}")
+    before = hashes(directory)
+    with pytest.raises(ValueError, match="越界"):
+        recovery.recover_render(saved_failure, SOURCE_ID, job_id=RECOVERY_ID)
+    assert not (saved_failure / "jobs" / RECOVERY_ID).exists()
+    assert hashes(directory) == before
+
+
+def test_evidence_change_during_preflight_is_rejected_without_destination(saved_failure, monkeypatch):
+    save_selection_failure(saved_failure)
+    original = saved_failure / "jobs" / SOURCE_ID
+    real_evidence = recovery._evidence
+    changed = []
+
+    def alter_after_read(directory, ident):
+        evidence = real_evidence(directory, ident)
+        raw = directory / "ai-raw-response.txt"
+        raw.write_text(raw.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+        changed.append(hashes(directory))
+        return evidence
+
+    monkeypatch.setattr(recovery, "_evidence", alter_after_read)
+    with pytest.raises(ValueError, match="变化"):
+        recovery.recover_render(saved_failure, SOURCE_ID, job_id=RECOVERY_ID)
+    assert not (saved_failure / "jobs" / RECOVERY_ID).exists()
+    assert len(changed) == 1 and hashes(original) == changed[0]
 
 
 def test_complete_recovery_keeps_original_and_reports_zero_new_ai(saved_failure):

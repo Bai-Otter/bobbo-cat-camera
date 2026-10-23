@@ -151,6 +151,28 @@ def test_actual_prompt_and_comparison_include_current_feedback(tmp_path, cached_
     assert manifest["user"] == prompt["user"]
 
 
+def test_revision_audits_redundant_outside_reference_but_preserves_actual_ai_decision(tmp_path, cached_round):
+    state = cached_round
+    state["model_result"]["highlight_clips"][0]["frame_ids"].append("F0009")
+    original = deepcopy(state["model_result"])
+    target, result, _ = execute_revision(tmp_path, state)
+    assert state["calls"] == result["ai"]["call_count"] == 1
+    assert state["model_result"] == original == result["ai"]["parsed"]
+    assert json.loads(result["ai"]["raw_response"]) == original
+    assert json.loads((target / "ai-selection-original.json").read_text(encoding="utf-8")) == original
+    assert json.loads((target / "ai-raw-response.txt").read_text(encoding="utf-8")) == original
+    assert result["result"]["clips"][0]["frame_ids"] == ["F0003"]
+    assert result["result"]["clips"][1]["frame_ids"] == ["F0009"]
+    assert result["comparison"]["added_frame_ids"] == ["F0009"]
+    audit = next(row for row in result["result"]["adjustments"] if row.get("clip_id") == "c01"
+                 and row.get("before") == ["F0003", "F0009"] and row.get("after") == ["F0003"])
+    assert audit["type"] == "drop_out_of_interval_references"
+    assert audit["collection"] == "highlight_clips" and audit["interval"] == [0.0, 5.0]
+    assert audit["removed"] == [{"frame_id": "F0009", "time": 8.0}]
+    assert any("c01" in warning and "F0009" in warning for warning in result["result"]["warnings"])
+    assert result["feedback"] == state["feedback"]
+
+
 def test_disliked_selection_keeps_original_and_comparison_before_failing(tmp_path, cached_round):
     state = cached_round
     state["model_result"]["selected_frames"].append({"frame_id": "F0001", "score": 99, "reason": "wrong", "labels": []})
@@ -175,6 +197,35 @@ def test_disliked_frame_cannot_be_cited_even_if_not_in_selected_list(tmp_path, c
         execute_revision(tmp_path, state)
     assert state["calls"] == 1
     assert (tmp_path / "round2/comparison.json").exists()
+
+
+@pytest.mark.parametrize("kind, selected", [("highlight_clips", True), ("highlight_clips", False),
+                                            ("memes", True), ("memes", False)])
+def test_outside_disliked_reference_fails_before_any_evidence_normalization(tmp_path, cached_round, monkeypatch, kind, selected):
+    state = cached_round
+    state["model_result"]["highlight_clips"][0]["context_start"] = 1.0
+    if kind == "memes":
+        state["model_result"]["memes"] = [{"id": "m01", "start": 1.5, "end": 3.0,
+            "title": "fixture", "reason": "fixture", "score": 90, "frame_ids": ["F0003"]}]
+    state["model_result"][kind][0]["frame_ids"].append("F0001")  # t=0, outside every allowed range.
+    if selected:
+        state["model_result"]["selected_frames"].append({"frame_id": "F0001", "score": 99,
+                                                          "reason": "wrong", "labels": []})
+    original = deepcopy(state["model_result"])
+    def normalization_must_not_run(*args, **kwargs):
+        pytest.fail("raw dislike violations must fail before evidence normalization")
+    monkeypatch.setattr(pipeline.selection, "validate_and_adjust", normalization_must_not_run)
+    with pytest.raises(SelectionError, match="F0001"):
+        execute_revision(tmp_path, state)
+    target = tmp_path / "round2"
+    assert state["calls"] == 1 and not (target / "highlights.mp4").exists()
+    assert state["model_result"] == original
+    assert json.loads((target / "ai-selection-original.json").read_text(encoding="utf-8")) == original
+    assert json.loads((target / "ai-raw-response.txt").read_text(encoding="utf-8")) == original
+    comparison = json.loads((target / "comparison.json").read_text(encoding="utf-8"))
+    assert comparison["disliked_selected_ids"] == (["F0001"] if selected else [])
+    timings = json.loads((target / "timings.json").read_text(encoding="utf-8"))
+    assert timings["status"] == "failed" and timings["failed_stage"] == "selection"
 
 
 def test_two_revisions_use_snapshot_without_recursively_embedding_history(tmp_path, cached_round):
