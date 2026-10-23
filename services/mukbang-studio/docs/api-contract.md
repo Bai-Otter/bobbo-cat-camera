@@ -1,0 +1,122 @@
+# Integration contract
+
+Service root: `services/mukbang-studio/`. Plain FastAPI backend, static vanilla frontend. URLs below are same-origin. All displayed text is Chinese. Provider credentials are never returned or persisted in public task artifacts. Private local configuration is excluded from Git.
+
+## HTTP API
+
+- `GET /api/config` → `{configured:boolean, provider:{base_url,model,api_style:"chat_completions"|"responses",key_configured:boolean,configuration_source:"codex"|"manual",transport_warning:string}, defaults:{sample_interval:1,frames_per_sheet:60,target_duration:40,min_duration:30,max_duration:50}, prompt_template:string, limits:{max_upload_mb:512,max_duration_seconds:600}, legacy_available:boolean}`. The bundled environment example selects `gpt-6.1-sol`; each installation must configure its own compatible provider. Optional explicitly opted-in Codex import reads the existing local provider and credential without copying it to project files. Display any transport warning independently of save-success messages.
+- `PUT /api/config` JSON `{base_url,model,api_style,api_key?}` → same public config; blank/omitted api_key preserves current memory/env key. No secrets in browser local/session storage. Browser may remember non-secret options only.
+- `POST /api/jobs` multipart `file` plus `options` JSON string `{target_duration,min_duration,max_duration,sample_interval,prompt,use_active_prompt?}` → 202 `{id,status,...}`. `use_active_prompt:true` freezes the server's current active standard, replacing stale form Prompt text; false/absent preserves a nonempty custom Prompt for backwards compatibility. Empty Prompt also resolves to active. New webpage uploads default to active; opening old tasks does not silently adopt new standards. `frames_per_sheet` fixed 60. Defaults above. Clamp nothing silently; validate finite positive values, `min<=target<=max`, min>=1/max<=120, interval 0.25–3 sec, max 600 sec source. Show selected ranges in sent Prompt.
+- `GET /api/jobs` → `{jobs:[job_summary...]}` newest first.
+- `GET /api/jobs/{id}` → job record below. Poll every ~1.2 seconds until terminal. Missing optional fields mean not ready, not errors.
+- `GET /api/jobs/{id}/feedback` → `{version,annotations:[{frame_id,label:"like"|"dislike",reason}],note}`. Terminal job with reusable sampling only. An unsaved child draft inherits its frozen submitted feedback, with local `version:0`; no ancestor remerge.
+- `PUT /api/jobs/{id}/feedback` JSON `{expected_version,annotations,note}` → saved draft with version + 1. Complete replacement, including explicit clears. Version is a strict nonnegative integer. Unknown/duplicate frame IDs are rejected. Stale versions return 409 without overwriting either draft. Saves never call AI; current credential is redacted before persistence.
+- `GET /api/jobs/{id}/iterations` → `{root_job_id,jobs:[{id,round,parent_job_id,status,filename,created_at}]}` sorted by family-unique round ascending.
+- `POST /api/jobs/{id}/revise` JSON `{expected_version,request_id,options?}` → 202 new child job or the existing job for this request ID. `request_id` is 16–64 letters/digits/underscore/hyphen. Freeze full saved feedback and options; require a nonempty annotation or overall note. Reuse source/PTS/samples/original sheets, with unchanged sampling interval. Different content under the same ID returns 409. Same-content manual retry returns the existing task even after the draft changes; there is no automatic model retry. Old task results are never overwritten.
+- `POST /api/jobs/{id}/cancel` → current job; cancellation cooperative. No automatic model retry/restart.
+- `GET /api/jobs/{id}/files/{relative_path}` → safe artifact, correct MIME and video range support. Paths must stay inside this job. No directory listing.
+- `GET /api/legacy` → `{runs:[{id,title,notice,video_url?,sheets:[{id,title,original_url,annotated_url,count,selected_count}],selected_frames:[{id,time,title,reason,url?,sheet_id?}],timeline:[...]}]}`. Clearly historical.
+- `GET /api/health` → `{ok,ffmpeg,ffprobe}`.
+
+### Reusable Prompt library
+
+- `GET /api/prompt-library` → `{revision,active_version_id,versions:[{id,name,text,created_at,parent_version_id,source_proposal_id?,summary,diff}],proposals:[summary...]}`. Initialize immutable `P0001` from bundled default without inference. Global revision starts at 0; every publish/activate increments it, including rollback, to prevent ABA.
+- `GET /api/config` additionally returns `prompt_library:{revision,active_version_id,active:version}`; `prompt_template` is now the active reusable Prompt, not necessarily the bundled original.
+- `POST /api/prompt-library/versions` → 201 library; body `{expected_revision,request_id,text,name:"",proposal_id?}`. Full text <=40,000 chars, name <=100. Explicit confirmation publishes a new immutable version and activates it, no AI. With proposal_id require a completed proposal on the current baseline; user may edit its candidate before confirmation. True full-text diff is computed by the program. Stale revision or changed body under same request_id returns 409; local editor must retain its draft.
+- `POST /api/prompt-library/activate` → library; body `{expected_revision,request_id,version_id}`. Switch active pointer to existing version, retain all history, no AI. All publish/activate IDs use 16–64 letters/digits/underscore/hyphen; versions use `P0001`-style IDs.
+- `POST /api/prompt-proposals` → 202 suggestion task; body `{expected_revision,request_id,sources:[{job_id,feedback_version}],note:""}`. Strict integer revisions, 1–12 unique terminal source jobs with saved nonempty feedback at the requested versions; note <=4,000 chars. The server freezes only saved annotations/notes and separately labeled old AI text, never accepts browser-supplied evidence content or paths. Maximum combined 480 annotations / 80,000 source JSON characters; otherwise reject before model request with a request to choose fewer sources.
+- `GET /api/prompt-proposals/{id}` → suggestion record below. Same-content request_id recovery returns the original task before revalidating changed drafts/provider; changed content conflicts. One explicit suggestion creates at most one text-only model POST with zero images, no implicit publish or retry. Poll until completed/failed/interrupted. Restart marks unfinished tasks interrupted rather than resubmitting.
+
+Text-only suggestion record: `{id,status,stage?,progress?,created_at,updated_at,base_revision,base_version_id,base_prompt,sources,note,prompt:{system,user},ai:{model?,call_count,text_call_count,visual_call_count:0,raw_response?,usage?},candidate_prompt?,summary?,changes?,warnings?,diff?,timings,error?}`. Actual text input/raw response and timing remain inspectable on failure. Timing scope is independent `prompt_tuning`, not video HTTP upload time.
+
+Model suggestion result: `{candidate_prompt,summary,changes:[{before,after,reason,evidence:[{job_id,frame_id?}]}],warnings}`. Validate exact text anchors and evidence ownership; program-generated diff, not model explanation, is the source of truth for what changed. Candidate full text cannot contain local frame/job IDs, source filenames, paths or source timecodes. Instance evidence stays in provenance only. Without explicit human reasons/notes, do not infer a visual preference from old model descriptions. A candidate never becomes active without a separate user confirmation.
+
+Errors `{detail:"human-readable Chinese message"}` (HTTP errors); worker failures also remain in job record.
+
+### Satisfied-round visual generalization
+
+- `POST /api/prompt-proposals/satisfied-round` → 202 proposal; body `{expected_revision,request_id,job_id}`. The job must be a completed, evidence-complete round. The server freezes that exact round's actual template, original input sheets, selected samples and already-applied feedback, not its later mutable draft or a different family round. Request/revision validation is strict; same-request recovery returns the original proposal before re-reading changed evidence or provider credentials.
+- The proposal uses `source_mode:"satisfied_round"`, separate `tuning_base_prompt` (the round template) and `base_prompt` (the current global standard), plus `satisfied_round`, `round_inputs`, `request_manifest`, actual `prompt`, raw response, usage and timings. Original sheet hashes are rechecked immediately before inference.
+- One explicit visual proposal makes at most one multi-image POST, with separately reported image/visual/text call counts. It does not resample, rerender, automatically retry or publish. Unavailable or inconsistent evidence fails closed; absent historical records are not fabricated.
+- Poll using the existing `GET /api/prompt-proposals/{id}`. Publish through `POST /api/prompt-library/versions` with its `proposal_id` after explicit user review. Candidate validation and publication retain the technical clauses from both the round and global baselines; global revision conflicts return 409. Existing jobs and templates are unchanged.
+- The original multi-source text-only proposal endpoint remains zero-image. Generalization is a separate debugging operation, not part of a video's one-call budget and not model-weight training.
+
+## Job public record
+
+```
+{
+ id, filename, status, stage, progress, message, created_at, updated_at,
+ options:{target_duration,min_duration,max_duration,sample_interval,prompt},
+ source?:{duration,width,height,fps,video_url,audio_sample_rate?,audio_channels?},
+ sampling?:{
+   interval, frames_per_sheet:60, frame_count, sheet_count,
+   sheets:[{id,index,url,annotated_url?,count,width,height,sha256?,frames:[frame...]}],
+   frames:[{id,time,sheet_id,row,col,box:[x,y,w,h],url,selected?,meme_selected?,score?,reason?}]
+ },
+ prompt?:{system,user},
+ prompt_standard?:{mode:"global"|"custom",version_id?,revision?,name?,sha256},
+ timings?:{schema_version:1,available:true,status,total_seconds,started_at,finished_at,
+   scope:"server_request_to_terminal"|"pipeline_execution",is_partial,active_stage,failed_stage,note,
+   stages:[{id,label,seconds:number|null,status,percent:number|null}]},
+ iteration?:{root_job_id,parent_job_id,round,reused_sampling:true,request_id,request_fingerprint,request_identity_fingerprint?},
+ feedback?:{version,annotations:[{frame_id,label,reason}],note},
+ comparison?:{parent_job_id,added_frame_ids,removed_frame_ids,kept_frame_ids,
+   liked_selected_ids,liked_omitted_ids,disliked_selected_ids,disliked_removed_ids},
+ ai?:{model,provider,api_style,call_count,usage?,elapsed_seconds?,raw_response?,parsed?,request_manifest?},
+ result?:{
+   video_url, video_duration,
+   clips:[{id,start,end,title,reason,score,frame_ids,output_start,output_end,...}],
+   memes:[{id,start,end,title,reason,frame_ids,gif_url,video_url,...}],
+   selected_frames:[{id,time,title?,score,reason,url,sheet_id,...}],
+   adjustments:[...], warnings:[string...], validation:{...}
+ },
+ error?:string
+}
+```
+
+Status: queued, preparing, analyzing, rendering, completed, failed, cancelled. Progress 0–100. `stage` short user-facing Chinese text. `message` longer status. `ai.call_count` increments before the one outbound model request, even on failure. No mocks in production route.
+
+### Timing contract
+
+Use monotonic time, with mutually exclusive stages and accumulated re-entry. Start the HTTP scope before multipart parsing, end at terminal processing; include receiving/saving and queue time. Exclude pre-arrival/browser selection/polling delay. AI time includes payload encoding, network transfer, wait and response receipt, not frame preparation. `ai.elapsed_seconds` remains for compatibility, while `timings` is the detailed record.
+
+Stages: `upload`, `queue`, `reuse_inputs` (revision only), `source_probe`, `extract_frames`, `build_sheets`, `prepare_request`, `ai_request`, `selection`, `annotate_sheets`, `render_highlight`, `export_memes`, `final_validation`, and `overhead`. Stage status: pending/running/completed/failed/cancelled/interrupted/skipped. Unexecuted seconds are null, not zero. Aggregate stage seconds equal total up to rounding. Total freezes on completed/failed/cancelled; restart interruption freezes only the last persisted observation with `is_partial:true`, never counts unknown downtime. Old jobs without timings remain unchanged and render as unrecorded.
+
+Persist atomic `timings.json` before the job can advertise it. GET includes a live snapshot while running; downloading the JSON returns the most recently persisted snapshot, not a live clock. Completed jobs return the frozen snapshot. Publish terminal job/timing states under the same lock.
+
+### Feedback contract
+
+The frame-feedback/revise endpoints remain same-video calibration, not training. Cross-video reuse is handled only through separately confirmed reusable Prompt versions; do not copy local frame IDs to new videos. Save = zero model calls; one explicit video revision = at most one outbound multimodal model POST and a new independent render. The separate suggestion action costs at most one zero-image text POST. User texts are data, not system instructions. Current complete snapshot replaces prior labels; unmarked frames are neutral. Likes are prioritized and omissions shown. Dislikes cannot occur in `selected_frames` or any `frame_ids` evidence; violations retain raw response/comparison and fail visibly, without silent edits or a second request. This is not whole-window exclusion or manual timeline editing.
+
+New revisions also persist only a SHA-256 `request_identity_fingerprint` of the original structured request. Use it to confirm the same request even if a mistakenly pasted credential was redacted and credentials later disappear/rotate. Keep the original redacted `request_fingerprint` as a compatibility fallback for historical jobs; never persist the sensitive original body just for idempotency.
+
+Comparison describes raw model-selected evidence, not taste accuracy or exact footage additions/removals. `disliked_removed_ids` includes all disliked IDs absent this round, including those never chosen previously. Like omissions remain visible even if model supplies no explanation. Each family retains every version, Prompt, original response, submitted feedback, comparison, products and timings. Cache reuse verifies IDs/PTS/hashes and fails closed, with no hidden resampling fallback. Historical missing source/frame digests are explicitly disclosed in provenance; newly created jobs establish a full input-integrity manifest.
+
+## Python pipeline contract
+
+```
+from mukbang.pipeline import run_pipeline
+run_pipeline(job_dir: Path, source_path: Path, options: dict, model_config: dict,
+             emit: Callable[[dict],None], cancelled: Callable[[],bool],
+             timings=None, revision=None) -> dict
+```
+
+`model_config={base_url,model,api_style,api_key,timeout_seconds:240,stream?:boolean,store?:boolean,trusted_http_base_url?:string|null}`. Private, never sent through emit/persisted. The trusted HTTP exception is server-only, derived solely from the explicitly imported complete existing GPT base URL; no browser-supplied flag or new remote host/path is accepted. The current relay uses Responses `stream:true/store:false`; consume one SSE response through an explicit completed terminal event, never retry with different settings. Streaming is a transport option, not an additional model call. The request manifest may expose stream/store but not the private trusted exception field or credentials. Server guarantees config exists and valid, one worker. Pipeline snapshots it once. `emit` receives shallow job-field updates; include entire nested sampling/ai structures when updated. Return final public fields (`status:"completed"`, source/sampling/prompt/ai/result...). Emit request input artifacts before AI call so even model failure is debuggable. Save raw text before parsing.
+
+Six-argument pipeline callers remain compatible. With supplied timings, the manager owns finalization: do not emit an early completed state. Standalone calls create/finalize their own `pipeline_execution` clock. Internal `revision={reuse_from:Path,parent_job_id,root_job_id,round,feedback,previous_selected_frames}` is generated on the server, never accepted as a browser-supplied directory. Whitelist current feedback fields; do not recursively embed old jobs or Prompts.
+
+Relative artifacts inside job_dir. Build artifact URLs `/api/jobs/{job_dir.name}/files/{path.as_posix()}`. Job filenames are generated identifiers, not user-supplied paths. Server/config modules own job management and credentials; pipeline/media/vision/selection modules own inference and rendering. Pipeline tests must inject provider callable/mock at test layer only; live route never creates pretend AI selections. Media exports use FFmpeg arrays and no shell.
+
+## Model result schema
+
+```
+{
+ summary:string,
+ selected_frames:[{frame_id:"F0001",score:0..100,reason:string,labels:[string]}],
+ highlight_clips:[{id:"c01",start:number,end:number,context_start:number,context_end:number,title:string,reason:string,score:0..100,frame_ids:["F0001"]}],
+ memes:[{id:"m01",start:number,end:number,title:string,reason:string,score:0..100,frame_ids:["F0001"]}],
+ warnings:[string]
+}
+```
+
+Prompt must include frame ID→source timestamp map, actual video duration, actual target/min/max, sampling interval, all images in one request, no forced categories, natural lead-in/out, 1–4 distinct meme loops (0.7–4s within source), and clips whose non-overlapping total meets requested range if possible. Context handles are model-approved optional expansion bounds, never arbitrary unrelated video. Validate identity/ranges and preserve original AI decision separately from algorithm-adjusted render timeline.

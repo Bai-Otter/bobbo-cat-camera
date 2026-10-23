@@ -1,0 +1,414 @@
+{
+  "schema_version": 1,
+  "imported_on": "2026-10-23",
+  "destination": "services/mukbang-studio",
+  "source": "Approved standalone BOBBO local mukbang debugging service",
+  "repository_base_commit": "4a93a0b0ca0c9cf5e5401924bfc4727da76cda63",
+  "scope": "Complete application frontend/backend, media pipeline, prompt and feedback tools, recovery/legacy utilities, tests and portable startup/configuration. Independent of the existing camera production pipeline.",
+  "initial_prompt": {
+    "source_active_version_id": "P0004",
+    "source_revision": 3,
+    "name": "满意第 2 轮 · 通用标准",
+    "source_published_at": "2026-10-23T14:29:23.406+08:00",
+    "bundled_path": "mukbang/default_prompt.txt",
+    "sha256": "b9d8f504db1d5e52ee1b956fb2e0c839385c589f344128b87868eb5bd195b2f3",
+    "new_install_version_id": "P0001",
+    "note": "Only the active generic text is included; no local version-library history, task IDs, proposal IDs or private runtime files are copied."
+  },
+  "files": [
+    {
+      "path": "mukbang/__init__.py",
+      "source_sha256": "a146a2166abb9f4cb8be8750a961d62f3b70edafddf9dd558db0d2b14965cacd",
+      "export_sha256": "a146a2166abb9f4cb8be8750a961d62f3b70edafddf9dd558db0d2b14965cacd",
+      "export_bytes": 56,
+      "normalized_source_equal": true,
+      "change": "Unchanged application/test source (line-ending normalization permitted)."
+    },
+    {
+      "path": "mukbang/config.py",
+      "source_sha256": "71d483c5c2e640942b8b8707bf9f14ce716ad1ba53711f458e0ecf5334c7f20b",
+      "export_sha256": "71d483c5c2e640942b8b8707bf9f14ce716ad1ba53711f458e0ecf5334c7f20b",
+      "export_bytes": 9786,
+      "normalized_source_equal": true,
+      "change": "Unchanged application/test source (line-ending normalization permitted)."
+    },
+    {
+      "path": "mukbang/default_prompt.txt",
+      "source_sha256": "2499667240fe208d397378e063aebf8e1e356cb6b62f83774f89783e38f3398a",
+      "export_sha256": "b9d8f504db1d5e52ee1b956fb2e0c839385c589f344128b87868eb5bd195b2f3",
+      "export_bytes": 3595,
+      "normalized_source_equal": false,
+      "change": "Replace the original seed with the exact already-published active P0004 reusable prompt."
+    },
+    {
+      "path": "mukbang/feedback.py",
+      "source_sha256": "74a3406b0d258e5ce2088a082c4df9c1d812f117799711e7b085dc073e2e741a",
+      "export_sha256": "74a3406b0d258e5ce2088a082c4df9c1d812f117799711e7b085dc073e2e741a",
+      "export_bytes": 4548,
+      "normalized_source_equal": true,
+      "change": "Unchanged application/test source (line-ending normalization permitted)."
+    },
+    {
+      "path": "mukbang/media.py",
+      "source_sha256": "59341010c5e8b2a40308e9a5e2912fdb826fa330287a2a2fca15d606975751cd",
+      "export_sha256": "59341010c5e8b2a40308e9a5e2912fdb826fa330287a2a2fca15d606975751cd",
+      "export_bytes": 38605,
+      "normalized_source_equal": true,
+      "change": "Unchanged application/test source (line-ending normalization permitted)."
+    },
+    {
+      "path": "mukbang/pipeline.py",
+      "source_sha256": "e2f09475d5db47fb5ff43cb99cc588cb661e2f8ccc48e93951e6640786b85d2d",
+      "export_sha256": "e2f09475d5db47fb5ff43cb99cc588cb661e2f8ccc48e93951e6640786b85d2d",
+      "export_bytes": 19253,
+      "normalized_source_equal": true,
+      "change": "Unchanged application/test source (line-ending normalization permitted)."
+    },
+    {
+      "path": "mukbang/prompt_library.py",
+      "source_sha256": "721c16a146f72ee2fea278333b41a70ec83d1cb4902ea71e35a14e9fb5be7f8b",
+      "export_sha256": "721c16a146f72ee2fea278333b41a70ec83d1cb4902ea71e35a14e9fb5be7f8b",
+      "export_bytes": 30671,
+      "normalized_source_equal": true,
+      "change": "Unchanged application/test source (line-ending normalization permitted)."
+    },
+    {
+      "path": "mukbang/prompt_tuning.py",
+      "source_sha256": "c445730a7a840bdae506bafee56d0b8ab34394d07ec92cc83d1eb5f94ee1d2d0",
+      "export_sha256": "c445730a7a840bdae506bafee56d0b8ab34394d07ec92cc83d1eb5f94ee1d2d0",
+      "export_bytes": 21314,
+      "normalized_source_equal": true,
+      "change": "Unchanged application/test source (line-ending normalization permitted)."
+    },
+    {
+      "path": "mukbang/recovery.py",
+      "source_sha256": "721339d95a77b36252a930a68022f2050beeb09fe28be31b03783bf41e8f88e4",
+      "export_sha256": "721339d95a77b36252a930a68022f2050beeb09fe28be31b03783bf41e8f88e4",
+      "export_bytes": 15233,
+      "normalized_source_equal": true,
+      "change": "Unchanged application/test source (line-ending normalization permitted)."
+    },
+    {
+      "path": "mukbang/selection.py",
+      "source_sha256": "103e569b48eed4d99ed48a414db309aa0dffc7f3fd6c47b16799d87de49a5150",
+      "export_sha256": "103e569b48eed4d99ed48a414db309aa0dffc7f3fd6c47b16799d87de49a5150",
+      "export_bytes": 11256,
+      "normalized_source_equal": true,
+      "change": "Unchanged application/test source (line-ending normalization permitted)."
+    },
+    {
+      "path": "mukbang/server.py",
+      "source_sha256": "b3683f1ccbf8bede8fd3e99125b0451be61a4b8c259e7e18e0b786a3531bddb9",
+      "export_sha256": "b3683f1ccbf8bede8fd3e99125b0451be61a4b8c259e7e18e0b786a3531bddb9",
+      "export_bytes": 43747,
+      "normalized_source_equal": true,
+      "change": "Unchanged application/test source (line-ending normalization permitted)."
+    },
+    {
+      "path": "mukbang/timing.py",
+      "source_sha256": "b6572a3b64b884e1e30e48783bd640f8aaa5591557f964e669149627fb83912a",
+      "export_sha256": "b6572a3b64b884e1e30e48783bd640f8aaa5591557f964e669149627fb83912a",
+      "export_bytes": 7505,
+      "normalized_source_equal": true,
+      "change": "Unchanged application/test source (line-ending normalization permitted)."
+    },
+    {
+      "path": "mukbang/vision.py",
+      "source_sha256": "01c0eb35b0d2125e63088aae73511e53b4e51356d4baaea5070f0815ab959ae0",
+      "export_sha256": "01c0eb35b0d2125e63088aae73511e53b4e51356d4baaea5070f0815ab959ae0",
+      "export_bytes": 20048,
+      "normalized_source_equal": true,
+      "change": "Unchanged application/test source (line-ending normalization permitted)."
+    },
+    {
+      "path": "web/app.js",
+      "source_sha256": "5b64fc4e6b981db1d3bfaf2a384cbb8104d2c1cfc61749316bb65374b812e356",
+      "export_sha256": "5b64fc4e6b981db1d3bfaf2a384cbb8104d2c1cfc61749316bb65374b812e356",
+      "export_bytes": 124060,
+      "normalized_source_equal": true,
+      "change": "Unchanged application/test source (line-ending normalization permitted)."
+    },
+    {
+      "path": "web/index.html",
+      "source_sha256": "4d6946f2bd0fea896c29e6e00cbe81668ef73b5ca08aafe7a96d93aa0cb06745",
+      "export_sha256": "4d6946f2bd0fea896c29e6e00cbe81668ef73b5ca08aafe7a96d93aa0cb06745",
+      "export_bytes": 21469,
+      "normalized_source_equal": true,
+      "change": "Unchanged application/test source (line-ending normalization permitted)."
+    },
+    {
+      "path": "web/styles.css",
+      "source_sha256": "3d20b2735f23d75d26c27a88d3769f40cc3a765405357ac3ee69681c8b40c2b3",
+      "export_sha256": "3d20b2735f23d75d26c27a88d3769f40cc3a765405357ac3ee69681c8b40c2b3",
+      "export_bytes": 51160,
+      "normalized_source_equal": true,
+      "change": "Unchanged application/test source (line-ending normalization permitted)."
+    },
+    {
+      "path": "scripts/import_legacy.py",
+      "source_sha256": "8db2775631ce2ea3e927e3be505e79dd42fd3384d6c87a5210f351a5fda292f1",
+      "export_sha256": "33ba2f77803bd37403f8f2a8f1a8681d8ebf25e8f6bdf79e49d033d8c8fc26d6",
+      "export_bytes": 14181,
+      "normalized_source_equal": false,
+      "change": "Require explicit historical source input; remove machine-specific default path."
+    },
+    {
+      "path": "scripts/recover_render.py",
+      "source_sha256": "c127a141dd79ad2569a9ead87a08e24735a3de232af374bba503b8f92a9a418e",
+      "export_sha256": "c127a141dd79ad2569a9ead87a08e24735a3de232af374bba503b8f92a9a418e",
+      "export_bytes": 2051,
+      "normalized_source_equal": true,
+      "change": "Unchanged application/test source (line-ending normalization permitted)."
+    },
+    {
+      "path": "scripts/test_frontend.cjs",
+      "source_sha256": "0cddef179872b9e748c8801f41924bebf5e3e2b8e853d2126203df7c002a3c31",
+      "export_sha256": "0cddef179872b9e748c8801f41924bebf5e3e2b8e853d2126203df7c002a3c31",
+      "export_bytes": 92681,
+      "normalized_source_equal": true,
+      "change": "Unchanged application/test source (line-ending normalization permitted)."
+    },
+    {
+      "path": "tests/test_codex_config.py",
+      "source_sha256": "b710d39151e31e829d7d822b068be36be6887774965ca948822a95126db83bf4",
+      "export_sha256": "b710d39151e31e829d7d822b068be36be6887774965ca948822a95126db83bf4",
+      "export_bytes": 4177,
+      "normalized_source_equal": true,
+      "change": "Unchanged application/test source (line-ending normalization permitted)."
+    },
+    {
+      "path": "tests/test_feedback.py",
+      "source_sha256": "8b025ebb9fe2db44449b75cf0b7f7ed6258de2a6bbbf7f90e4e49f7fa81917ef",
+      "export_sha256": "8b025ebb9fe2db44449b75cf0b7f7ed6258de2a6bbbf7f90e4e49f7fa81917ef",
+      "export_bytes": 8493,
+      "normalized_source_equal": true,
+      "change": "Unchanged application/test source (line-ending normalization permitted)."
+    },
+    {
+      "path": "tests/test_legacy.py",
+      "source_sha256": "ff535ec575111a1f0d48f57cd51e0dffdb0818037ca60c07a7c05da3856399ad",
+      "export_sha256": "dcaf1d60d3b6131ee1f72ea7da37f952896e8866050224ae2cf29736c73abe37",
+      "export_bytes": 11783,
+      "normalized_source_equal": false,
+      "change": "Use temporary synthetic historical fixtures and add explicit-source CLI coverage; no private assets."
+    },
+    {
+      "path": "tests/test_media.py",
+      "source_sha256": "3d5d4c6e4708404c95b15fbd60f1c54c6d5f91dab8423bcef3d637b9fba06df9",
+      "export_sha256": "3d5d4c6e4708404c95b15fbd60f1c54c6d5f91dab8423bcef3d637b9fba06df9",
+      "export_bytes": 15991,
+      "normalized_source_equal": true,
+      "change": "Unchanged application/test source (line-ending normalization permitted)."
+    },
+    {
+      "path": "tests/test_pipeline_revisions.py",
+      "source_sha256": "9953663505bd84f0dc567c248c291f13d5bb9c38be584977411aeca0a7adc961",
+      "export_sha256": "9953663505bd84f0dc567c248c291f13d5bb9c38be584977411aeca0a7adc961",
+      "export_bytes": 15191,
+      "normalized_source_equal": true,
+      "change": "Unchanged application/test source (line-ending normalization permitted)."
+    },
+    {
+      "path": "tests/test_pipeline.py",
+      "source_sha256": "417913cbd29e9d7f9785399d8fa3f9644c05371fe74af89b8b400b505ab9aaf7",
+      "export_sha256": "417913cbd29e9d7f9785399d8fa3f9644c05371fe74af89b8b400b505ab9aaf7",
+      "export_bytes": 18224,
+      "normalized_source_equal": true,
+      "change": "Unchanged application/test source (line-ending normalization permitted)."
+    },
+    {
+      "path": "tests/test_prompt_integration.py",
+      "source_sha256": "a085bbc1a5c85d104e4d951c15d75f2ad62d57a6dc5fc9bb5e8ccf913eb70d96",
+      "export_sha256": "a085bbc1a5c85d104e4d951c15d75f2ad62d57a6dc5fc9bb5e8ccf913eb70d96",
+      "export_bytes": 7880,
+      "normalized_source_equal": true,
+      "change": "Unchanged application/test source (line-ending normalization permitted)."
+    },
+    {
+      "path": "tests/test_prompt_library.py",
+      "source_sha256": "ee3eb7f5a1325110652b92897333505f8afab092c16490ff0acb82cd40da4b98",
+      "export_sha256": "ee3eb7f5a1325110652b92897333505f8afab092c16490ff0acb82cd40da4b98",
+      "export_bytes": 18236,
+      "normalized_source_equal": true,
+      "change": "Unchanged application/test source (line-ending normalization permitted)."
+    },
+    {
+      "path": "tests/test_prompt_server.py",
+      "source_sha256": "a0da7c4ddb3d7b422cd922e75169b47e666aad62eeb2de9ef733a9d33f85ccfe",
+      "export_sha256": "a0da7c4ddb3d7b422cd922e75169b47e666aad62eeb2de9ef733a9d33f85ccfe",
+      "export_bytes": 16601,
+      "normalized_source_equal": true,
+      "change": "Unchanged application/test source (line-ending normalization permitted)."
+    },
+    {
+      "path": "tests/test_prompt_tuning.py",
+      "source_sha256": "38a4ce9c778b2dde5b8dab0e3769d330bae37d1907eb0b36a9c0db9abaa7e498",
+      "export_sha256": "38a4ce9c778b2dde5b8dab0e3769d330bae37d1907eb0b36a9c0db9abaa7e498",
+      "export_bytes": 11127,
+      "normalized_source_equal": true,
+      "change": "Unchanged application/test source (line-ending normalization permitted)."
+    },
+    {
+      "path": "tests/test_recovery.py",
+      "source_sha256": "59c79f5323a736e07e561dbea7638d63b91e2425de73c58d7a187da3640de168",
+      "export_sha256": "59c79f5323a736e07e561dbea7638d63b91e2425de73c58d7a187da3640de168",
+      "export_bytes": 13553,
+      "normalized_source_equal": true,
+      "change": "Unchanged application/test source (line-ending normalization permitted)."
+    },
+    {
+      "path": "tests/test_relay_vision.py",
+      "source_sha256": "54c38327f15c73ebd4ab1dd0bf32c55b9e4b36c81dbfc6759798efcc9a686c70",
+      "export_sha256": "54c38327f15c73ebd4ab1dd0bf32c55b9e4b36c81dbfc6759798efcc9a686c70",
+      "export_bytes": 8267,
+      "normalized_source_equal": true,
+      "change": "Unchanged application/test source (line-ending normalization permitted)."
+    },
+    {
+      "path": "tests/test_revision_integration.py",
+      "source_sha256": "0bc3ac79a05096cd47edde58d27d50bd6acc4a44f3f03ece24390d015522576d",
+      "export_sha256": "0bc3ac79a05096cd47edde58d27d50bd6acc4a44f3f03ece24390d015522576d",
+      "export_bytes": 11072,
+      "normalized_source_equal": true,
+      "change": "Unchanged application/test source (line-ending normalization permitted)."
+    },
+    {
+      "path": "tests/test_revision_server.py",
+      "source_sha256": "8c51f24be5cf6853ad6f3b2194678778de0f0570cc9dd1721b36bc10016a5bb8",
+      "export_sha256": "8c51f24be5cf6853ad6f3b2194678778de0f0570cc9dd1721b36bc10016a5bb8",
+      "export_bytes": 10682,
+      "normalized_source_equal": true,
+      "change": "Unchanged application/test source (line-ending normalization permitted)."
+    },
+    {
+      "path": "tests/test_satisfied_round_integration.py",
+      "source_sha256": "92b76a31c2e8b2637e76f4f49f46546c8e89a7027c173aeb96755711bd0acb10",
+      "export_sha256": "92b76a31c2e8b2637e76f4f49f46546c8e89a7027c173aeb96755711bd0acb10",
+      "export_bytes": 8766,
+      "normalized_source_equal": true,
+      "change": "Unchanged application/test source (line-ending normalization permitted)."
+    },
+    {
+      "path": "tests/test_satisfied_round.py",
+      "source_sha256": "0cbeb801428352253ed5b6a9aa99d761b026197164e6ad57cb91a2acdcb75cbc",
+      "export_sha256": "0cbeb801428352253ed5b6a9aa99d761b026197164e6ad57cb91a2acdcb75cbc",
+      "export_bytes": 16930,
+      "normalized_source_equal": true,
+      "change": "Unchanged application/test source (line-ending normalization permitted)."
+    },
+    {
+      "path": "tests/test_selection.py",
+      "source_sha256": "72f079edf65c8a0b842f6604d7e372610e3a957a85fbcc00a8d9c954db42e035",
+      "export_sha256": "72f079edf65c8a0b842f6604d7e372610e3a957a85fbcc00a8d9c954db42e035",
+      "export_bytes": 3886,
+      "normalized_source_equal": true,
+      "change": "Unchanged application/test source (line-ending normalization permitted)."
+    },
+    {
+      "path": "tests/test_server.py",
+      "source_sha256": "9cd9bd2caf0682858b5d1efc5233e8ce4fa8833de1375ed1bdaaa6f99a07d308",
+      "export_sha256": "9cd9bd2caf0682858b5d1efc5233e8ce4fa8833de1375ed1bdaaa6f99a07d308",
+      "export_bytes": 15452,
+      "normalized_source_equal": true,
+      "change": "Unchanged application/test source (line-ending normalization permitted)."
+    },
+    {
+      "path": "tests/test_timing.py",
+      "source_sha256": "aeed582f6cddba4e90502b58d9df6b3104f3497632e257194c2b7602ce8c8f35",
+      "export_sha256": "aeed582f6cddba4e90502b58d9df6b3104f3497632e257194c2b7602ce8c8f35",
+      "export_bytes": 5724,
+      "normalized_source_equal": true,
+      "change": "Unchanged application/test source (line-ending normalization permitted)."
+    },
+    {
+      "path": "tests/test_vision.py",
+      "source_sha256": "e174533288cddbefc6b9c523a866b262fcaaeca2548234c57ba744250576ee34",
+      "export_sha256": "e174533288cddbefc6b9c523a866b262fcaaeca2548234c57ba744250576ee34",
+      "export_bytes": 3395,
+      "normalized_source_equal": true,
+      "change": "Unchanged application/test source (line-ending normalization permitted)."
+    },
+    {
+      "path": "run.py",
+      "source_sha256": "d42c7aa0d1cf31f9ffdcd12adca4c45b0e3a1e5195785d9c0bb03b70ef09c6f4",
+      "export_sha256": "8eb1ca1343e822efbe78d17de528d4015fe84e3ba841ed2b82ea382223773ed3",
+      "export_bytes": 363,
+      "normalized_source_equal": false,
+      "change": "Remove an extra blank line at EOF; executable behavior unchanged."
+    },
+    {
+      "path": "start.ps1",
+      "source_sha256": "1f4c84bbdd7f42049ebb49d457184ab9c966c20d551323db90a3aeb39cecd7bf",
+      "export_sha256": "c7f716b06a68b3ce604969a967875ac854d96d66e11013c02c925ae7e4f2307f",
+      "export_bytes": 700,
+      "normalized_source_equal": false,
+      "change": "Use an isolated virtual environment and fail clearly on dependency setup errors."
+    },
+    {
+      "path": "requirements.txt",
+      "source_sha256": "3ff0b0ecab88a07fe1d6a3b6930da50969b096f2a7c6e2f6fba72ba1f6279a58",
+      "export_sha256": "a0c81d1d1303961f7e2b9304932c6e4ce4de9b09b27963449990347ffa8e0420",
+      "export_bytes": 124,
+      "normalized_source_equal": false,
+      "change": "Declare Pydantic v2 and Pillow >=10.1 APIs used by the existing code."
+    },
+    {
+      "path": ".env.example",
+      "source_sha256": "631340d9dba533704a0d70fabd7f851508a00c32ecfb5cca54393ace07979e2f",
+      "export_sha256": "d96baafcc88a40ac35224ef2b34b4e13ffccdcee544fb8411f5af3fdb2106bbd",
+      "export_bytes": 747,
+      "normalized_source_equal": false,
+      "change": "Portable manual-provider example; opt-in credential import disabled and personal configuration path removed."
+    },
+    {
+      "path": ".gitignore",
+      "source_sha256": "4b43f737847a8a8327770ad8ddc22ac01c1e1f681779a96492e2a3898aae1a99",
+      "export_sha256": "7ab91c7dc687708bd0291cb0b95e5cc659a17ddc6f527300eb0ee760c20cb4a7",
+      "export_bytes": 188,
+      "normalized_source_equal": false,
+      "change": "Exclude runtime, private configuration, generated media directories and development caches."
+    },
+    {
+      "path": "docs/api-contract.md",
+      "source_sha256": "ea36e3d6f2b159daabe9f711514357ac7267b8f077fb62cbbfabcb8676b3c672",
+      "export_sha256": "f0135db492ed5b5dea99a50b03c4b0480ba9a87e5ca7d9b1f826256dba52b26a",
+      "export_bytes": 17749,
+      "normalized_source_equal": false,
+      "change": "Remove personal project path; document portable provider setup and satisfied-round visual proposal contract."
+    },
+    {
+      "path": "docs/adr/0001-same-video-feedback-iterations.md",
+      "source_sha256": "ed98f581cb7f69b0ec2ec5531b05f41cea15c7489e1c9b20e6d039f599a6ecc3",
+      "export_sha256": "d23f40e490633e97d97fb5dc112461a51e48f2cd862f3834a6a712703d8d8cac",
+      "export_bytes": 3448,
+      "normalized_source_equal": false,
+      "change": "Replace references to local-only implementation plans with public documentation links."
+    },
+    {
+      "path": "docs/adr/0002-reusable-prompt-standards.md",
+      "source_sha256": "f09f3c0dac012a407c85ba062aa7016df82c04f810a6de4b625b4c4d55058032",
+      "export_sha256": "426a7c6a280990b000a9e1ad9e0ac6dd435332aa88965f422f7c88473921cb56",
+      "export_bytes": 3964,
+      "normalized_source_equal": false,
+      "change": "Document later visual generalization extension and public reference links."
+    }
+  ],
+  "additional_files": [
+    "README.md",
+    "requirements-lock.txt",
+    "docs/verification.md",
+    "docs/source-manifest.json"
+  ],
+  "excluded": [
+    "Private .env/provider credentials/Codex configuration and auth files",
+    "data/ (videos, generated outputs, original/annotated images, jobs, feedback, prompt library and proposals)",
+    "Virtual environments, package/model caches and bytecode",
+    "Private validation evidence, task-specific hash inventories and implementation plans",
+    "Unlicensed third-party binaries, model weights, music and fonts"
+  ],
+  "notes": [
+    "Source and export hashes refer to raw bytes before Git checkout line-ending conversion; normalized_source_equal compares text after CRLF-to-LF normalization.",
+    "The original repository docs/SOURCE_MANIFEST.json remains the historical publication snapshot and is not rewritten.",
+    "This manifest excludes its own digest and documents extra authored documentation separately."
+  ]
+}

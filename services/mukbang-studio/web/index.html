@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <title>吃播剪辑台 · BOBBO</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23f4f0e6'/%3E%3Ctext x='14' y='48' font-family='Georgia,serif' font-size='53' font-weight='bold' fill='%23292a25'%3Eb%3C/text%3E%3Ccircle cx='49' cy='46' r='4' fill='%23c44e35'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/static/styles.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <a href="#workspace" class="skip-link">跳转到结果区</a>
+  <header class="masthead">
+    <a class="wordmark" href="/" aria-label="BOBBO 吃播剪辑台首页"><span class="brand-symbol" aria-hidden="true">b.</span><span>BOBBO <small>THE LITTLE MOMENTS</small></span></a>
+    <div class="masthead-note"><span class="live-dot" aria-hidden="true"></span>本地调试 · 一次 AI 看图</div>
+    <button id="legacy-shortcut" class="text-button" type="button" hidden>上次的 12 秒，回看圈选 <span aria-hidden="true">↗</span></button>
+  </header>
+
+  <div class="studio-layout">
+    <aside class="control-room" aria-label="生成设置">
+      <div class="sidebar-heading"><p class="eyebrow">MUKBANG EDITING ROOM</p><h1>把可爱，<br>留下来<span class="red-period">。</span></h1><p class="intro">给小猫的吃饭日常，挑一段值得反复看的。</p></div>
+      <form id="generate-form" novalidate>
+        <section class="control-section upload-section" aria-labelledby="upload-heading">
+          <div class="section-label"><span class="section-number">01</span><h2 id="upload-heading">放入原视频</h2><span id="file-limit" class="quiet">最大 512 MB</span></div>
+          <label id="drop-zone" class="drop-zone" for="video-file">
+            <input id="video-file" type="file" accept="video/*,.mp4,.mov,.mkv,.webm,.avi" aria-describedby="upload-help">
+            <span class="upload-glyph" aria-hidden="true">＋</span>
+            <strong id="file-label">点击选择，或拖入视频</strong>
+            <span id="file-description">MP4 / MOV / 其他常见视频格式</span>
+          </label>
+          <p id="upload-help" class="field-help">原视频保留在本机；点击生成后，抽样拼图会发送给所配置的 AI 服务。</p>
+        </section>
+
+        <section class="control-section" aria-labelledby="duration-heading">
+          <div class="section-label"><span class="section-number">02</span><h2 id="duration-heading">这次想看多长？</h2></div>
+          <div class="target-display"><label for="target-duration">精选目标</label><div><input id="target-duration" name="target_duration" type="number" min="1" max="120" step="1" value="40" required aria-describedby="duration-help"><span>秒</span></div></div>
+          <input id="target-slider" class="duration-slider" type="range" min="1" max="120" step="1" value="40" aria-label="精选目标秒数">
+          <div class="duration-limits"><label>最短 <span><input id="min-duration" name="min_duration" type="number" min="1" max="120" step="1" value="30" required> 秒</span></label><span class="duration-rule" aria-hidden="true">—</span><label>最长 <span><input id="max-duration" name="max_duration" type="number" min="1" max="120" step="1" value="50" required> 秒</span></label></div>
+          <p id="duration-help" class="field-help">三项都可改，会一起写进发送给 AI 的 Prompt；不靠重复或变速凑时长。</p>
+          <div class="sampling-setting"><label for="sample-interval">抽样间隔</label><select id="sample-interval"><option value="1">每 1 秒一帧 · 推荐</option><option value="0.5">每 0.5 秒一帧 · 更密</option><option value="2">每 2 秒一帧 · 更省</option><option value="3">每 3 秒一帧</option></select></div>
+          <div class="sampling-note"><span class="mini-grid" aria-hidden="true"></span>每张最多 60 帧 · 所有拼图一次发送</div>
+        </section>
+
+        <section class="control-section advanced-section" aria-label="调试选项">
+          <details id="prompt-settings">
+            <summary><span>Prompt 与本次参数</span><span class="summary-tag">可编辑</span></summary>
+            <div class="details-content"><p class="field-help">这里只影响本次生成或重选，不会修改通用标准。打开旧任务保留它的原指令；选新视频默认使用当前生效标准，留空也采用生效标准。</p><p id="prompt-mode" class="prompt-mode" role="status"></p><label class="field-label" for="prompt-template">本次识别 Prompt</label><textarea id="prompt-template" rows="10" maxlength="40000" spellcheck="false" placeholder="正在加载识别指令…"></textarea><button id="use-active-prompt" class="text-button tiny" type="button">本次使用当前生效标准 · 0 次 AI</button><div class="inline-heading"><label class="field-label" for="options-preview">一同传给 AI 的参数</label><button id="reset-prompt" class="text-button tiny" type="button">恢复生效标准</button></div><pre id="options-preview" class="parameter-preview" tabindex="0"></pre></div>
+          </details>
+          <details id="model-settings">
+            <summary><span>模型连接</span><span id="config-badge" class="summary-tag">检查中</span></summary>
+            <div class="details-content"><p class="field-help">兼容支持多图输入的模型服务。密钥仅交给本地服务，不写入网页存储或任务文件。</p><label class="field-label" for="base-url">API Base URL</label><input id="base-url" type="url" placeholder="https://…/v1" autocomplete="off"><label class="field-label" for="model-name">模型名称</label><input id="model-name" type="text" placeholder="支持图片输入的模型 ID" autocomplete="off"><label class="field-label" for="api-style">接口格式</label><select id="api-style"><option value="chat_completions">Chat Completions</option><option value="responses">Responses</option></select><label class="field-label" for="api-key">API Key <span id="key-status" class="quiet"></span></label><input id="api-key" type="password" placeholder="输入密钥；留空保留当前密钥" autocomplete="off"><button id="save-config" class="secondary-button full-width" type="button">保存连接</button><p id="config-message" class="field-help" role="status"></p></div>
+          </details>
+        </section>
+
+        <div class="generate-actions"><p id="form-error" class="form-error" role="alert" hidden></p><button id="generate-button" class="generate-button" type="submit"><span>生成吃播精选</span><span aria-hidden="true">↗</span></button><p class="generation-note">原速 / 原声 / 无 BGM / 不加旁白</p></div>
+      </form>
+      <section id="recent-section" class="recent-section" hidden><div class="section-label"><h2>最近的调试</h2><button id="refresh-jobs" class="text-button tiny" type="button" aria-label="刷新最近任务">刷新</button></div><div id="recent-jobs" class="recent-jobs"></div></section>
+      <footer class="sidebar-footer"><span class="tiny-dot" aria-hidden="true"></span><span id="service-status">正在连接本地工作台</span></footer>
+    </aside>
+
+    <main id="workspace" class="workspace" tabindex="-1">
+      <div class="workspace-heading"><div><p class="eyebrow">THE CUTTING TABLE <span class="edition">/ 01</span></p><h2 id="workspace-title">等一顿可爱的饭。</h2><p id="workspace-description">不只看最后一条片，也看看 AI 是怎么选的。</p></div><span id="workspace-badge" class="workspace-badge">READY TO EXPLORE</span></div>
+
+      <section class="prompt-library" aria-labelledby="prompt-library-heading">
+        <details id="prompt-library-panel">
+          <summary><span><span class="eyebrow">A STANDARD THAT STAYS</span><strong id="prompt-library-heading">把你的审美，留给下一段视频。</strong></span><span id="prompt-active-badge" class="summary-tag">读取标准</span></summary>
+          <div class="prompt-library-body">
+            <div class="standard-topline"><p id="prompt-library-status" class="field-help" role="status">仅保存在本机。候选不会自动生效；保存发布、查看和回退均不调用 AI。</p><button id="refresh-prompt-library" class="text-button tiny" type="button">刷新检查 · 0 次 AI</button></div>
+            <p id="prompt-library-message" class="feedback-message" role="status"></p>
+            <div id="prompt-library-conflict" class="feedback-conflict" hidden></div>
+            <section id="satisfied-round-review" class="satisfied-round-review" aria-labelledby="satisfied-round-heading" hidden>
+              <div><p class="eyebrow">A GOOD ROUND, A REUSABLE WAY</p><h3 id="satisfied-round-heading">把这一轮的方法，整理成通用候选。</h3></div>
+              <p id="satisfied-round-source" class="satisfied-source"></p>
+              <p id="satisfied-round-disclosure" class="field-help"></p>
+              <p class="field-help">只取这轮成功结果已冻结的 Prompt 和已应用反馈；不采用页面上未保存的修改，不先保存下一轮草稿。整理不会自动生效，也不保证新视频都达到同样效果。</p>
+              <div class="satisfied-round-actions"><button id="create-satisfied-proposal" class="secondary-button feedback-primary" type="button">结合这一轮画面整理候选 · 额外 1 次看图 AI</button><button id="clear-satisfied-round" class="text-button tiny" type="button">取消本次来源</button></div>
+            </section>
+            <div class="standard-grid">
+              <div class="standard-editor-column"><div class="inline-heading"><label class="field-label" for="standard-editor">后续新视频的通用标准 · 独立编辑稿</label><button id="edit-active-standard" class="text-button tiny" type="button">载入生效版</button></div><input id="standard-name" type="text" maxlength="100" aria-label="新标准名称（可选）" placeholder="版本名称（可选），例如：多留正脸的小表情"><textarea id="standard-editor" rows="10" maxlength="40000" spellcheck="false" aria-describedby="standard-editor-help" placeholder="正在读取通用标准…"></textarea><p id="standard-editor-help" class="field-help">直接修改也可以，不必先调用 AI。修改不会影响已生成任务；发布后才会用于后续新视频。编辑稿只留在本页，刷新前请确认发布或自行留存。</p><label class="publish-confirm"><input id="confirm-standard-publish" type="checkbox"><span>我已核对完整文本，确认发布并用于后续新视频。</span></label><button id="publish-standard" class="secondary-button feedback-primary" type="button" disabled>确认发布新版本 · 0 次 AI ↗</button></div>
+              <div class="standard-reference"><details><summary>当前生效全文</summary><pre id="active-standard-text" class="code-box" tabindex="0"></pre></details><details id="standard-history"><summary>历史版本 / 回退</summary><div id="standard-version-list" class="standard-version-list"></div><p id="activate-standard-target" class="field-help"></p><button id="activate-standard" class="secondary-button" type="button" disabled>确认切换所选版本 · 0 次 AI</button></details><details><summary>候选整理历史</summary><div id="proposal-history" class="proposal-history"></div></details></div>
+            </div>
+            <section class="prompt-proposal" aria-labelledby="proposal-heading"><div class="proposal-heading"><div><p class="eyebrow">FEEDBACK → WORDS → YOUR APPROVAL</p><h3 id="proposal-heading">把纠正，整理成可复用的 Prompt。</h3></div><span class="summary-tag">额外 1 次文字 AI / 0 图</span></div><p class="field-help">只读你保存的喜欢、不想要、原因和模型说明，不会再次看图片或视频。最多选 12 段视频；AI 只提议，仍需你编辑确认发布。</p><div class="proposal-source-actions"><button id="add-current-prompt-source" class="text-button tiny" type="button">加入当前视频反馈</button><select id="prompt-source-job" aria-label="选择其他反馈来源"><option value="">其他已保存反馈的任务…</option></select><button id="add-prompt-source" class="secondary-button" type="button">加入来源</button><button id="refresh-prompt-sources" class="text-button tiny" type="button">检查来源版本 · 0 次 AI</button></div><div id="prompt-source-list" class="prompt-source-list"></div><label class="field-label" for="proposal-note">这次想怎样调整通用标准？ <span class="quiet">可选</span></label><textarea id="proposal-note" rows="2" maxlength="4000" placeholder="例如：把正脸呆住比长时间低头吃饭更值得留，整理成清楚的通用判断。"></textarea><button id="generate-prompt-proposal" class="secondary-button" type="button" disabled>整理成通用 Prompt · 额外 1 次文字 AI</button></section>
+            <section id="proposal-review-area" class="proposal-review-area" aria-labelledby="proposal-review-heading" hidden><h3 id="proposal-review-heading">本次候选 · 等你确认后才生效</h3><p id="proposal-message" class="feedback-message" role="status"></p><div id="proposal-content" class="proposal-content"></div></section>
+          </div>
+        </details>
+      </section>
+
+      <section id="job-status" class="job-status" aria-label="当前进度" hidden><div class="status-topline"><span id="stage-indicator" class="stage-indicator" aria-hidden="true"></span><strong id="job-stage"></strong><span id="job-percent" class="quiet"></span><button id="cancel-job" class="text-button tiny" type="button">取消这次</button></div><div id="progress-bar" class="progress-track" role="progressbar" aria-label="生成进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span></span></div><p id="job-message" role="status"></p></section>
+      <section id="timings-panel" class="timings-panel" aria-label="本次耗时" hidden></section>
+      <section id="iterations-panel" class="iterations-panel" aria-label="同视频版本与选帧变化" hidden></section>
+      <div id="notice-banner" class="notice-banner" role="status" hidden></div>
+
+      <section id="empty-state" class="empty-state" aria-labelledby="empty-title">
+        <div class="empty-motif" aria-hidden="true"><div class="film-edge left"></div><div class="empty-frame"><span class="frame-corner tl"></span><span class="frame-corner tr"></span><span class="frame-corner bl"></span><span class="frame-corner br"></span><div class="cat-line"><span class="cat-ear first"></span><span class="cat-ear second"></span><span class="cat-face"><i></i><i></i><b>ω</b></span></div><span class="red-circle"></span><span class="frame-notation">A LITTLE MOMENT, WORTH KEEPING.</span></div><div class="film-edge right"></div><span class="motif-stamp">SELECTED<br>WITH LOVE</span></div>
+        <p class="eyebrow">NOT EVERY SECOND. JUST THE LOVELY ONES.</p><h3 id="empty-title">好好吃饭，也值得被珍藏。</h3><p class="empty-copy">贴过来的大脸、舔嘴的小动作，<br>还有那一秒，刚好有点傻的表情。</p>
+        <div class="method-steps"><div><span>01 / SAMPLE</span><strong>一张放 60 帧</strong><p>默认每秒抽一帧<br>三分钟约三张拼图</p></div><div><span>02 / LOOK ONCE</span><strong>一次，把图一起看</strong><p>AI 返回可爱帧与<br>精选、表情包时间轴</p></div><div><span>03 / CUT</span><strong>程序照时间轴剪</strong><p>不再追加看图<br>每个选择都能回溯</p></div></div>
+      </section>
+
+      <section id="results" class="results" hidden>
+        <section id="satisfied-standard-entry" class="satisfied-standard-entry" aria-labelledby="satisfied-entry-heading" hidden>
+          <div><p class="eyebrow">KEEP THE WAY, NOT JUST THE VIDEO</p><h3 id="satisfied-entry-heading">这一版满意，就把方法留下。</h3><p id="satisfied-entry-source" class="field-help"></p></div>
+          <div><button id="prepare-satisfied-standard" class="secondary-button feedback-primary" type="button">将这个满意版本设为通用 ↗</button><p class="field-help">先锁定这一轮，再看候选与差异；只有你确认后才生效。</p></div>
+        </section>
+        <section id="feedback-panel" class="feedback-panel" aria-labelledby="feedback-heading" hidden>
+          <div class="feedback-heading-row"><div><p class="eyebrow">YOUR EYE, THE NEXT CUT</p><h3 id="feedback-heading">这一次，按你的感觉再选。</h3></div><span id="feedback-save-state" class="summary-tag">载入反馈</span></div>
+          <p class="feedback-help">在画面下标记“喜欢 / 不想要”，也可以打开全部抽样补充漏选。未标记是中性；喜欢会优先保留，但可能受总时长限制。“不想要”仅排除可爱证据帧，不等于精确裁掉前后整段。</p>
+          <div id="feedback-counts" class="feedback-counts"></div>
+          <label class="field-label" for="feedback-note">整体再补一句 <span class="quiet">可选，仅用于这段视频</span></label><textarea id="feedback-note" rows="2" maxlength="4000" placeholder="例如：少留埋头吃饭，多找眼睛和小嘴都露出来的表情。" disabled></textarea>
+          <div class="feedback-action-row"><p id="feedback-target" class="field-help"></p><div class="feedback-buttons"><button id="save-feedback" class="secondary-button" type="button" disabled>保存反馈 · 0 次 AI</button><button id="revise-feedback" class="secondary-button feedback-primary" type="button" disabled>应用反馈，重选下一版 ↗</button></div></div>
+          <p id="feedback-message" class="feedback-message" role="status"></p><div id="feedback-conflict" class="feedback-conflict" hidden></div>
+          <button id="feedback-to-prompt" class="text-button feedback-to-prompt" type="button" disabled>把这些反馈整理成通用 Prompt ↗ <span>先选来源，再额外调用 1 次文字 AI；0 图</span></button>
+          <details class="feedback-preview"><summary>本次反馈草稿 / 查看提交内容</summary><pre id="feedback-draft-preview" class="code-box" tabindex="0"></pre></details>
+          <p class="feedback-scope">仅此视频 · gpt-6.1-sol · 每轮全部原拼图一次请求，不自动重试。这是带反馈重选，不是训练模型，也不保证每一版都更好。草稿保留在当前页面，刷新前请先保存。</p>
+        </section>
+        <div class="result-tabs" role="tablist" aria-label="调试结果"><button id="tab-highlight" role="tab" type="button" data-tab="highlight" aria-selected="true" aria-controls="panel-highlight">吃播精选 <span id="highlight-count"></span></button><button id="tab-memes" role="tab" type="button" data-tab="memes" aria-selected="false" aria-controls="panel-memes" tabindex="-1">表情包 <span id="meme-count"></span></button><button id="tab-evidence" role="tab" type="button" data-tab="evidence" aria-selected="false" aria-controls="panel-evidence" tabindex="-1">AI 看到了什么 <span id="sheet-count"></span></button><button id="tab-request" role="tab" type="button" data-tab="request" aria-selected="false" aria-controls="panel-request" tabindex="-1">Prompt / 返回</button></div>
+
+        <div id="panel-highlight" class="tab-panel" role="tabpanel" aria-labelledby="tab-highlight">
+          <div id="highlight-content" class="highlight-content"></div>
+        </div>
+        <div id="panel-memes" class="tab-panel" role="tabpanel" aria-labelledby="tab-memes" hidden><div id="memes-content"></div></div>
+        <div id="panel-evidence" class="tab-panel" role="tabpanel" aria-labelledby="tab-evidence" hidden><div id="evidence-content"></div></div>
+        <div id="panel-request" class="tab-panel" role="tabpanel" aria-labelledby="tab-request" hidden><div id="request-content"></div></div>
+      </section>
+      <footer class="workspace-footer"><span>BOBBO / MUKBANG LAB</span><span>画面先可爱，剪辑才有意义。</span></footer>
+    </main>
+  </div>
+
+  <dialog id="image-dialog" class="image-dialog" aria-labelledby="image-dialog-title"><div class="dialog-header"><div><p class="eyebrow">EVIDENCE SHEET</p><h2 id="image-dialog-title">查看拼图</h2></div><button id="close-dialog" class="secondary-button" type="button">关闭 <kbd>Esc</kbd></button></div><p id="image-dialog-description" class="field-help"></p><div class="dialog-image-scroll"><img id="dialog-image" alt="" decoding="async"></div><a id="dialog-download" class="text-button" download>下载此图 ↗</a></dialog>
+  <dialog id="frame-dialog" class="frame-dialog image-dialog" aria-labelledby="frame-dialog-title"><div class="dialog-header"><div><p class="eyebrow">A FRAME, YOUR CALL</p><h2 id="frame-dialog-title">这一个画面</h2></div><button id="close-frame-dialog" class="secondary-button" type="button">关闭 <kbd>Esc</kbd></button></div><div class="frame-dialog-body"><img id="frame-dialog-image" alt=""><div><p id="frame-dialog-reason" class="field-help"></p><button id="frame-dialog-source" class="text-button" type="button">定位原片 ↗</button><div id="frame-dialog-controls"></div></div></div></dialog>
+  <div id="toast" class="toast" role="status" hidden></div>
+</body>
+</html>

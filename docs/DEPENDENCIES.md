@@ -1,5 +1,9 @@
 # 单独安装的依赖
 
+## 独立吃播调试台
+
+`services/mukbang-studio/` 单独使用 Python 3.11+、其 `requirements.txt` 列出的包，以及系统 FFmpeg / ffprobe（含 libx264）。模型通过用户自行配置的多图视觉服务调用，不随仓库分发权重；不需要下列摄像头 SDK、检测模型或音乐。Node.js 18+ 只用于它自己的前端测试。配置、启动与隐私边界见 [服务说明](../services/mukbang-studio/README.md)。
+
 ## 摄像头 SDK
 
 从设备厂商获得允许你使用的 SDK，将小程序运行文件放入：

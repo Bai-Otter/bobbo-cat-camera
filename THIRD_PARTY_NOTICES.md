@@ -20,3 +20,18 @@ The optional local model and SDK installation layout is documented in
 
 `miniprogram/common/uqrcode.js` retains its embedded MIT notice for QRCode for
 JavaScript, Copyright (c) 2009 Kazuhiko Arase, and its uQRCode source attribution.
+
+The independent `services/mukbang-studio/` service adds FastAPI, Pydantic,
+Uvicorn, python-multipart, HTTPX, Pillow, and pytest as Python dependencies.
+The exact installed versions retain their own licenses; see that service's
+`requirements.txt` and your installed package metadata. Its frontend uses
+browser APIs, with Node.js built-ins for offline tests; no bundled frontend
+framework or vendor SDK is added by this import.
+
+FFmpeg/ffprobe are externally installed, not redistributed in this repository.
+Their license obligations depend on the installed build and enabled codecs
+(including the libx264 encoder); do not assume the project's MIT license
+covers FFmpeg binaries. Vision model/API services are user-configured and
+subject to their providers' terms. No model weights, music, private videos,
+generated media, provider credentials, or original fonts are added with the
+studio source import.
