@@ -338,3 +338,120 @@ def test_network_read_timeout_retains_partial_and_closes_without_retry(tmp_path,
     assert state == {"calls": 1, "closed": True}
     assert "received [REDACTED]" == failure.value.raw_text
     assert "OFFLINE_FIXTURE_SECRET" not in str(failure.value)
+
+
+@pytest.mark.parametrize("changes, expected", [
+    ({"codex_client_compat": True}, {"User-Agent": "codex_cli_rs/0.156.1", "originator": "codex_cli_rs"}),
+    ({}, {}),
+    ({"codex_client_compat": False}, {}),
+    ({"codex_client_compat": "true"}, {}),
+    ({"codex_client_compat": 1}, {}),
+    ({"codex_client_compat": True, "api_style": "chat_completions"}, {}),
+])
+def test_client_identity_headers_are_strict_opt_in_for_responses_only(changes, expected):
+    provider = config(**changes)
+    original = provider.copy()
+    assert vision.client_identity_headers(provider) == expected
+    assert provider == original
+    assert "OFFLINE_FIXTURE_SECRET" not in json.dumps(expected)
+
+
+@pytest.mark.parametrize("changes, expected", [
+    ({"codex_client_compat": True}, {"User-Agent": "codex_cli_rs/0.156.1", "originator": "codex_cli_rs"}),
+    ({}, {}),
+    ({"codex_client_compat": False}, {}),
+    ({"codex_client_compat": "true"}, {}),
+    ({"codex_client_compat": 1}, {}),
+    ({"codex_client_compat": True, "api_style": "chat_completions"}, {}),
+])
+def test_client_compat_manifest_matches_actual_identity_without_changing_payload(tmp_path, monkeypatch, changes, expected):
+    calls = []
+    prompts = {"system": "exact system fixture", "user": "exact user fixture 猫"}
+    image_list = sheets(tmp_path)
+    provider = config(**changes)
+    baseline = vision.make_payload(prompts, image_list, tmp_path, {**provider, "codex_client_compat": False})
+    def handler(request):
+        calls.append(request)
+        assert request.method == "POST"
+        assert request.headers["authorization"] == "Bearer OFFLINE_FIXTURE_SECRET"
+        assert json.loads(request.content) == baseline
+        if expected:
+            assert request.headers["user-agent"] == expected["User-Agent"]
+            assert request.headers["originator"] == expected["originator"]
+        else:
+            assert "originator" not in request.headers
+            assert not request.headers.get("user-agent", "").startswith("codex_cli_rs/")
+        if provider["api_style"] == "responses":
+            return httpx.Response(200, headers={"content-type": "text/event-stream"}, text=completed())
+        return httpx.Response(200, json={"choices": [{"message": {"content": '{"ok":true}'}}]})
+    install_transport(monkeypatch, handler)
+    result = vision.call_vision(prompts, image_list, tmp_path, provider)
+    assert len(calls) == 1 and result["text"] == '{"ok":true}'
+    manifest = vision.request_manifest(prompts, image_list, provider)
+    assert manifest["client_headers"] == expected
+    assert manifest["image_count"] == 3 and manifest["automatic_retries"] == 0
+    assert manifest["system"] == prompts["system"] and manifest["user"] == prompts["user"]
+    assert manifest["model"] == "gpt-6.1-sol"
+    assert all(key.lower() != "authorization" for key in manifest["client_headers"])
+    assert "OFFLINE_FIXTURE_SECRET" not in json.dumps(manifest)
+
+
+@pytest.mark.parametrize("streaming", [True, False])
+def test_client_compat_toggle_changes_only_headers_not_request_body_bytes(tmp_path, monkeypatch, streaming):
+    calls = []
+    prompts = {"system": "same system 猫", "user": "same prompt and target parameters"}
+    image_list = sheets(tmp_path)
+    def handler(request):
+        calls.append(request)
+        if streaming:
+            return httpx.Response(200, headers={"content-type": "text/event-stream"}, text=completed())
+        return httpx.Response(200, json={"status": "completed", "output_text": '{"ok":true}'})
+    install_transport(monkeypatch, handler)
+    for enabled in (False, True):
+        before_count = len(calls)
+        vision.call_vision(prompts, image_list, tmp_path, config(stream=streaming, codex_client_compat=enabled))
+        assert len(calls) == before_count + 1  # Exactly one POST per explicit operation.
+    assert calls[0].content == calls[1].content
+    assert calls[0].url == calls[1].url
+    assert calls[0].headers["authorization"] == calls[1].headers["authorization"]
+    assert calls[0].headers["content-type"] == calls[1].headers["content-type"]
+    assert "originator" not in calls[0].headers
+    assert calls[1].headers["originator"] == "codex_cli_rs"
+    assert calls[1].headers["user-agent"] == "codex_cli_rs/0.156.1"
+
+
+@pytest.mark.parametrize("compat", [False, True])
+def test_codex_official_client_403_explains_rejection_and_never_retries_with_other_headers(tmp_path, monkeypatch, compat):
+    calls = []
+    raw = json.dumps({"error": {"message": "This account only allows Codex official clients",
+                                "type": "forbidden_error", "detail": "OFFLINE_FIXTURE_SECRET"}})
+    raw += event("response.failed", response={"status": "failed", "output": [],
+                                               "error": {"code": "upstream_error", "message": "Upstream request failed"}})
+    def handler(request):
+        calls.append(request)
+        return httpx.Response(403, headers={"content-type": "text/event-stream"}, text=raw)
+    install_transport(monkeypatch, handler)
+    with pytest.raises(vision.VisionError) as failure:
+        vision.call_vision({"system": "s", "user": "u"}, sheets(tmp_path), tmp_path,
+                           config(codex_client_compat=compat))
+    assert len(calls) == 1
+    assert "HTTP 403" in str(failure.value) and "客户端" in str(failure.value)
+    assert "拒绝" in str(failure.value) or "仅允许" in str(failure.value)
+    assert "This account only allows Codex official clients" in failure.value.raw_text
+    assert failure.value.raw_text == raw.replace("OFFLINE_FIXTURE_SECRET", "[REDACTED]")
+    assert "OFFLINE_FIXTURE_SECRET" not in str(failure.value)
+
+
+def test_unrelated_403_keeps_generic_failure_and_single_post(tmp_path, monkeypatch):
+    calls = []
+    raw = '{"error":{"message":"Quota denied OFFLINE_FIXTURE_SECRET"}}'
+    def handler(request):
+        calls.append(request)
+        return httpx.Response(403, text=raw)
+    install_transport(monkeypatch, handler)
+    with pytest.raises(vision.VisionError) as failure:
+        vision.call_vision({"system": "s", "user": "u"}, sheets(tmp_path), tmp_path,
+                           config(codex_client_compat=True))
+    assert len(calls) == 1
+    assert str(failure.value) == "视觉服务返回HTTP 403；未自动重试，请在原始返回中检查详情"
+    assert failure.value.raw_text == raw.replace("OFFLINE_FIXTURE_SECRET", "[REDACTED]")

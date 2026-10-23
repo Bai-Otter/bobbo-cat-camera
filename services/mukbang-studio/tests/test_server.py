@@ -13,7 +13,8 @@ from mukbang.server import clean_public, create_app, safe_file
 def provider(tmp_path, monkeypatch):
     for name in ("MUKBANG_VISION_BASE_URL", "MUKBANG_VISION_MODEL", "MUKBANG_VISION_API_STYLE",
                  "MUKBANG_VISION_API_KEY", "DASHSCOPE_API_KEY", "OPENAI_BASE_URL", "OPENAI_API_KEY",
-                 "MUKBANG_VISION_USE_CODEX_PROVIDER", "MUKBANG_CODEX_HOME"):
+                 "MUKBANG_VISION_USE_CODEX_PROVIDER", "MUKBANG_CODEX_HOME",
+                 "MUKBANG_VISION_CODEX_CLIENT_COMPAT"):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setattr(config, "ROOT", tmp_path)
     return config.ProviderConfig()
@@ -63,6 +64,18 @@ def test_settings_write_only_and_invalid_key_not_echoed(app):
         settings["api_key"] = "line\nbreak"
         response = client.put("/api/config", json=settings)
         assert response.status_code == 400 and "line" not in response.text
+
+
+@pytest.mark.parametrize("field", ["codex_client_compat", "client_headers", "client_compatibility"])
+def test_browser_cannot_enable_or_supply_client_compatibility(app, field):
+    with TestClient(app) as client:
+        settings = {"base_url": "https://vision.example/v1", "model": "gpt-6.1-sol",
+                    "api_style": "responses", field: True}
+        response = client.put("/api/config", json=settings)
+        assert response.status_code == 422
+        public = client.get("/api/config").json()
+        assert public["provider"]["client_compatibility"] == "none"
+        assert not public["configured"]
 
 
 def test_key_stays_for_same_host_and_clears_for_changed_origin(provider):

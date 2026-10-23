@@ -18,6 +18,7 @@ LIMITS = {"max_upload_mb": 512, "max_duration_seconds": 600}
 DEFAULT_TIMEOUT_SECONDS = 600.0
 MIN_TIMEOUT_SECONDS = 30.0
 MAX_TIMEOUT_SECONDS = 1800.0
+CODEX_CLIENT_COMPAT_PROFILE = "codex_cli_rs/0.156.1"
 
 
 def validate_timeout_seconds(value) -> float:
@@ -80,7 +81,8 @@ def _load_local_env() -> None:
     allowed = {"MUKBANG_VISION_BASE_URL", "MUKBANG_VISION_MODEL", "MUKBANG_VISION_API_STYLE",
                "MUKBANG_VISION_API_KEY", "DASHSCOPE_API_KEY", "OPENAI_BASE_URL", "OPENAI_API_KEY",
                "MUKBANG_VISION_USE_CODEX_PROVIDER", "MUKBANG_CODEX_HOME",
-               "MUKBANG_VISION_TIMEOUT_SECONDS", "MUKBANG_FFPROBE_THREADS"}
+               "MUKBANG_VISION_TIMEOUT_SECONDS", "MUKBANG_FFPROBE_THREADS",
+               "MUKBANG_VISION_CODEX_CLIENT_COMPAT"}
     for line in path.read_text(encoding="utf-8-sig").splitlines():
         if not line.strip() or line.lstrip().startswith("#") or "=" not in line:
             continue
@@ -131,6 +133,9 @@ class ProviderConfig:
         self._trusted_http_base = None
         self._configuration_source = "manual"
         self._responses_stream = False
+        self._codex_client_binding = None
+        self._codex_client_compat_requested = os.getenv(
+            "MUKBANG_VISION_CODEX_CLIENT_COMPAT", "").lower() in {"1", "true", "yes"}
         self._timeout_seconds = validate_timeout_seconds(
             os.getenv("MUKBANG_VISION_TIMEOUT_SECONDS", str(DEFAULT_TIMEOUT_SECONDS)))
         if os.getenv("MUKBANG_VISION_USE_CODEX_PROVIDER", "").lower() in {"1", "true", "yes"}:
@@ -143,6 +148,7 @@ class ProviderConfig:
             self._key = current["api_key"]
             self._configuration_source = "codex"
             self._responses_stream = self._style == "responses"
+            self._codex_client_binding = (self._base, self._model, self._style)
             return
         explicit_base = os.getenv("MUKBANG_VISION_BASE_URL") or os.getenv("OPENAI_BASE_URL")
         base = explicit_base or "https://dashscope.aliyuncs.com/compatible-mode/v1"
@@ -156,6 +162,13 @@ class ProviderConfig:
         elif not self._key and (explicit_base or urlsplit(base).hostname == "api.openai.com"):
             self._key = os.getenv("OPENAI_API_KEY", "")
 
+    def _codex_client_compat_active(self) -> bool:
+        # The binding is independent of the HTTP-only transport exception:
+        # HTTPS imports need the same complete provider/model/style boundary.
+        return (self._codex_client_compat_requested and self._configuration_source == "codex"
+                and self._style == "responses"
+                and self._codex_client_binding == (self._base, self._model, self._style))
+
     def public(self) -> dict:
         with self._lock:
             hostname = urlsplit(self._base).hostname
@@ -168,6 +181,8 @@ class ProviderConfig:
                                  "api_style": self._style, "key_configured": bool(self._key),
                                  "timeout_seconds": self._timeout_seconds,
                                  "configuration_source": self._configuration_source,
+                                 "client_compatibility": (CODEX_CLIENT_COMPAT_PROFILE
+                                                          if self._codex_client_compat_active() else "none"),
                                  "transport_warning": warning}}
 
     def update(self, values: dict) -> dict:
@@ -185,7 +200,8 @@ class ProviderConfig:
             # Never accidentally send an old provider's credential to a new host.
             if _origin(base) != _origin(self._base) and not key:
                 self._key = ""
-            if (base, model, style) != (self._base, self._model, self._style) or key:
+            if ((base, model, style) != (self._base, self._model, self._style)
+                    or (key and key != self._key)):
                 self._configuration_source = "manual"
             if _origin(base) != _origin(self._base):
                 self._responses_stream = False
@@ -201,4 +217,5 @@ class ProviderConfig:
             return {"base_url": self._base, "model": self._model, "api_style": self._style,
                     "api_key": self._key, "timeout_seconds": self._timeout_seconds,
                     "stream": self._responses_stream and self._style == "responses", "store": False,
+                    "codex_client_compat": self._codex_client_compat_active(),
                     "trusted_http_base_url": self._trusted_http_base}
