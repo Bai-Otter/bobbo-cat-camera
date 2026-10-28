@@ -46,6 +46,9 @@ def validate_decisions(parsed: dict, frames: list[dict], duration: float, option
             story_choice = {"status": "invalid", "reason": str(exc), "title": "", "summary": "",
                             "clips": [], "events": [], "warnings": [str(exc)]}
         choices["story"] = story_choice
+    if options.get("photos_enabled") is True:
+        from .photos import validate_photos
+        choices["photos"] = validate_photos(parsed.get("daily_photos"), frames, duration)
     return choices
 
 
@@ -204,6 +207,8 @@ def _run_pipeline(job_dir: Path, source_path: Path, options: dict, model_config:
         choices = validate_decisions(parsed, sampling["frames"], info["duration"], options)
         if options.get("story_enabled") is True:
             media.write_json(job_dir / "story-decision.json", choices["story"])
+        if options.get("photos_enabled") is True:
+            media.write_json(job_dir / "photo-decision.json", choices["photos"])
         if comparison is not None:
             for ident in comparison["liked_omitted_ids"]:
                 if not any(ident in warning for warning in choices["warnings"]):

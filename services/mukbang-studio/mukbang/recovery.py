@@ -22,7 +22,7 @@ from .timing import JobTimings, wall_now
 _JOB_ID = re.compile(r"[0-9a-f]{12}")
 _JOB_TERMINAL = {"completed", "failed", "cancelled"}
 _PROPOSAL_TERMINAL = {"completed", "failed", "interrupted"}
-_RECOVERABLE_FAILURES = {"selection", "render_highlight", "render_story", "export_memes", "final_validation"}
+_RECOVERABLE_FAILURES = {"selection", "render_highlight", "render_story", "export_memes", "export_photos", "final_validation"}
 _EVIDENCE = ("prompt.json", "request-manifest.json", "ai-raw-response.txt",
              "ai-selection-original.json", "ai-response-envelope.json")
 
@@ -119,6 +119,10 @@ def _options(value) -> dict:
         raise ValueError("原任务story_enabled参数必须为布尔值")
     if options.get("story_mode", "interaction") not in ("interaction", "inner_monologue"):
         raise ValueError("原任务小剧场模式无效")
+    if "photos_enabled" in options and type(options["photos_enabled"]) is not bool:
+        raise ValueError("原任务photos_enabled参数必须为布尔值")
+    if options.get("photos_enabled") is True and options.get("story_enabled") is not True:
+        raise ValueError("原任务照片模式缺少双视频设置")
     if "story_target_duration" in options:
         seconds = options["story_target_duration"]
         if (isinstance(seconds, bool) or not isinstance(seconds, (int, float)) or
@@ -268,6 +272,15 @@ def _preflight_selection(directory: Path, evidence: dict) -> None:
             deliverable = True
         except (ValueError, KeyError, TypeError, IndexError) as exc:
             failures.append(str(exc))
+    if evidence["options"].get("photos_enabled") is True:
+        from .photos import source_identity
+        for pick in choices["photos"].values():
+            if pick["status"] == "ready":
+                try:
+                    source_identity(pick, frames, info)
+                    deliverable = True
+                except (ValueError, KeyError, TypeError, IndexError) as exc:
+                    failures.append(str(exc))
     if not deliverable:
         detail = "；".join(failures) or choices.get("highlight_error") or story.get("reason", "")
         raise selection.SelectionError("保存的AI结果没有可交付的视频片段或量化后证据不足；不会创建恢复任务：" + detail)
@@ -350,6 +363,8 @@ def recover_render(data_dir: Path, source_job_id: str, *, job_id: str | None = N
             choices = pipeline.validate_decisions(deepcopy(evidence["parsed"]), sampling["frames"], info["duration"], evidence["options"])
             if evidence["options"].get("story_enabled") is True:
                 media.write_json(target / "story-decision.json", choices["story"])
+            if evidence["options"].get("photos_enabled") is True:
+                media.write_json(target / "photo-decision.json", choices["photos"])
         fields = pipeline.render_choices(target, source, evidence["options"], info, sampling, digest, choices,
                                          public_source, evidence["prompts"], ai, persist, lambda: False, timer,
                                          recovery=provenance)

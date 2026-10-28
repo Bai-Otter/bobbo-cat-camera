@@ -111,3 +111,19 @@ def test_monologue_recovery_keeps_subtitles_and_original_record_without_ai(saved
     assert output["inner_monologues"][0]["output_start"] == 1.
     assert (saved_failure / "jobs" / RECOVERY_ID / "interaction-story.srt").exists()
     assert hashes(original) == before
+
+
+def test_photos_only_recovery_exports_saved_exact_frames_without_ai(saved_failure):
+    from test_photos import sample_photos
+    original = save_dual_failure(saved_failure, eating="invalid", story="not_found")
+    record = json.loads((original / "job.json").read_text(encoding="utf-8"))
+    record["options"]["photos_enabled"] = True
+    media.write_json(original / "job.json", record)
+    save_selection_failure(saved_failure, lambda parsed: parsed.update(daily_photos=sample_photos()))
+    before = hashes(original)
+    final = recovery.recover_render(saved_failure, SOURCE_ID, job_id=RECOVERY_ID)
+    assert final["status"] == "completed" and final["ai"]["call_count"] == 0
+    assert final["result"]["video_url"] is None
+    assert all(p["status"] == "ready" for p in final["result"]["photos"].values())
+    assert (saved_failure / "jobs" / RECOVERY_ID / "photo-decision.json").exists()
+    assert hashes(original) == before

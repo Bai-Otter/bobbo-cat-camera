@@ -41,6 +41,7 @@ events按源时间升序且不重叠，时间完整位于其clip内，每个fram
 
 
 STORY_MONOLOGUE_SYSTEM_APPENDIX = "\n\n" + (Path(__file__).parents[1] / "prompts" / "story-inner-monologue-system-appendix.txt").read_text(encoding="utf-8").strip()
+PHOTOS_SYSTEM_APPENDIX = "\n\n" + (Path(__file__).parents[1] / "prompts" / "daily-photos-system-appendix.txt").read_text(encoding="utf-8").strip()
 
 
 class VisionError(RuntimeError):
@@ -118,6 +119,9 @@ def build_prompts(options: dict, source: dict, sampling: dict, feedback_context=
         system += STORY_MONOLOGUE_SYSTEM_APPENDIX if options.get("story_mode") == "inner_monologue" else STORY_SYSTEM_APPENDIX
         user += ("\n\n人宠互动小故事的独立参数（原吃播参数及提示词不变）：\n" +
                  json.dumps(story_parameters(options), ensure_ascii=False, indent=2))
+    if options.get("photos_enabled") is True:
+        system += PHOTOS_SYSTEM_APPENDIX
+        user += "\n\n本次额外提取人宠合拍和丑萌照片，各最多1张、必须不同源帧；没有合格照片就具体说明。"
     return {"system": system, "user": user}
 
 

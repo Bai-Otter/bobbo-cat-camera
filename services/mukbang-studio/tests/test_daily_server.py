@@ -63,7 +63,7 @@ def test_config_announces_additive_features_without_changing_eating_defaults(dai
     result = client.get("/api/config")
     assert result.status_code == 200
     body = result.json()
-    assert body["features"] == {"dual_video": True, "story_max_duration": 60, "story_inner_monologue": True, "photos": False}
+    assert body["features"] == {"dual_video": True, "story_max_duration": 60, "story_inner_monologue": True, "photos": True}
     assert body["defaults"] == {"target_duration": 40, "min_duration": 30,
         "max_duration": 50, "sample_interval": 1, "frames_per_sheet": 60}
     assert body["prompt_template"] == body["prompt_library"]["active"]["text"]
@@ -80,6 +80,18 @@ def test_new_story_mode_reaches_one_job_and_legacy_fingerprints_stay_unchanged(d
     assert calls[0]["options"]["story_target_duration"] == 35
     assert requested_options(JobOptions(story_mode="inner_monologue")) == requested_options(JobOptions())
     assert upload(client, {"story_enabled": True, "story_mode": "third_video"}).status_code == 400
+
+
+def test_photos_opt_in_is_strict_and_default_keeps_old_request_identity(daily_app):
+    app, client, calls = daily_app
+    assert "photos_enabled" not in requested_options(JobOptions())
+    assert requested_options(JobOptions(photos_enabled=False)) == requested_options(JobOptions())
+    for options in ({"photos_enabled": True}, {"story_enabled": True, "photos_enabled": "true"}):
+        assert upload(client, options).status_code == 400
+    response = upload(client, {"story_enabled": True, "photos_enabled": True, "story_mode": "inner_monologue"})
+    assert response.status_code == 202
+    drain(app)
+    assert len(calls) == 1 and calls[0]["options"]["photos_enabled"] is True
 
 
 @pytest.mark.parametrize("path", ["/daily", "/daily/"])

@@ -50,12 +50,9 @@
       </section>
 
       <section class="daily-card photos-card" aria-labelledby="photos-heading">
-        <div class="card-heading"><h2 id="photos-heading">今日精选</h2><span class="card-aside">下一步，留住一张</span></div>
-        <div class="photo-placeholders">
-          <div class="photo-placeholder"><svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="18" cy="15" r="6"/><path d="M7 37v-5a11 11 0 0 1 22 0v5m0-16 3-6 5 4 5-4v15a7 7 0 0 1-14 0v-9m5 5h.01M38 26h.01"/></svg><h3>人宠合拍</h3><span>暂未接入</span></div>
-          <div class="photo-placeholder"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="m10 18-1-9 10 6h10l10-6-1 9a17 17 0 1 1-28 0Z"/><path d="m16 25 4 2m8 0 4-2m-12 7q4 5 8 0M6 29l8 1m20 0 8-1"/></svg><h3>丑萌瞬间</h3><span>暂未接入</span></div>
-        </div>
-        <p class="photos-note">这次先做好两段视频，照片功能稍后再接。</p>
+        <div class="card-heading"><h2 id="photos-heading">今日精选</h2><span class="card-aside">留住一张，好好收藏</span></div>
+        <div class="photo-grid" id="photo-outputs" aria-live="polite"></div>
+        <p class="photos-note">从原视频留住人宠合拍与丑萌瞬间。点击照片看原图，不裁切、不重绘。</p>
       </section>
       <footer class="app-footer"><span class="footer-dot" aria-hidden="true"></span> 小小日常，好好收藏。</footer>
     </main>
@@ -64,7 +61,7 @@
       <section class="utility-card composer" id="upload-panel" aria-labelledby="upload-heading">
         <div class="utility-eyebrow">DAILY, LITTLE THINGS</div>
         <h2 id="upload-heading">把日常，<br>变成今天的回忆。</h2>
-        <p class="utility-intro">上传一次，生成纯享吃播和一个小剧场。小剧场保留原声，加上小布自然、可爱的内心独白字幕。</p>
+        <p class="utility-intro">上传一次，整理两段视频、两类照片。小剧场保留原声与小布的内心独白；再留住一张人宠合拍、一张丑萌瞬间。</p>
         <form id="upload-form" novalidate>
           <label class="file-picker" for="video-file"><span class="upload-icon" aria-hidden="true">↑</span><strong id="file-name">选择一段视频</strong><span id="file-detail">MP4 / MOV / MKV / AVI / WebM / M4V</span><input id="video-file" name="file" type="file" accept="video/*,.mkv,.avi,.m4v" required></label>
           <details class="generation-settings" id="generation-settings">
@@ -81,7 +78,7 @@
           <div class="active-standard"><span class="standard-dot" aria-hidden="true"></span><span id="prompt-standard">正在读取通用提示词…</span><a id="prompt-debug-link" href="/">查看调试页 ↗</a></div>
           <p class="form-error" id="form-error" role="alert" hidden></p>
           <button class="text-button resolve-upload" id="resolve-upload" type="button" hidden>已核对生成记录，允许我重新上传</button>
-          <button class="generate-button" id="generate-button" type="submit" disabled><span>一起生成两段视频</span><span aria-hidden="true">↗</span></button>
+          <button class="generate-button" id="generate-button" type="submit" disabled><span>一起生成视频和照片</span><span aria-hidden="true">↗</span></button>
           <p class="generation-note" id="generation-note">同一批拼图，一次 AI 识别。不自动重试。</p>
         </form>
         <div class="pipeline-notes"><span>保留原吃播偏好</span><span>两段均原速原声</span><span>无配音 · 无 BGM</span></div>

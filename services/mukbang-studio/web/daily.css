@@ -86,7 +86,18 @@ h1 { margin: 0; font-weight: 850; font-size: clamp(26px, 3vw, 31px); line-height
 .media-footer a:hover { text-decoration: underline; }
 .output-warnings { border-top: 1px solid #f1ece6; margin-top: 10px; padding-top: 8px; color: #aa7b5c; font-size: 10px; line-height: 1.6; }
 .output-warnings p { margin: 3px 0; }
-.photo-placeholders { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.photo-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.photo-pick { min-width: 0; padding: 8px; border-radius: 13px; background: #f6f3ed; }
+.photo-pick:nth-child(2) { background: #f2f2eb; }
+.photo-pick h3 { margin: 2px 1px 8px; font-size: 12px; color: #84745f; }
+.photo-image-link { display: block; border-radius: 8px; overflow: hidden; background: #e8e2d9; }
+.photo-image-link img { display: block; width: 100%; height: auto; object-fit: contain; }
+.photo-pick > strong { display: block; margin: 9px 1px 4px; font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+.photo-pick p { margin: 5px 1px; font-size: 10px; line-height: 1.7; color: #9a8973; overflow-wrap: anywhere; }
+.photo-pick .photo-download { display: inline-block; margin: 5px 1px 2px; padding: 6px 0; font-size: 11px; color: #927252; text-underline-offset: 3px; }
+.photo-pick details { margin: 6px 1px 0; font-size: 10px; line-height: 1.7; color: #9a8973; }
+.photo-pick details a { display: inline-block; padding: 6px 0; }
+.photo-empty { display: grid; align-content: center; min-height: 100px; text-align: center; }
 .photo-placeholder { display: flex; align-items: center; justify-content: center; flex-direction: column; aspect-ratio: 1.4; background: #f6f3ed; border: 1px dashed #e3dccf; border-radius: 14px; color: #b5a58e; }
 .photo-placeholder:nth-child(2) { background: #f2f2eb; border-color: #e0e0d1; color: #a4aa8f; }
 .photo-placeholder svg { width: 32px; height: 32px; stroke-width: 1.35; }

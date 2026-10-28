@@ -132,7 +132,7 @@ def render_dual_outputs(job_dir: Path, source_path: Path, options: dict, info: d
     if choices.get("clips"):
         try:
             eating_fields = eating_renderer(
-                job_dir, source_path, {**options, "story_enabled": False}, info, sampling, original_hash,
+                job_dir, source_path, {**options, "story_enabled": False, "photos_enabled": False}, info, sampling, original_hash,
                 choices, source, prompts, ai, eating_update, cancelled, timings,
                 revision=revision, feedback_snapshot=feedback_snapshot, comparison=comparison, recovery=recovery)
             result = {**eating_fields["result"], "highlight_status": "ready", "highlight_reason": ""}
@@ -216,15 +216,40 @@ def render_dual_outputs(job_dir: Path, source_path: Path, options: dict, info: d
         except Exception as exc:
             media.check_cancelled(cancelled)
             story_output.update(status="failed", reason=str(exc), video_url=None, video_duration=0., poster_url=None)
+    photo_outputs = None
+    if options.get("photos_enabled") is True:
+        from .photos import export_photos
+        emit({"status": "rendering", "progress": 94, "stage": "提取合拍与丑萌照片",
+              "message": "按AI选中的真实源帧导出原尺寸照片，不再请求AI，不重绘或裁切"})
+        try:
+            with timings.measure("export_photos"):
+                photo_outputs = export_photos(job_dir, source_path, choices["photos"], info, sampling,
+                                              original_hash, cancelled, on_step=lambda ident, label, seconds, status:
+                                              timings.record_detail("export_photos", ident, label, seconds, status))
+        except media.Cancelled:
+            raise
+        except Exception as exc:
+            media.check_cancelled(cancelled)
+            photo_outputs = {category: ({**pick, "status": "failed", "reason": str(exc)}
+                                        if pick["status"] == "ready" else deepcopy(pick))
+                             for category, pick in choices["photos"].items()}
+            media.write_json(job_dir / "photo-result.json", photo_outputs)
     with timings.measure("final_validation"):
         if media.sha256(source_path) != original_hash:
             raise RuntimeError("源视频完整性校验未通过")
         result["story"] = story_output
         result["dual_video"] = True
+        if photo_outputs is not None:
+            result["photos"] = photo_outputs
         # Honest product states, not a claim that both videos necessarily exist.
         for label, state in (("吃播", result["highlight_status"]), ("小剧场", story_output["status"])):
             if state in {"failed", "invalid"}:
                 result["warnings"].append(f"{label}未生成（{state}），详情见该产物状态；未追加AI请求")
+        if photo_outputs is not None:
+            from .photos import CATEGORIES
+            for category, photo in photo_outputs.items():
+                if photo["status"] in {"invalid", "failed"}:
+                    result["warnings"].append(f"{CATEGORIES[category]}未生成（{photo['status']}）：{photo['reason']}；未追加AI请求")
         result["validation"].update(source_unchanged=True, visual_api_call_count=ai["call_count"],
                                     additional_story_visual_api_calls=0)
         media.write_json(job_dir / "story-result.json", story_output)
@@ -232,6 +257,9 @@ def render_dual_outputs(job_dir: Path, source_path: Path, options: dict, info: d
         successes = sum(state == "ready" for state in (result["highlight_status"], story_output["status"]))
         note = (f"吃播{result['video_duration']:.2f}秒；小剧场{story_output['video_duration']:.2f}秒" if successes == 2 else
                 f"已生成{successes}类视频；其他类别的未生成原因已单独列出")
+        photo_successes = sum(p["status"] == "ready" for p in (photo_outputs or {}).values())
+        if photo_outputs is not None:
+            note += f"；照片{photo_successes}/2张（各类结果单独列出）"
         request_note = "复用已保存视觉结果，本次未调用AI" if recovery is not None else "共用一次视觉判断，未重试看图"
         fields = {**eating_fields, "status": "completed", "progress": 100, "stage": "处理完成",
                   "message": note + "。" + request_note, "source": source, "sampling": sampling,
@@ -240,7 +268,9 @@ def render_dual_outputs(job_dir: Path, source_path: Path, options: dict, info: d
             fields.update(feedback=feedback_snapshot, comparison=comparison)
         if recovery is not None:
             fields["recovery"] = deepcopy(recovery)
-    if successes == 0 and (result["highlight_status"] in {"invalid", "failed"} or story_output["status"] in {"invalid", "failed"}):
+    if successes + photo_successes == 0 and (result["highlight_status"] in {"invalid", "failed"} or
+            story_output["status"] in {"invalid", "failed"} or
+            any(p["status"] in {"invalid", "failed"} for p in (photo_outputs or {}).values())):
         emit({"result": result, "sampling": sampling})
-        raise RuntimeError("本次没有可交付的视频，至少一个类别校验或渲染失败；已保存各自原因，未重试AI")
+        raise RuntimeError("本次没有可交付的视频或照片，至少一个类别校验或导出失败；已保存各自原因，未重试AI")
     return fields

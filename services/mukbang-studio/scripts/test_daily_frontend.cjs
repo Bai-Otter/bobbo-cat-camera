@@ -38,7 +38,7 @@ const text = (node) => [node.textContent, ...node.children.map(text)].join(" ");
 const find = (node, predicate) => [...(predicate(node) ? [node] : []), ...node.children.flatMap((child) => find(child, predicate))];
 const videos = (node) => find(node, (item) => item.tagName === "VIDEO");
 const buttons = (node) => find(node, (item) => item.tagName === "BUTTON");
-const config = () => ({ configured: true, defaults: { target_duration: 40, min_duration: 30, max_duration: 50, sample_interval: 1 }, features: { dual_video: true, story_inner_monologue: true, photos: false }, limits: { max_upload_mb: 512 }, prompt_library: { active_version_id: "P0004" } });
+const config = () => ({ configured: true, defaults: { target_duration: 40, min_duration: 30, max_duration: 50, sample_interval: 1 }, features: { dual_video: true, story_inner_monologue: true, photos: true }, limits: { max_upload_mb: 512 }, prompt_library: { active_version_id: "P0004" } });
 const completed = () => ({
   id: "aabbccddeeff", filename: "日常.mp4", status: "completed", stage: "整理完成", progress: 100, created_at: "2026-10-28T12:00:00+08:00", updated_at: "2026-10-28T12:01:00+08:00",
   options: { story_enabled: true }, ai: { call_count: 1 }, result: {
@@ -84,7 +84,8 @@ test("page uses dedicated static assets and no fake statusbar or media", () => {
   assert.match(html, /\/static\/daily\.css/); assert.match(html, /\/static\/daily\.js/);
   assert.doesNotMatch(html, /https?:\/\/|9:41|01:28|08:26|12张|糯米|<img/);
   assert.match(html, /人宠合拍/); assert.match(html, /丑萌瞬间/);
-  assert.equal((html.match(/暂未接入/g) || []).length, 2);
+  assert.match(html, /id="photo-outputs"/);
+  assert.doesNotMatch(html, /暂未接入/);
 });
 
 test("all DOM IDs referenced by implementation exist exactly once", () => {
@@ -105,7 +106,7 @@ test("assets and downloads only accept same-origin HTTP URLs without embedded cr
 });
 
 test("generation retains eating defaults and adds story within the SAME task", () => {
-  assert.deepEqual(kit.generationOptions({ target: "40", min: "30", max: "50", interval: "1", story: "30" }), { target_duration: 40, min_duration: 30, max_duration: 50, sample_interval: 1, story_enabled: true, story_target_duration: 30, story_mode: "inner_monologue", use_active_prompt: true });
+  assert.deepEqual(kit.generationOptions({ target: "40", min: "30", max: "50", interval: "1", story: "30" }), { target_duration: 40, min_duration: 30, max_duration: 50, sample_interval: 1, story_enabled: true, story_target_duration: 30, story_mode: "inner_monologue", photos_enabled: true, use_active_prompt: true });
 });
 
 test("bad duration bounds and nonfinite values are blocked before submission", () => {
@@ -165,7 +166,7 @@ test("boot connects only to read-only config/history and keeps generation disabl
 });
 
 test("unsupported old server and missing model configuration never submit", async () => {
-  for (const change of [{ features: {} }, { features: { dual_video: true } }, { configured: false }]) {
+  for (const change of [{ features: {} }, { features: { dual_video: true } }, { features: { dual_video: true, story_inner_monologue: true } }, { configured: false }]) {
     const page = harness({ settings: { ...config(), ...change } }); await page.ready(); page.choose();
     assert.equal(page.nodes["generate-button"].disabled, true); await page.submit();
     assert.equal(page.calls.filter((call) => call.options.method === "POST").length, 0);
@@ -187,6 +188,7 @@ test("a click submits file + dual options once and does not issue a separate sto
   const writes = page.calls.filter((call) => call.options.method === "POST"); assert.equal(writes.length, 1); assert.equal(writes[0].url, "/api/jobs");
   assert.equal(writes[0].options.body.get("file").name, "日常.mp4"); assert.equal(writes[0].options.body.get("video"), undefined);
   const options = JSON.parse(writes[0].options.body.get("options")); assert.equal(options.story_enabled, true); assert.equal(options.use_active_prompt, true); assert.equal(options.prompt, undefined);
+  assert.equal(options.photos_enabled, true);
   assert.match(page.nodes["job-ai-count"].textContent, /0 次/); assert.equal(page.nodes["generate-button"].disabled, true);
 });
 
@@ -287,4 +289,36 @@ test("offline caption restyle time stays separate from original generation time"
   assert.match(text(page.nodes["story-output"]), /不计入首次生成耗时；未重新调用 AI/);
   delete job.result.story.local_postprocess;
   assert.equal(kit.outputsFor(job, origin).story.local_postprocess_seconds, null);
+});
+
+test("two real photo cards preserve original images, safe downloads and plain-text evidence", async () => {
+  const job = completed(); job.options.photos_enabled = true;
+  job.result.photos = Object.fromEntries(["portrait", "ugly_cute"].map((category) => [category, {
+    status: "ready", image_url: `/api/jobs/${job.id}/files/photos/${category}.png`, title: "<img onerror=bad>可爱",
+    reason: "<script>原片中的具体特点</script>", time: 12, frame_id: "F0013", width: 2560, height: 1440,
+    sample_url: `/api/jobs/${job.id}/files/samples/frame-00013.jpg`
+  }]));
+  const page = harness({ jobs: [job], records: { [job.id]: job } }); await page.ready();
+  const root = page.nodes["photo-outputs"];
+  assert.equal(find(root, (n) => n.tagName === "IMG").length, 2);
+  assert.equal(find(root, (n) => n.tagName === "SCRIPT").length, 0);
+  assert.equal(find(root, (n) => n.attrs.download).length, 2);
+  assert.match(text(root), /原片 12 秒/); assert.match(text(root), /<script>原片/);
+  assert.match(css, /\.photo-image-link img\s*\{[^}]*object-fit:\s*contain/);
+  assert.equal(page.calls.filter((c) => c.options.method === "POST").length, 0);
+});
+
+test("photo absence, invalid URL, errors and old records never show fake pictures", async () => {
+  const job = completed();
+  assert.ok(kit.photosFor(job, origin).every((p) => p.status === "historical"));
+  assert.ok(kit.photosFor(null, origin).every((p) => p.status === "empty"));
+  assert.ok(kit.photosFor({ status: "analyzing" }, origin).every((p) => p.status === "pending"));
+  job.options.photos_enabled = true;
+  job.result.photos = { portrait: { status: "not_found", reason: "人物未露脸" }, ugly_cute: { status: "ready", image_url: "javascript:alert(1)" } };
+  const page = harness({ jobs: [job], records: { [job.id]: job } }); await page.ready();
+  assert.equal(find(page.nodes["photo-outputs"], (n) => n.tagName === "IMG").length, 0);
+  assert.match(text(page.nodes["photo-outputs"]), /人物未露脸/);
+  assert.match(text(page.nodes["photo-outputs"]), /照片地址无效/);
+  delete job.result.photos;
+  assert.ok(kit.photosFor(job, origin).every((p) => p.status === "failed"));
 });

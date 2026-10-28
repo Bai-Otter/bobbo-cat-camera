@@ -23,6 +23,7 @@ STAGES = {
     "render_highlight": "精选剪辑与校验",
     "render_story": "互动小剧场剪辑与校验",
     "export_memes": "表情包导出与校验",
+    "export_photos": "人宠合拍与丑萌照片提取",
     "final_validation": "最终检查与保存",
 }
 TERMINAL = {"completed", "failed", "cancelled", "interrupted"}

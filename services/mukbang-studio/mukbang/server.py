@@ -23,7 +23,7 @@ from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, ConfigDict, Field, StrictBool
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, model_validator
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from .config import DEFAULTS, LIMITS, ROOT, ProviderConfig
@@ -61,11 +61,20 @@ class JobOptions(BaseModel):
     story_enabled: StrictBool = False
     story_target_duration: float = Field(default=30, ge=3, le=60)
     story_mode: Literal["interaction", "inner_monologue"] = "interaction"
+    photos_enabled: StrictBool = False
+
+    @model_validator(mode="after")
+    def photo_bundle(self):
+        if self.photos_enabled and not self.story_enabled:
+            raise ValueError("照片提取需要同时启用每日双视频模式")
+        return self
 
 
 def requested_options(values: JobOptions) -> dict:
     """Keep legacy fingerprints stable for jobs that do not request a story."""
-    result = values.model_dump(exclude={"use_active_prompt", "story_enabled", "story_target_duration", "story_mode"})
+    result = values.model_dump(exclude={"use_active_prompt", "story_enabled", "story_target_duration", "story_mode", "photos_enabled"})
+    if values.photos_enabled:
+        result["photos_enabled"] = True
     if values.story_enabled:
         result.update(story_enabled=True, story_target_duration=values.story_target_duration)
         if values.story_mode == "inner_monologue":
@@ -585,7 +594,7 @@ def create_app(data_dir: Path | None = None, provider: ProviderConfig | None = N
         current = library.public()
         active = next(row for row in current["versions"] if row["id"] == current["active_version_id"])
         return {**provider.public(), "defaults": DEFAULTS, "limits": LIMITS,
-                "features": {"dual_video": True, "story_max_duration": 60, "story_inner_monologue": True, "photos": False},
+                "features": {"dual_video": True, "story_max_duration": 60, "story_inner_monologue": True, "photos": True},
                 "prompt_template": active["text"],
                 "prompt_library": {"revision": current["revision"], "active_version_id": active["id"], "active": active},
                 "legacy_available": (data_dir / "legacy" / "manifest.json").is_file()}

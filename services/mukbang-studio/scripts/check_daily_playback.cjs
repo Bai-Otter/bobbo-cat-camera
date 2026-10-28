@@ -25,6 +25,26 @@ const { chromium } = require(args.playwright);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, "Horizontal overflow");
       assert.equal(await page.locator("#story-output video").count(), 1);
       assert.match(await page.locator("#story-output").innerText(), /原声＋内心独白字幕/);
+      if (args.photos !== undefined) {
+        const expectedPhotos = Number(args.photos);
+        assert.ok(Number.isInteger(expectedPhotos) && expectedPhotos >= 0 && expectedPhotos <= 2);
+        await page.locator("#photo-outputs").scrollIntoViewIfNeeded();
+        await page.waitForFunction((expected) => {
+          const imgs = Array.from(document.querySelectorAll("#photo-outputs img"));
+          return imgs.length === expected && imgs.every((img) => img.complete && img.naturalWidth > 0);
+        }, expectedPhotos, { timeout: 30000 });
+        const photos = await page.locator("#photo-outputs img").evaluateAll((imgs) => imgs.map((img) => ({
+          width: img.naturalWidth, height: img.naturalHeight, fit: getComputedStyle(img).objectFit,
+          url: img.src, alt: img.alt
+        })));
+        assert.ok(photos.every((p) => p.width > 320 && p.fit === "contain"));
+        assert.equal(new Set(photos.map((p) => p.url)).size, expectedPhotos);
+        assert.equal(await page.locator("#photo-outputs a[download]").count(), expectedPhotos);
+        if (args["portrait-status"] === "not_found") assert.match(await page.locator('[data-category="portrait"]').innerText(), /没有合适画面/);
+        await page.locator("#photo-outputs").screenshot({ path: path.join(output, `photos-${viewport.width}.png`) });
+        checks.push({ width: viewport.width, photos });
+        await page.evaluate(() => window.scrollTo(0, 0));
+      }
       await page.screenshot({ path: path.join(output, `daily-${viewport.width}.png`), fullPage: true });
       if (viewport.width === 390) await page.screenshot({ path: path.join(output, "daily-mobile-viewport.png") });
       for (const selector of ["#story-output", "#eating-output"]) {
