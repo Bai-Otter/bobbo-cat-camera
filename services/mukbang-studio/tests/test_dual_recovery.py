@@ -7,7 +7,7 @@ import pytest
 from mukbang import media, recovery
 from test_dual_regressions import interaction_story
 from test_recovery import (RECOVERY_ID, SOURCE_ID, hashes, saved_failure,
-                           synthetic_failure)
+                           save_selection_failure, synthetic_failure)
 
 
 def save_dual_failure(data, failed_stage="render_highlight", *, eating="valid", story="ready"):
@@ -89,4 +89,25 @@ def test_recovery_rejects_invalid_dual_options_before_creating_job(saved_failure
     with pytest.raises(ValueError, match="参数|时长|story|不可读取"):
         recovery.recover_render(saved_failure, SOURCE_ID, job_id=RECOVERY_ID)
     assert not (saved_failure / "jobs" / RECOVERY_ID).exists()
+    assert hashes(original) == before
+
+
+def test_monologue_recovery_keeps_subtitles_and_original_record_without_ai(saved_failure):
+    original = save_dual_failure(saved_failure, eating="absent")
+    record = json.loads((original / "job.json").read_text(encoding="utf-8"))
+    record["options"].update(story_mode="inner_monologue", story_target_duration=3)
+    media.write_json(original / "job.json", record)
+    def add_captions(parsed):
+        parsed["interaction_story"].update(narrative_arc="合成动作随后发生合成反应。", reviewed_full_video=True,
+            shortfall_reason="", inner_monologues=[{"id": "m1", "clip_id": "s01", "event_id": "reaction",
+                "start": 2., "end": 3.4, "frame_ids": ["F0003"], "text": "咦？"}])
+    save_selection_failure(saved_failure, add_captions)
+    before = hashes(original)
+    final = recovery.recover_render(saved_failure, SOURCE_ID, job_id=RECOVERY_ID)
+    assert final["status"] == "completed" and final["ai"]["call_count"] == 0
+    output = final["result"]["story"]
+    assert output["status"] == "ready" and output["validation"]["subtitles_burned_in"] is True
+    assert output["validation"]["narration_added"] is False
+    assert output["inner_monologues"][0]["output_start"] == 1.
+    assert (saved_failure / "jobs" / RECOVERY_ID / "interaction-story.srt").exists()
     assert hashes(original) == before

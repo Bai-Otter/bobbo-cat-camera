@@ -39,7 +39,7 @@
     const options = {
       target_duration: Number(values.target), min_duration: Number(values.min), max_duration: Number(values.max),
       sample_interval: Number(values.interval), story_enabled: true,
-      story_target_duration: Number(values.story), use_active_prompt: true
+      story_target_duration: Number(values.story), story_mode: "inner_monologue", use_active_prompt: true
     };
     for (const key of ["target_duration", "min_duration", "max_duration"]) {
       if (!Number.isFinite(options[key]) || options[key] < 1 || options[key] > 120) throw new Error("吃播时长请填写 1–120 秒。 ");
@@ -67,6 +67,13 @@
     if (story?.status === "ready") {
       const video = safeUrl(story.video_url, origin);
       narrative = video ? { status: "ready", video_url: video, poster_url: safeUrl(story.poster_url, origin), duration: measuredSeconds(story.video_duration), title: story.title || "今天的小故事", summary: story.summary || "", clips: Array.isArray(story.clips) ? story.clips : [], warnings: story.warnings || [] } : { status: "invalid", reason: "故事视频地址无效，未展示为已完成。" };
+      if (video) {
+        narrative.has_monologues = story.story_mode === "inner_monologue" && story.validation?.subtitles_burned_in === true;
+        narrative.monologues = narrative.has_monologues && Array.isArray(story.inner_monologues) ? story.inner_monologues.filter((cue) => cue && typeof cue.text === "string" && measuredSeconds(cue.output_start) !== null && measuredSeconds(cue.output_end) > cue.output_start) : [];
+        narrative.subtitle_url = narrative.has_monologues ? safeUrl(story.subtitle_url, origin) : null;
+        narrative.duration_goal = measuredSeconds(story.duration_goal?.target) !== null ? story.duration_goal : null;
+        narrative.local_postprocess_seconds = story.local_postprocess?.kind === "subtitle_style_only" ? measuredSeconds(story.local_postprocess.seconds) : null;
+      }
     } else if (story && ["not_found", "invalid", "failed"].includes(story.status)) narrative = { status: story.status, reason: story.reason || "没有找到人和宠物同镜、真正发生互动的完整小故事。", warnings: story.warnings || [] };
     else if (pending) narrative = { status: "pending" };
     else if (!story && !job?.options?.story_enabled) narrative = { status: "historical", reason: "此历史任务未提取小剧场。原有吃播仍可回看；上传新视频即可同时提取两段。" };
@@ -110,9 +117,9 @@
   function stopPolling() { clearTimeout(state.pollTimer); state.pollTimer = null; }
   function updateButton() {
     const configured = state.config?.configured === true;
-    const supported = state.config?.features?.dual_video === true;
+    const supported = state.config?.features?.dual_video === true && state.config?.features?.story_inner_monologue === true;
     $("generate-button").disabled = !state.file || !configured || !supported || state.submitting || state.uncertainUpload || isRunning();
-    $("generate-button").firstElementChild.textContent = state.submitting ? "正在上传视频…" : state.uncertainUpload ? "提交结果待核对" : isRunning() ? "这次正在生成…" : !state.config ? "正在连接本地服务…" : !configured ? "请先在调试页配置模型" : !supported ? "当前服务尚未开启双视频" : "一起生成两段视频";
+    $("generate-button").firstElementChild.textContent = state.submitting ? "正在上传视频…" : state.uncertainUpload ? "提交结果待核对" : isRunning() ? "这次正在生成…" : !state.config ? "正在连接本地服务…" : !configured ? "请先在调试页配置模型" : !supported ? "请启动新版内心独白服务" : "一起生成两段视频";
     $("cancel-job").disabled = state.cancelling;
     $("cancel-job").textContent = state.cancelling ? "正在取消…" : "取消本次";
     $("video-file").disabled = state.submitting;
@@ -198,9 +205,25 @@
     root.append(stage);
     const foot = el("div", "media-footer");
     const clipCount = output.clips.length;
-    foot.append(el("span", "", isStory ? "真实互动 · 原速原声" : clipCount ? `${clipCount} 段精选 · ${historyDate(job?.updated_at || job?.created_at)} 更新` : "原速原声 · 慢慢看它吃"));
+    foot.append(el("span", "", isStory ? output.has_monologues ? "原声＋内心独白字幕" : "原声历史版 · 未加独白字幕" : clipCount ? `${clipCount} 段精选 · ${historyDate(job?.updated_at || job?.created_at)} 更新` : "原速原声 · 慢慢看它吃"));
     const download = el("a", "", "下载视频 ↗"); download.href = output.video_url; download.setAttribute("download", "");
     foot.append(download); root.append(foot, error);
+    if (isStory && output.duration_goal) {
+      root.append(el("p", "output-notice", `目标 ${output.duration_goal.target} 秒 · 成片 ${output.duration} 秒${output.duration_goal.met === false ? " · 素材不足，未凑时长" : ""}`));
+    }
+    if (isStory && output.local_postprocess_seconds !== null && output.local_postprocess_seconds !== undefined) {
+      root.append(el("p", "output-notice", `另做字幕排版调整：${elapsedLabel(output.local_postprocess_seconds)}（不计入首次生成耗时；未重新调用 AI）`));
+    }
+    if (isStory && output.has_monologues) {
+      const details = el("details", "output-warnings");
+      details.append(el("summary", "", `小布的内心独白 · ${output.monologues.length} 句（趣味演绎）`));
+      output.monologues.forEach((cue) => {
+        details.append(el("p", "", `${elapsedLabel(cue.output_start)}—${elapsedLabel(cue.output_end)}　${cue.text}`));
+        if (measuredSeconds(cue.source_start) !== null && measuredSeconds(cue.source_end) !== null) details.append(el("small", "", `对应原片 ${elapsedLabel(cue.source_start)}—${elapsedLabel(cue.source_end)}`));
+      });
+      if (output.subtitle_url) { const link = el("a", "", "下载字幕 SRT ↗"); link.href = output.subtitle_url; link.setAttribute("download", ""); details.append(link); }
+      root.append(details);
+    }
     const warnings = Array.isArray(output.warnings) ? output.warnings.filter((item) => typeof item === "string" && item.trim()) : [];
     if (warnings.length) {
       const details = el("details", "output-warnings"); details.append(el("summary", "", `查看 ${warnings.length} 条生成说明`));
@@ -307,7 +330,7 @@
     event.preventDefault();
     if (state.submitting || state.uncertainUpload || isRunning()) return;
     if (!state.file) { formError("先选择一段视频。"); return; }
-    if (!state.config?.configured || !state.config?.features?.dual_video) { formError("请先确认模型连接和双视频服务已就绪；可在原调试页检查配置。"); return; }
+    if (!state.config?.configured || !state.config?.features?.dual_video || !state.config?.features?.story_inner_monologue) { formError("请先确认模型连接和新版内心独白服务已就绪；可在原调试页检查配置。"); return; }
     let options;
     try { options = currentOptions(); } catch (error) { formError(error.message); $("generation-settings").open = true; return; }
     const file = state.file;
@@ -357,7 +380,7 @@
       const active = state.config.prompt_library?.active?.id || state.config.prompt_library?.active_version_id;
       $("prompt-standard").textContent = active ? `新生成使用通用提示词 ${active}` : "新生成使用当前通用提示词";
       if (!state.config.configured) formError("模型尚未配置，请打开原调试页完成连接配置。这里不会读取或展示密钥。");
-      else if (!state.config.features?.dual_video) formError("这个服务尚未开启双视频模式，请确认打开的是新版日常页面。");
+      else if (!state.config.features?.dual_video || !state.config.features?.story_inner_monologue) formError("这个服务尚未加载内心独白字幕版，请启动新版服务后刷新；旧记录仍可回看。");
       updateSettingsSummary(); updateButton();
     } catch (error) { $("prompt-standard").textContent = "本地服务暂时未连接"; formError(`无法读取配置：${error.message}。请检查服务后刷新页面。`); updateButton(); }
   }

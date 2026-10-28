@@ -8,9 +8,11 @@
 
 新增 [每日双视频手机预览](docs/daily-dual-videos.md)：保留原吃播规则，在同一次多图请求中额外提取人宠互动故事，分别输出两段原声视频。运行 `python run_daily.py --port 8880` 后打开 [手机预览](http://127.0.0.1:8880/daily)；该入口默认用独立 `data/daily/`，原调试台仍保留。人宠合拍、丑萌照片本阶段未接入，不展示假结果。
 
+当前手机页默认使用 [内心独白升级版](docs/story-inner-monologue-2026-10-29.md)：小剧场目标35秒（通常30–40秒），保留原声，烧录稀疏的可爱内心独白字幕，可查看逐句原片/成片时间和下载SRT。仍只有一个小剧场，不加配音或BGM。旧记录保持旧版标签。若已有旧进程，请先确认无运行任务再重启加载新代码；本轮隔离验收使用 `--port 8881 --data-dir data/daily-inner-monologue`，没有覆盖原服务。
+
 ## 启动
 
-需要 Python **3.11+**、可在 PATH 找到的 **FFmpeg / ffprobe**，FFmpeg 应包含 `libx264`。Node.js **18+** 仅用于前端测试，运行网页不需要 Node 或打包步骤。
+需要 Python **3.11+**、可在 PATH 找到的 **FFmpeg / ffprobe**，FFmpeg 应包含 `libx264` 和烧录字幕所需的 `libass`；系统应安装中文字体（Windows优先使用微软雅黑）。Node.js **18+** 仅用于前端测试，运行网页不需要 Node 或打包步骤。
 
 在仓库根目录进入本服务：
 

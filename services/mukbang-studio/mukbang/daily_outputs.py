@@ -107,6 +107,15 @@ def _empty_eating(choices: dict, reason: str = "") -> dict:
             "highlight_reason": reason or choices.get("highlight_error") or "没有找到符合当前吃播标准的片段，未用其他画面凑数"}
 
 
+def map_story_monologues(decision: dict, clips: list[dict], frames: list[dict], info: dict) -> list[dict]:
+    if decision.get("story_mode") != "inner_monologue":
+        return []
+    from .story_subtitles import validate_cue_rhythm
+    mapped = map_story_events(decision["inner_monologues"], clips, frames, info)
+    validate_cue_rhythm(mapped, sum(c["duration"] for c in clips), start_key="output_start", end_key="output_end")
+    return mapped
+
+
 def render_dual_outputs(job_dir: Path, source_path: Path, options: dict, info: dict, sampling: dict,
                         original_hash: str, choices: dict, source: dict, prompts: dict, ai: dict,
                         emit, cancelled, timings, *, eating_renderer, revision=None,
@@ -149,22 +158,49 @@ def render_dual_outputs(job_dir: Path, source_path: Path, options: dict, info: d
                 duration = sum(c["duration"] for c in clips)
                 if duration > 60.000001:
                     raise ValueError("实际小剧场超出60秒上限")
+                monologues = map_story_monologues(decision, clips, sampling["frames"], info)
                 timeline = {"source_sha256": original_hash, "speed": 1, "duration": duration,
                             "target": options.get("story_target_duration", 30), "maximum": 60,
                             "clips": clips, "events": events, "adjustments": audit,
                             "co_visibility_policy": "all supplied sampled frames in each interval affirmed jointly visible; unsampled instants are not independently verified"}
+                if monologues:
+                    goal = deepcopy(decision["duration_goal"])
+                    goal["met"] = goal["minimum"] <= duration <= goal["maximum"]
+                    if not goal["met"] and not goal["shortfall_reason"]:
+                        goal["shortfall_reason"] = "实际源帧边界向内对齐后略短于目标范围；未补帧或扩入未批准画面"
+                        story_output["warnings"].append(goal["shortfall_reason"])
+                    timeline.update(inner_monologues=monologues, duration_goal=goal,
+                                    story_mode="inner_monologue", subtitle_kind="fictional_inner_monologue")
                 media.write_json(job_dir / "story-timeline.json", timeline)
             emit({"status": "rendering", "progress": 80, "stage": "剪辑人宠互动小故事",
-                  "message": f"{len(clips)}段可见互动，{duration:.2f}秒；原速、原画幅、原声，不加配音或BGM"})
+                  "message": f"{len(clips)}段可见互动，{duration:.2f}秒；原速、原画幅、原声" +
+                             (f"＋{len(monologues)}句小布内心独白字幕，不加配音或BGM" if monologues else "，不加配音或BGM")})
             with timings.measure("render_story"):
+                subtitle_options = {}
+                if monologues:
+                    from .story_subtitles import write_subtitles
+                    with media._media_step(lambda ident, label, seconds, status: timings.record_detail(
+                            "render_story", ident, label, seconds, status), "prepare_subtitles", "生成内心独白字幕与实际时间轴"):
+                        subtitle_files = write_subtitles(job_dir, monologues, info)
+                        media.write_json(job_dir / "story-inner-monologues.json", {
+                            "kind": "fictional_inner_monologue", "narration_added": False,
+                            "cues": monologues, "duration_goal": goal})
+                    subtitle_options["subtitle_file"] = subtitle_files["ass"]
                 validation = media.render_video(
                     source_path, job_dir / "interaction-story.mp4", clips, info, cancelled,
                     on_step=lambda ident, label, seconds, status: timings.record_detail(
-                        "render_story", ident, label, seconds, status))
+                        "render_story", ident, label, seconds, status), **subtitle_options)
             validation.update(visual_api_call_count=ai["call_count"], additional_visual_api_calls=0,
                               achieved_source_timeline_duration=duration,
                               sampled_co_visibility_checked=True, unsampled_co_visibility_verified=False,
-                              story_target_is_aspirational=True, narration_added=False, bgm_added=False)
+                              story_target_is_aspirational=not bool(monologues), narration_added=False, bgm_added=False)
+            if monologues:
+                validation.update(subtitles_burned_in=True, subtitle_count=len(monologues),
+                                  subtitle_kind="fictional_inner_monologue", subtitle_sha256=media.sha256(subtitle_files["ass"]),
+                                  duration_goal_met=goal["met"])
+                story_output.update(inner_monologues=monologues, duration_goal=goal,
+                                    subtitle_url=media.artifact_url(job_dir, subtitle_files["srt"].name),
+                                    subtitle_timeline_url=media.artifact_url(job_dir, "story-inner-monologues.json"))
             if recovery is not None:
                 validation.update(reused_ai_result=True, source_job_id=recovery["source_job_id"],
                                   source_ai_call_count=recovery["source_ai_call_count"],

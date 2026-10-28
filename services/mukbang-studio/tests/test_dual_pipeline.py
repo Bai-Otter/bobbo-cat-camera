@@ -101,3 +101,41 @@ def test_legacy_mode_does_not_add_story_output_or_render_cost(tmp_path, instrume
     assert "story" not in result["result"]
     assert "highlight_status" not in result["result"]
     assert state["calls"] == 1
+
+
+def test_monologue_upgrades_same_story_render_and_never_creates_a_third_video(tmp_path, instrumented_pipeline, monkeypatch):
+    state = instrumented_pipeline
+    value = ready_story()
+    value.update(narrative_arc="人摸猫，猫随后回头看手。", reviewed_full_video=True, shortfall_reason="",
+                 inner_monologues=[{"id": "m1", "clip_id": "s01", "event_id": "e01", "start": 1., "end": 2.4,
+                                    "frame_ids": ["F0002"], "text": "咦？"}])
+    state["parsed"]["interaction_story"] = value
+    state["options"].update(story_enabled=True, story_mode="inner_monologue", story_target_duration=4)
+    original_render, rendered = media.render_video, []
+    def render(source, destination, clips, info, *args, subtitle_file=None, **kwargs):
+        rendered.append((destination.name, subtitle_file))
+        report = original_render(source, destination, clips, info, *args, **kwargs)
+        return {**report, "actual_container_duration_seconds": sum(c["duration"] for c in clips)}
+    monkeypatch.setattr(media, "render_video", render)
+    result = pipeline.run_pipeline(tmp_path, state["source"], state["options"], state["config"], lambda _: None, lambda: False)
+    assert state["calls"] == 1 and len(rendered) == 2
+    assert rendered[0][1] is None
+    assert rendered[1][0] == "interaction-story.mp4" and rendered[1][1].name == "interaction-story.ass"
+    story_result = result["result"]["story"]
+    assert story_result["validation"]["subtitles_burned_in"] is True
+    assert story_result["validation"]["narration_added"] is False
+    assert story_result["validation"]["bgm_added"] is False
+    assert story_result["inner_monologues"][0]["output_start"] == 1.
+    assert story_result["subtitle_url"].endswith(".srt")
+    assert (tmp_path / "story-inner-monologues.json").exists()
+    assert result["result"]["highlight_status"] == "ready"
+
+
+def test_invalid_monologue_preserves_eating_without_a_second_ai_call(tmp_path, instrumented_pipeline):
+    state = instrumented_pipeline
+    state["parsed"]["interaction_story"] = ready_story()  # deliberately missing all new caption fields
+    state["options"].update(story_enabled=True, story_mode="inner_monologue", story_target_duration=35)
+    result = pipeline.run_pipeline(tmp_path, state["source"], state["options"], state["config"], lambda _: None, lambda: False)
+    assert state["calls"] == 1
+    assert result["result"]["highlight_status"] == "ready"
+    assert result["result"]["story"]["status"] == "invalid"

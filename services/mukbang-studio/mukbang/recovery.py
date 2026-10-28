@@ -117,6 +117,8 @@ def _options(value) -> dict:
         raise ValueError("原任务Prompt参数无效")
     if "story_enabled" in options and type(options["story_enabled"]) is not bool:
         raise ValueError("原任务story_enabled参数必须为布尔值")
+    if options.get("story_mode", "interaction") not in ("interaction", "inner_monologue"):
+        raise ValueError("原任务小剧场模式无效")
     if "story_target_duration" in options:
         seconds = options["story_target_duration"]
         if (isinstance(seconds, bool) or not isinstance(seconds, (int, float)) or
@@ -257,9 +259,10 @@ def _preflight_selection(directory: Path, evidence: dict) -> None:
             failures.append(str(exc))
     story = choices["story"]
     if story["status"] == "ready":
-        from .daily_outputs import quantize_story
+        from .daily_outputs import map_story_monologues, quantize_story
         try:
             clips, _, _ = quantize_story(story, info, frames)
+            map_story_monologues(story, clips, frames, info)
             if sum(clip["duration"] for clip in clips) > 60.000001:
                 raise ValueError("小剧场真实帧量化后超出60秒上限")
             deliverable = True

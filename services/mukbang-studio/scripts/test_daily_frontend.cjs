@@ -38,7 +38,7 @@ const text = (node) => [node.textContent, ...node.children.map(text)].join(" ");
 const find = (node, predicate) => [...(predicate(node) ? [node] : []), ...node.children.flatMap((child) => find(child, predicate))];
 const videos = (node) => find(node, (item) => item.tagName === "VIDEO");
 const buttons = (node) => find(node, (item) => item.tagName === "BUTTON");
-const config = () => ({ configured: true, defaults: { target_duration: 40, min_duration: 30, max_duration: 50, sample_interval: 1 }, features: { dual_video: true, photos: false }, limits: { max_upload_mb: 512 }, prompt_library: { active_version_id: "P0004" } });
+const config = () => ({ configured: true, defaults: { target_duration: 40, min_duration: 30, max_duration: 50, sample_interval: 1 }, features: { dual_video: true, story_inner_monologue: true, photos: false }, limits: { max_upload_mb: 512 }, prompt_library: { active_version_id: "P0004" } });
 const completed = () => ({
   id: "aabbccddeeff", filename: "日常.mp4", status: "completed", stage: "整理完成", progress: 100, created_at: "2026-10-28T12:00:00+08:00", updated_at: "2026-10-28T12:01:00+08:00",
   options: { story_enabled: true }, ai: { call_count: 1 }, result: {
@@ -49,7 +49,7 @@ const completed = () => ({
 
 function harness({ settings = config(), jobs = [], records = {}, postJob, route, search = "" } = {}) {
   const nodes = Object.fromEntries(ids.map((id) => [id, new Element()]));
-  for (const [id, value] of Object.entries({ "target-duration": "40", "min-duration": "30", "max-duration": "50", "story-target": "30", "sample-interval": "1" })) nodes[id].value = value;
+  for (const [id, value] of Object.entries({ "target-duration": "40", "min-duration": "30", "max-duration": "50", "story-target": "35", "sample-interval": "1" })) nodes[id].value = value;
   nodes["generate-button"].append(new Element("span"), new Element("span"));
   const calls = []; const timers = new Map(); const local = new Map(); let nextTimer = 0;
   const location = { origin, href: `${origin}/daily${search}` };
@@ -105,7 +105,7 @@ test("assets and downloads only accept same-origin HTTP URLs without embedded cr
 });
 
 test("generation retains eating defaults and adds story within the SAME task", () => {
-  assert.deepEqual(kit.generationOptions({ target: "40", min: "30", max: "50", interval: "1", story: "30" }), { target_duration: 40, min_duration: 30, max_duration: 50, sample_interval: 1, story_enabled: true, story_target_duration: 30, use_active_prompt: true });
+  assert.deepEqual(kit.generationOptions({ target: "40", min: "30", max: "50", interval: "1", story: "30" }), { target_duration: 40, min_duration: 30, max_duration: 50, sample_interval: 1, story_enabled: true, story_target_duration: 30, story_mode: "inner_monologue", use_active_prompt: true });
 });
 
 test("bad duration bounds and nonfinite values are blocked before submission", () => {
@@ -165,7 +165,7 @@ test("boot connects only to read-only config/history and keeps generation disabl
 });
 
 test("unsupported old server and missing model configuration never submit", async () => {
-  for (const change of [{ features: {} }, { configured: false }]) {
+  for (const change of [{ features: {} }, { features: { dual_video: true } }, { configured: false }]) {
     const page = harness({ settings: { ...config(), ...change } }); await page.ready(); page.choose();
     assert.equal(page.nodes["generate-button"].disabled, true); await page.submit();
     assert.equal(page.calls.filter((call) => call.options.method === "POST").length, 0);
@@ -252,4 +252,39 @@ test("query-selected real record wins over newest history and debug link carries
   const old = { ...completed(), id: "112233445566", filename: "旧记录.mp4" }; const latest = completed();
   const page = harness({ jobs: [latest, old], records: { [latest.id]: latest, [old.id]: old }, search: `?job=${old.id}` }); await page.ready();
   assert.equal(page.nodes["prompt-debug-link"].href, `/?job=${old.id}`); assert.match(page.context.window.location.href, new RegExp(old.id));
+});
+
+test("inner monologue upgrades one existing card with source/output times and safe SRT download", async () => {
+  const job = completed();
+  Object.assign(job.result.story, { story_mode: "inner_monologue", video_duration: 35, validation: { subtitles_burned_in: true },
+    duration_goal: { target: 35, met: true }, subtitle_url: "/api/jobs/aabbccddeeff/files/interaction-story.srt",
+    inner_monologues: [{ text: "<script>literal caption</script>", output_start: 2, output_end: 4.5, source_start: 22, source_end: 24.5 }] });
+  const page = harness({ jobs: [job], records: { [job.id]: job } }); await page.ready(); await page.ready();
+  assert.equal(videos(page.nodes["story-output"]).length, 1);
+  assert.equal(videos(page.nodes["eating-output"]).length, 1);
+  assert.match(text(page.nodes["story-output"]), /原声＋内心独白字幕/);
+  assert.match(text(page.nodes["story-output"]), /目标 35 秒 · 成片 35 秒/);
+  assert.match(text(page.nodes["story-output"]), /2 秒—4.5 秒/);
+  assert.match(text(page.nodes["story-output"]), /对应原片 22 秒—24.5 秒/);
+  assert.match(text(page.nodes["story-output"]), /<script>literal caption<\/script>/);
+  assert.ok(find(page.nodes["story-output"], (node) => node.tagName === "A").some((node) => node.href.endsWith(".srt")));
+  assert.equal(page.calls.some((call) => call.options.method === "POST"), false);
+});
+
+test("old story is not relabeled as a subtitled version and unsafe subtitle URLs are rejected", async () => {
+  const job = completed();
+  const page = harness({ jobs: [job], records: { [job.id]: job } }); await page.ready(); await page.ready();
+  assert.match(text(page.nodes["story-output"]), /原声历史版 · 未加独白字幕/);
+  Object.assign(job.result.story, { story_mode: "inner_monologue", validation: { subtitles_burned_in: true }, subtitle_url: "https://other.test/a.srt" });
+  assert.equal(kit.outputsFor(job, origin).story.subtitle_url, null);
+});
+
+test("offline caption restyle time stays separate from original generation time", async () => {
+  const job = completed();
+  job.result.story.local_postprocess = { kind: "subtitle_style_only", seconds: 12.5, additional_ai_calls: 0 };
+  const page = harness({ jobs: [job], records: { [job.id]: job } }); await page.ready();
+  assert.match(text(page.nodes["story-output"]), /另做字幕排版调整/);
+  assert.match(text(page.nodes["story-output"]), /不计入首次生成耗时；未重新调用 AI/);
+  delete job.result.story.local_postprocess;
+  assert.equal(kit.outputsFor(job, origin).story.local_postprocess_seconds, null);
 });

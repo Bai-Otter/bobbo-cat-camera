@@ -68,9 +68,18 @@ def story_parameters(options: dict) -> dict:
         raise StoryError("人宠故事目标时长必须为1–60秒")
     if not 1 <= maximum <= STORY_MAX_DURATION:
         raise StoryError("人宠故事时长上限必须为1–60秒，不能放宽60秒硬上限")
-    return {"story_target_duration_seconds": target,
-            "story_max_duration_seconds": maximum,
-            "story_target_is_aspirational": True}
+    mode = options.get("story_mode", "interaction")
+    if mode not in ("interaction", "inner_monologue"):
+        raise StoryError("小剧场模式无效")
+    result = {"story_target_duration_seconds": target,
+              "story_max_duration_seconds": maximum,
+              "story_target_is_aspirational": True}
+    if mode == "inner_monologue":
+        result.update(story_mode=mode, story_min_duration_seconds=max(3., target - 5),
+                      story_preferred_max_duration_seconds=min(maximum, target + 5),
+                      story_target_is_aspirational=False,
+                      story_duration_policy="target_band_or_explicit_evidence_shortfall")
+    return result
 
 
 def _source_frames(frames: list[dict], duration: float) -> dict[str, dict]:
@@ -235,9 +244,13 @@ def validate_story(parsed_story: Any, frames: list[dict], duration: float, optio
         raise StoryError("人宠故事每个片段都必须包含属于这条事件链的事实证据")
     if events[-1]["phase"] != "reaction":
         raise StoryError("人宠故事结尾缺少动作后的可见反应，不能剪断事件冒充完整故事")
-    if achieved < parameters["story_target_duration_seconds"]:
+    if achieved < parameters["story_target_duration_seconds"] and options.get("story_mode") != "inner_monologue":
         warnings.append(f"已确认的同镜互动仅{achieved:g}秒，短于约"
                         f"{parameters['story_target_duration_seconds']:g}秒目标；未用独猫、无关画面或重复镜头填充")
-    return {"status": "ready", "episode_id": episode_id, "title": title, "summary": summary,
-            "clips": clips, "events": events, "warnings": warnings,
-            "duration": achieved, "reason": ""}
+    result = {"status": "ready", "episode_id": episode_id, "title": title, "summary": summary,
+              "clips": clips, "events": events, "warnings": warnings,
+              "duration": achieved, "reason": ""}
+    if options.get("story_mode") == "inner_monologue":
+        from .story_subtitles import validate_monologues
+        return validate_monologues(result, parsed_story, frames, duration, parameters)
+    return result

@@ -34,11 +34,11 @@ def check_cancelled(cancelled: Callable[[], bool] | None) -> None:
         raise Cancelled("任务已取消")
 
 
-def run(args: list[str], cancelled=None, timeout=900) -> str:
+def run(args: list[str], cancelled=None, timeout=900, *, cwd=None) -> str:
     check_cancelled(cancelled)
     started = time.monotonic()
     process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                               text=True, encoding="utf-8", errors="replace")
+                               text=True, encoding="utf-8", errors="replace", **({"cwd": cwd} if cwd is not None else {}))
     try:
         while True:
             check_cancelled(cancelled)
@@ -567,12 +567,21 @@ def _media_step(on_step, ident: str, label: str):
 
 
 def _render_command(source: Path, destination: Path, clips: list[dict], info: dict,
-                    *, gif_destination: Path | None = None) -> list[str]:
+                    *, gif_destination: Path | None = None, subtitle_file: Path | None = None) -> list[str]:
     """Build one source decode, optionally sharing native pixels with a GIF."""
     destination.parent.mkdir(exist_ok=True)
     graph_path = destination.with_suffix(".filters.txt")
     graph = filter_graph(clips, info)
     video_output = "[vout]"
+    if subtitle_file is not None:
+        # Render from the output directory using a fixed ASCII basename; no
+        # drive-letter/quote escaping and no model-supplied paths in a filter.
+        if (subtitle_file.name != "interaction-story.ass" or not subtitle_file.is_file() or
+                subtitle_file.is_symlink() or subtitle_file.resolve().parent != destination.resolve().parent or
+                gif_destination is not None):
+            raise ValueError("小剧场字幕必须来自本任务目录中的固定ASS文件")
+        graph += ";[vout]ass=filename=interaction-story.ass[vsub]"
+        video_output = "[vsub]"
     if gif_destination is not None:
         # Branch before either output's encoder/format conversion.  In
         # particular, the GIF never decodes the already-lossy MP4 output.
@@ -608,10 +617,14 @@ def _render_command(source: Path, destination: Path, clips: list[dict], info: di
 
 
 def render_video(source: Path, destination: Path, clips: list[dict], info: dict, cancelled=None,
-                 *, on_step=None) -> dict:
+                 *, on_step=None, subtitle_file: Path | None = None) -> dict:
     """Render with optional on_step(id, label, seconds, status) observations."""
     with _media_step(on_step, "encode_video", "源视频解码与MP4编码"):
-        run(_render_command(source, destination, clips, info), cancelled)
+        if subtitle_file is None:
+            run(_render_command(source, destination, clips, info), cancelled)
+        else:
+            run(_render_command(source.resolve(), destination.resolve(), clips, info, subtitle_file=subtitle_file),
+                cancelled, cwd=str(destination.resolve().parent))
     return verify_video(destination, clips, info, cancelled, on_step=on_step)
 
 

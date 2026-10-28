@@ -63,12 +63,23 @@ def test_config_announces_additive_features_without_changing_eating_defaults(dai
     result = client.get("/api/config")
     assert result.status_code == 200
     body = result.json()
-    assert body["features"] == {"dual_video": True, "story_max_duration": 60, "photos": False}
+    assert body["features"] == {"dual_video": True, "story_max_duration": 60, "story_inner_monologue": True, "photos": False}
     assert body["defaults"] == {"target_duration": 40, "min_duration": 30,
         "max_duration": 50, "sample_interval": 1, "frames_per_sheet": 60}
     assert body["prompt_template"] == body["prompt_library"]["active"]["text"]
     assert "DAILY_TEST_SECRET_ONLY" not in result.text
     assert calls == []
+
+
+def test_new_story_mode_reaches_one_job_and_legacy_fingerprints_stay_unchanged(daily_app):
+    app, client, calls = daily_app
+    result = upload(client, {"story_enabled": True, "story_mode": "inner_monologue", "story_target_duration": 35})
+    assert result.status_code == 202
+    drain(app)
+    assert len(calls) == 1 and calls[0]["options"]["story_mode"] == "inner_monologue"
+    assert calls[0]["options"]["story_target_duration"] == 35
+    assert requested_options(JobOptions(story_mode="inner_monologue")) == requested_options(JobOptions())
+    assert upload(client, {"story_enabled": True, "story_mode": "third_video"}).status_code == 400
 
 
 @pytest.mark.parametrize("path", ["/daily", "/daily/"])

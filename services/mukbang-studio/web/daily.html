@@ -36,7 +36,7 @@
       </section>
 
       <section class="daily-card story-card" aria-labelledby="story-heading">
-        <div class="card-heading"><h2 id="story-heading">今日小剧场</h2><span class="card-aside">人和它的小故事 <span aria-hidden="true">›</span></span></div>
+        <div class="card-heading"><h2 id="story-heading">今日小剧场</h2><span class="card-aside">小布的内心独白 <span aria-hidden="true">›</span></span></div>
         <div id="story-output" aria-live="polite">
           <div class="empty-media story-empty"><span class="empty-symbol" aria-hidden="true">↗</span><p>今天，会发生什么小故事？</p><span>上传一段日常，找找你们的互动。</span></div>
         </div>
@@ -64,16 +64,16 @@
       <section class="utility-card composer" id="upload-panel" aria-labelledby="upload-heading">
         <div class="utility-eyebrow">DAILY, LITTLE THINGS</div>
         <h2 id="upload-heading">把日常，<br>变成今天的回忆。</h2>
-        <p class="utility-intro">上传一次，同时寻找人宠小故事与纯享吃播。没有合适互动，就如实留白。</p>
+        <p class="utility-intro">上传一次，生成纯享吃播和一个小剧场。小剧场保留原声，加上小布自然、可爱的内心独白字幕。</p>
         <form id="upload-form" novalidate>
           <label class="file-picker" for="video-file"><span class="upload-icon" aria-hidden="true">↑</span><strong id="file-name">选择一段视频</strong><span id="file-detail">MP4 / MOV / MKV / AVI / WebM / M4V</span><input id="video-file" name="file" type="file" accept="video/*,.mkv,.avi,.m4v" required></label>
           <details class="generation-settings" id="generation-settings">
-            <summary>时长与生成设置 <span id="settings-summary">吃播 40 秒 / 故事 30 秒</span></summary>
+            <summary>时长与生成设置 <span id="settings-summary">吃播 40 秒 / 故事 35 秒</span></summary>
             <div class="settings-fields">
               <label>吃播目标 <span><input id="target-duration" type="number" value="40" min="1" max="120" step="1" required> 秒</span></label>
               <div class="range-fields"><label>最短 <span><input id="min-duration" type="number" value="30" min="1" max="120" step="1" required> 秒</span></label><label>最长 <span><input id="max-duration" type="number" value="50" min="1" max="120" step="1" required> 秒</span></label></div>
-              <label>故事目标 <span><input id="story-target" type="number" value="30" min="3" max="60" step="1" required> 秒</span></label>
-              <p class="field-note">目标不是硬凑时长；故事必须有真实互动，人物或明确的人手与宠物同镜。</p>
+              <label>故事目标 <span><input id="story-target" type="number" value="35" min="3" max="60" step="1" required> 秒</span></label>
+              <p class="field-note">按目标前后约5秒组织完整互动，人物或明确的人手与宠物同镜。素材不足会注明原因。独白是趣味拟人字幕，不加配音或BGM。</p>
               <label>抽样间隔 <span><select id="sample-interval"><option value="1">1</option><option value="0.5">0.5</option><option value="2">2</option><option value="3">3</option></select> 秒 / 帧</span></label>
               <label>小猫的称呼 <input id="pet-name" type="text" maxlength="20" placeholder="小猫" autocomplete="off"></label>
             </div>
