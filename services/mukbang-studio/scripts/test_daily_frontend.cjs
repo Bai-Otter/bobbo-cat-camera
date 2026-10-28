@@ -292,6 +292,15 @@ test("offline caption restyle time stays separate from original generation time"
   assert.equal(kit.outputsFor(job, origin).story.local_postprocess_seconds, null);
 });
 
+test("explicit local subtitle timing repair is not mislabeled as original AI success or restyling", async () => {
+  const job = completed();
+  job.result.story.local_postprocess = { kind: "subtitle_timing_fix", seconds: 21.2, additional_ai_calls: 0 };
+  const page = harness({ jobs: [job], records: { [job.id]: job } }); await page.ready();
+  assert.match(text(page.nodes["story-output"]), /另做本地字幕时长修正/);
+  assert.match(text(page.nodes["story-output"]), /不计入首次生成耗时；未重新调用 AI/);
+  assert.doesNotMatch(text(page.nodes["story-output"]), /另做字幕排版调整/);
+});
+
 test("two real photo cards preserve original images, safe downloads and plain-text evidence", async () => {
   const job = completed(); job.options.photos_enabled = true;
   job.result.photos = Object.fromEntries(["portrait", "ugly_cute"].map((category) => [category, {

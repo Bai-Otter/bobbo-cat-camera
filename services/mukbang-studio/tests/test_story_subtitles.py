@@ -5,6 +5,18 @@ import pytest
 from mukbang import story, story_subtitles
 
 
+def test_twelve_character_cue_requires_readable_duration_not_relaxed_gate():
+    original = [{"start": 1., "end": 3., "text": "你手里那口，是给我的吧？"},
+                {"start": 5., "end": 7., "text": "让我尝尝。"}]
+    with pytest.raises(story.StoryError, match="显示时间不足"):
+        story_subtitles.validate_cue_rhythm(original, 20.)
+    corrected = deepcopy(original)
+    corrected[0]["end"] = 3.4
+    story_subtitles.validate_cue_rhythm(corrected, 20.)
+    assert original[0]["end"] == 3.
+    assert corrected[0]["text"] == original[0]["text"]
+
+
 def sample_story():
     frames = [{"id": f"F{i+1:04d}", "time": float(i)} for i in range(60)]
     clips, events, captions = [], [], []

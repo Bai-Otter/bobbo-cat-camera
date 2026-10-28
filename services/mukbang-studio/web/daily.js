@@ -72,7 +72,8 @@
         narrative.monologues = narrative.has_monologues && Array.isArray(story.inner_monologues) ? story.inner_monologues.filter((cue) => cue && typeof cue.text === "string" && measuredSeconds(cue.output_start) !== null && measuredSeconds(cue.output_end) > cue.output_start) : [];
         narrative.subtitle_url = narrative.has_monologues ? safeUrl(story.subtitle_url, origin) : null;
         narrative.duration_goal = measuredSeconds(story.duration_goal?.target) !== null ? story.duration_goal : null;
-        narrative.local_postprocess_seconds = story.local_postprocess?.kind === "subtitle_style_only" ? measuredSeconds(story.local_postprocess.seconds) : null;
+        narrative.local_postprocess_kind = story.local_postprocess?.kind;
+        narrative.local_postprocess_seconds = ["subtitle_style_only", "subtitle_timing_fix"].includes(narrative.local_postprocess_kind) ? measuredSeconds(story.local_postprocess.seconds) : null;
       }
     } else if (story && ["not_found", "invalid", "failed"].includes(story.status)) narrative = { status: story.status, reason: story.reason || "没有找到人和宠物同镜、真正发生互动的完整小故事。", warnings: story.warnings || [] };
     else if (pending) narrative = { status: "pending" };
@@ -276,7 +277,8 @@
       root.append(el("p", "output-notice", `目标 ${output.duration_goal.target} 秒 · 成片 ${output.duration} 秒${output.duration_goal.met === false ? " · 素材不足，未凑时长" : ""}`));
     }
     if (isStory && output.local_postprocess_seconds !== null && output.local_postprocess_seconds !== undefined) {
-      root.append(el("p", "output-notice", `另做字幕排版调整：${elapsedLabel(output.local_postprocess_seconds)}（不计入首次生成耗时；未重新调用 AI）`));
+      const label = output.local_postprocess_kind === "subtitle_timing_fix" ? "另做本地字幕时长修正" : "另做字幕排版调整";
+      root.append(el("p", "output-notice", `${label}：${elapsedLabel(output.local_postprocess_seconds)}（不计入首次生成耗时；未重新调用 AI）`));
     }
     if (isStory && output.has_monologues) {
       const details = el("details", "output-warnings");

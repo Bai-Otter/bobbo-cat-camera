@@ -123,7 +123,7 @@ def build_prompts(options: dict, source: dict, sampling: dict, feedback_context=
     if options.get("photos_enabled") is True:
         if options.get("photo_mode") == "gallery":
             system += PHOTO_GALLERY_SYSTEM_APPENDIX
-            user += "\n\n照片目标：有人宠同镜（含手/腿/身体局部）就至少选1张最好合拍；丑萌至少4张，通常4–6张不同瞬间。不得以没露脸为由拒绝合拍。"
+            user += "\n\n照片规则closeup-v2：合拍有人宠同镜就选最好1张，优先亲亲/贴脸/抱抱，不能因没露脸拒绝。丑萌目标4–6张，以贴镜头夸张鼻口大脸为主体，明显吐舌/小牙只少量补充；普通圆脸、一般偏头不合格。允许同段贴脸动作中确有区别的多个瞬间，不强求跨时段；不得用普通可爱照凑数，不足须说明。"
         else:
             system += PHOTOS_SYSTEM_APPENDIX
             user += "\n\n本次额外提取人宠合拍和丑萌照片，各最多1张、必须不同源帧；没有合格照片就具体说明。"
