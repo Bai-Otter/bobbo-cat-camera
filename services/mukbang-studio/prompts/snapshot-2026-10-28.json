@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "archived_on": "2026-10-28",
+  "timezone": "Asia/Shanghai",
+  "source": "Read-only local published prompt API; system literals copied from the running service source without importing the server.",
+  "source_code_commit": "a5bcf74d4792552fdba383ae0063224ef4b90161",
+  "active_prompt": {
+    "version_id": "P0004",
+    "name": "满意第 2 轮 · 通用标准",
+    "library_revision": 3,
+    "file": "current-user-prompt.txt",
+    "sha256": "b9d8f504db1d5e52ee1b956fb2e0c839385c589f344128b87868eb5bd195b2f3"
+  },
+  "versions": [
+    {
+      "version_id": "P0001",
+      "name": "初始标准",
+      "published_at": "2026-10-22T23:26:52.773+08:00",
+      "file": "versions/P0001.txt",
+      "sha256": "2499667240fe208d397378e063aebf8e1e356cb6b62f83774f89783e38f3398a"
+    },
+    {
+      "version_id": "P0002",
+      "name": "近镜头进食优先 · 少量站走点缀",
+      "published_at": "2026-10-23T09:11:22.612+08:00",
+      "file": "versions/P0002.txt",
+      "sha256": "fe5343297cabcb3e2e2c45883d1024da5d529b92e969f7289891d6c1e1908cfb"
+    },
+    {
+      "version_id": "P0003",
+      "name": "满屏猫脸与鼻口优先 · 第二轮满意版通用化",
+      "published_at": "2026-10-23T11:27:52.308+08:00",
+      "file": "versions/P0003.txt",
+      "sha256": "352c845f61d256940ee8f0c1472f010e7359543fed00e804d7fc724f90730101"
+    },
+    {
+      "version_id": "P0004",
+      "name": "满意第 2 轮 · 通用标准",
+      "published_at": "2026-10-23T14:29:23.406+08:00",
+      "file": "versions/P0004.txt",
+      "sha256": "b9d8f504db1d5e52ee1b956fb2e0c839385c589f344128b87868eb5bd195b2f3"
+    }
+  ],
+  "system_prompts": {
+    "file": "system-prompts.json",
+    "sha256": "838faf744a72d78b9f385468c17d94688d3646bb622675081726102df4e8775d"
+  },
+  "repository_default": {
+    "file": "../mukbang/default_prompt.txt",
+    "matches_version_id": "P0004",
+    "sha256": "b9d8f504db1d5e52ee1b956fb2e0c839385c589f344128b87868eb5bd195b2f3"
+  },
+  "runtime_local_fallback": {
+    "matches_version_id": "P0001",
+    "note": "The old local fallback is not the active published standard. Existing jobs bind their resolved template; the current global library uses P0004. No live files were changed by this archive."
+  },
+  "generation_contract": {
+    "model": "gpt-6.1-sol",
+    "api_style": "responses",
+    "timeout_seconds": 600,
+    "stream": true,
+    "store": false,
+    "automatic_retries": 0,
+    "client_compatibility": "none"
+  },
+  "application_defaults": {
+    "sample_interval": 1,
+    "frames_per_sheet": 60,
+    "target_duration": 40,
+    "min_duration": 30,
+    "max_duration": 50
+  },
+  "latest_recorded_success": {
+    "completed_at": "2026-10-25T19:54:08.731+08:00",
+    "status": "completed",
+    "prompt_version_id": "P0004",
+    "prompt_revision": 3,
+    "prompt_sha256": "b9d8f504db1d5e52ee1b956fb2e0c839385c589f344128b87868eb5bd195b2f3",
+    "template_matches_active": true,
+    "sample_interval_seconds": 1,
+    "target_duration_seconds": 36,
+    "min_duration_seconds": 27,
+    "max_duration_seconds": 50,
+    "ai_request_count": 1,
+    "image_count": 1,
+    "video_duration_seconds": 36,
+    "client_headers": {}
+  },
+  "verification_scope": {
+    "user_confirmed_working_on": "2026-10-28",
+    "new_ai_requests_for_archiving": 0,
+    "no_automatic_github_sync_installed": true
+  },
+  "excluded": [
+    "credentials",
+    "provider addresses",
+    "auth/config files",
+    ".env",
+    "full runtime prompt library",
+    "request/publication idempotency keys",
+    "private media",
+    "input contact sheets",
+    "frame mappings",
+    "raw model responses",
+    "human feedback instances",
+    "job identifiers",
+    "source filenames"
+  ]
+}
