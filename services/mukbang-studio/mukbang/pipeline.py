@@ -28,6 +28,27 @@ def _retain_quantized_evidence(clips: list[dict], frames: list[dict], adjustment
                                 "before": original, "after": inside, "reason": "最终片段只引用真实包含的证据帧，原始AI证据另存"})
 
 
+def validate_decisions(parsed: dict, frames: list[dict], duration: float, options: dict) -> dict:
+    """One shared decision gate for fresh runs and zero-provider offline recovery."""
+    try:
+        choices = selection.validate_and_adjust(parsed, frames, duration, options)
+    except selection.SelectionError as exc:
+        if options.get("story_enabled") is not True:
+            raise
+        choices = {"clips": [], "memes": [], "adjustments": [], "warnings": [str(exc)],
+                   "validated": {"summary": "吃播返回未通过校验", "selected_frames": []},
+                   "highlight_error": str(exc)}
+    if options.get("story_enabled") is True:
+        from .story import StoryError, validate_story
+        try:
+            story_choice = validate_story(parsed.get("interaction_story"), frames, duration, options)
+        except StoryError as exc:
+            story_choice = {"status": "invalid", "reason": str(exc), "title": "", "summary": "",
+                            "clips": [], "events": [], "warnings": [str(exc)]}
+        choices["story"] = story_choice
+    return choices
+
+
 def run_pipeline(job_dir: Path, source_path: Path, options: dict, model_config: dict, emit, cancelled, timings=None, revision=None) -> dict:
     """Keep six-argument callers compatible; let a manager own final timing.
 
@@ -180,7 +201,9 @@ def _run_pipeline(job_dir: Path, source_path: Path, options: dict, model_config:
             if violations:
                 raise selection.SelectionError("AI仍选中或引用了人工标为不想要的帧：" + "、".join(sorted(violations)) +
                                                "；已保留原返回与对比，不会偷偷删改决定或自动重试")
-        choices = selection.validate_and_adjust(parsed, sampling["frames"], info["duration"], options)
+        choices = validate_decisions(parsed, sampling["frames"], info["duration"], options)
+        if options.get("story_enabled") is True:
+            media.write_json(job_dir / "story-decision.json", choices["story"])
         if comparison is not None:
             for ident in comparison["liked_omitted_ids"]:
                 if not any(ident in warning for warning in choices["warnings"]):
@@ -204,6 +227,12 @@ def render_choices(job_dir: Path, source_path: Path, options: dict, info: dict, 
             recovery is not None and (recovery.get("no_ai_calls") is not True or
                                       ai.get("reused_response_from_job") != recovery.get("source_job_id"))):
         raise ValueError("渲染任务的 AI 调用计数或复用来源不一致")
+    if options.get("story_enabled") is True:
+        from .daily_outputs import render_dual_outputs
+        return render_dual_outputs(
+            job_dir, source_path, options, info, sampling, original_hash, choices, source, prompts, ai,
+            emit, cancelled, timings, eating_renderer=render_choices, revision=revision,
+            feedback_snapshot=feedback_snapshot, comparison=comparison, recovery=recovery)
     with timings.measure("annotate_sheets"):
         media.annotate_sheets(job_dir, sampling, choices["validated"]["selected_frames"], choices["memes"])
         media.write_json(job_dir / "sampling.json", sampling)

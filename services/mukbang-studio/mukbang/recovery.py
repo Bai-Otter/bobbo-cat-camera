@@ -22,7 +22,7 @@ from .timing import JobTimings, wall_now
 _JOB_ID = re.compile(r"[0-9a-f]{12}")
 _JOB_TERMINAL = {"completed", "failed", "cancelled"}
 _PROPOSAL_TERMINAL = {"completed", "failed", "interrupted"}
-_RECOVERABLE_FAILURES = {"selection", "render_highlight", "export_memes", "final_validation"}
+_RECOVERABLE_FAILURES = {"selection", "render_highlight", "render_story", "export_memes", "final_validation"}
 _EVIDENCE = ("prompt.json", "request-manifest.json", "ai-raw-response.txt",
              "ai-selection-original.json", "ai-response-envelope.json")
 
@@ -115,6 +115,13 @@ def _options(value) -> dict:
         raise ValueError("原任务时长参数顺序无效")
     if not isinstance(options.get("prompt"), str) or len(options["prompt"]) > 40000:
         raise ValueError("原任务Prompt参数无效")
+    if "story_enabled" in options and type(options["story_enabled"]) is not bool:
+        raise ValueError("原任务story_enabled参数必须为布尔值")
+    if "story_target_duration" in options:
+        seconds = options["story_target_duration"]
+        if (isinstance(seconds, bool) or not isinstance(seconds, (int, float)) or
+                not math.isfinite(seconds) or not 3 <= seconds <= 60):
+            raise ValueError("原任务story_target_duration参数必须为3–60秒的有限数值")
     return options
 
 
@@ -230,9 +237,37 @@ def _preflight_selection(directory: Path, evidence: dict) -> None:
             raise ValueError("原任务采样帧时间清单无效")
     except (KeyError, TypeError, IndexError, ZeroDivisionError, OverflowError):
         raise ValueError("原任务采样或时间戳缓存无效；不会创建恢复任务") from None
-    choices = selection.validate_and_adjust(deepcopy(evidence["parsed"]), frames, info["duration"], evidence["options"])
-    if not choices["clips"]:
-        raise selection.SelectionError("保存的AI结果没有可用于精选的片段；不会创建恢复任务")
+    choices = pipeline.validate_decisions(deepcopy(evidence["parsed"]), frames, info["duration"], evidence["options"])
+    if evidence["options"].get("story_enabled") is not True:
+        if not choices["clips"]:
+            raise selection.SelectionError("保存的AI结果没有可用于精选的片段；不会创建恢复任务")
+        return
+    # A dual job can be story-only, or its independent eating schema may be
+    # invalid. Confirm at least one original, inward-quantized evidence chain
+    # is deliverable before creating a recovery directory; never invent one.
+    deliverable, failures = False, []
+    if choices["clips"]:
+        try:
+            clips = media.quantize_clips(choices["clips"], info)
+            pipeline._retain_quantized_evidence(clips, frames, [])
+            if sum(clip["duration"] for clip in clips) > evidence["options"]["max_duration"] + .0001:
+                raise ValueError("吃播真实帧量化后超出时长上限")
+            deliverable = True
+        except (ValueError, KeyError, TypeError, IndexError) as exc:
+            failures.append(str(exc))
+    story = choices["story"]
+    if story["status"] == "ready":
+        from .daily_outputs import quantize_story
+        try:
+            clips, _, _ = quantize_story(story, info, frames)
+            if sum(clip["duration"] for clip in clips) > 60.000001:
+                raise ValueError("小剧场真实帧量化后超出60秒上限")
+            deliverable = True
+        except (ValueError, KeyError, TypeError, IndexError) as exc:
+            failures.append(str(exc))
+    if not deliverable:
+        detail = "；".join(failures) or choices.get("highlight_error") or story.get("reason", "")
+        raise selection.SelectionError("保存的AI结果没有可交付的视频片段或量化后证据不足；不会创建恢复任务：" + detail)
 
 
 def recover_render(data_dir: Path, source_job_id: str, *, job_id: str | None = None,
@@ -258,7 +293,7 @@ def recover_render(data_dir: Path, source_job_id: str, *, job_id: str | None = N
         raise ValueError("恢复任务目录已存在，拒绝覆盖")
     before = _hashes(original)
     evidence = _evidence(original, source_job_id)
-    if evidence["stage"] == "selection":
+    if evidence["stage"] == "selection" or evidence["options"].get("story_enabled") is True:
         _preflight_selection(original, evidence)
     if _hashes(original) != before:
         raise ValueError("读取或预检期间原任务文件发生变化；不会创建恢复任务")
@@ -309,7 +344,9 @@ def recover_render(data_dir: Path, source_job_id: str, *, job_id: str | None = N
         persist({"source": public_source, "sampling": sampling, "progress": 25,
                  "message": "已核验并复用源片、原始拼图及真实AI返回；不发送任何新请求"})
         with timer.measure("selection"):
-            choices = selection.validate_and_adjust(deepcopy(evidence["parsed"]), sampling["frames"], info["duration"], evidence["options"])
+            choices = pipeline.validate_decisions(deepcopy(evidence["parsed"]), sampling["frames"], info["duration"], evidence["options"])
+            if evidence["options"].get("story_enabled") is True:
+                media.write_json(target / "story-decision.json", choices["story"])
         fields = pipeline.render_choices(target, source, evidence["options"], info, sampling, digest, choices,
                                          public_source, evidence["prompts"], ai, persist, lambda: False, timer,
                                          recovery=provenance)

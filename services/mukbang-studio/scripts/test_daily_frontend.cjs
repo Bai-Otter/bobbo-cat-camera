@@ -1,0 +1,255 @@
+"use strict";
+
+// Offline contract and lifecycle tests. Fixtures exist only in this test file.
+// Run: node --test scripts/test_daily_frontend.cjs
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const vm = require("node:vm");
+const test = require("node:test");
+const kit = require("../web/daily.js");
+const root = path.resolve(__dirname, "..");
+const html = fs.readFileSync(path.join(root, "web/daily.html"), "utf8");
+const css = fs.readFileSync(path.join(root, "web/daily.css"), "utf8");
+const script = fs.readFileSync(path.join(root, "web/daily.js"), "utf8");
+const origin = "http://127.0.0.1:8880";
+const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
+const tick = () => new Promise((resolve) => setImmediate(resolve));
+
+class Element {
+  constructor(tag = "div") {
+    this.tagName = tag.toUpperCase(); this.children = []; this.events = {}; this.style = {}; this.attrs = {}; this.value = ""; this._text = ""; this.className = ""; this.hidden = false; this.disabled = false;
+    const classes = new Set();
+    this.classList = { add: (...values) => values.forEach((value) => classes.add(value)), contains: (value) => classes.has(value) };
+  }
+  set textContent(value) { this._text = String(value); this.children = []; }
+  get textContent() { return this._text; }
+  set innerHTML(_) { throw new Error("Unsafe model-text HTML assignment"); }
+  append(...nodes) { this.children.push(...nodes); }
+  replaceChildren(...nodes) { this._text = ""; this.children = nodes; }
+  addEventListener(name, callback) { this.events[name] = callback; }
+  setAttribute(name, value) { this.attrs[name] = value; }
+  get firstElementChild() { return this.children[0]; }
+  scrollIntoView() { this.scrolled = true; }
+  focus() { this.focused = true; }
+  play() { this.played = true; return Promise.resolve(); }
+}
+const text = (node) => [node.textContent, ...node.children.map(text)].join(" ");
+const find = (node, predicate) => [...(predicate(node) ? [node] : []), ...node.children.flatMap((child) => find(child, predicate))];
+const videos = (node) => find(node, (item) => item.tagName === "VIDEO");
+const buttons = (node) => find(node, (item) => item.tagName === "BUTTON");
+const config = () => ({ configured: true, defaults: { target_duration: 40, min_duration: 30, max_duration: 50, sample_interval: 1 }, features: { dual_video: true, photos: false }, limits: { max_upload_mb: 512 }, prompt_library: { active_version_id: "P0004" } });
+const completed = () => ({
+  id: "aabbccddeeff", filename: "日常.mp4", status: "completed", stage: "整理完成", progress: 100, created_at: "2026-10-28T12:00:00+08:00", updated_at: "2026-10-28T12:01:00+08:00",
+  options: { story_enabled: true }, ai: { call_count: 1 }, result: {
+    highlight_status: "ready", video_url: "/api/jobs/aabbccddeeff/files/highlight.mp4", poster_url: "/api/jobs/aabbccddeeff/files/eating.jpg", video_duration: 40, clips: [{ start: 1, end: 41 }],
+    story: { status: "ready", title: "等一下，我也来。", summary: "它走到人手旁，停下来闻了闻。", video_url: "/api/jobs/aabbccddeeff/files/story/story.mp4", poster_url: "/api/jobs/aabbccddeeff/files/story/poster.jpg", video_duration: 18.4, clips: [{ start: 40, end: 58.4 }] }
+  }
+});
+
+function harness({ settings = config(), jobs = [], records = {}, postJob, route, search = "" } = {}) {
+  const nodes = Object.fromEntries(ids.map((id) => [id, new Element()]));
+  for (const [id, value] of Object.entries({ "target-duration": "40", "min-duration": "30", "max-duration": "50", "story-target": "30", "sample-interval": "1" })) nodes[id].value = value;
+  nodes["generate-button"].append(new Element("span"), new Element("span"));
+  const calls = []; const timers = new Map(); const local = new Map(); let nextTimer = 0;
+  const location = { origin, href: `${origin}/daily${search}` };
+  class MockFormData { constructor() { this.data = new Map(); } append(key, value) { this.data.set(key, value); } get(key) { return this.data.get(key); } }
+  const fetch = async (url, options = {}) => {
+    calls.push({ url, options });
+    const override = route ? await route(url, options, calls) : null;
+    if (override?.error) throw override.error;
+    let data = override?.body; const status = override?.status || 200;
+    if (!override) {
+      if (url === "/api/config") data = settings;
+      else if (url === "/api/jobs" && options.method === "POST") data = postJob;
+      else if (url === "/api/jobs") data = { jobs };
+      else if (/\/cancel$/.test(url)) data = { ...records[url.split("/")[3]], status: "cancelled" };
+      else data = records[url.split("/")[3]];
+    }
+    if (data === undefined) throw new Error(`Unexpected test request: ${url}`);
+    return { ok: status < 400, status, headers: { get: () => "application/json" }, json: async () => data };
+  };
+  const context = {
+    document: { getElementById: (id) => nodes[id] || null, createElement: (tag) => new Element(tag), title: "" },
+    window: { location, localStorage: { getItem: (key) => local.get(key) || null, setItem: (key, value) => local.set(key, value) }, history: { replaceState: (_, __, url) => { location.href = String(url); } } },
+    fetch, URL, FormData: MockFormData, console,
+    setTimeout: (callback, milliseconds) => { const id = ++nextTimer; timers.set(id, { callback, milliseconds }); return id; },
+    clearTimeout: (id) => timers.delete(id)
+  };
+  vm.createContext(context); vm.runInContext(script, context);
+  return { nodes, calls, timers, context, ready: async () => { await tick(); await tick(); }, choose: (file = { name: "日常.mp4", size: 4000 }) => { nodes["video-file"].files = [file]; nodes["video-file"].events.change(); }, submit: () => nodes["upload-form"].events.submit({ preventDefault() {} }), poll: async () => { const [id, timer] = timers.entries().next().value || []; assert.ok(timer, "Expected status-only poll"); timers.delete(id); await timer.callback(); } };
+}
+
+test("page uses dedicated static assets and no fake statusbar or media", () => {
+  assert.match(html, /\/static\/daily\.css/); assert.match(html, /\/static\/daily\.js/);
+  assert.doesNotMatch(html, /https?:\/\/|9:41|01:28|08:26|12张|糯米|<img/);
+  assert.match(html, /人宠合拍/); assert.match(html, /丑萌瞬间/);
+  assert.equal((html.match(/暂未接入/g) || []).length, 2);
+});
+
+test("all DOM IDs referenced by implementation exist exactly once", () => {
+  assert.equal(ids.length, new Set(ids).size);
+  const refs = [...script.matchAll(/\$\("([^"]+)"\)/g)].map((match) => match[1]);
+  refs.forEach((id) => assert.ok(ids.includes(id), `Missing ${id}`));
+});
+
+test("media playback contains the full original frame; reduced motion is supported", () => {
+  assert.match(css, /\.media-stage\.is-playing video\s*\{\s*object-fit:\s*contain/);
+  assert.match(css, /prefers-reduced-motion/); assert.match(html, /role="alert"/); assert.match(html, /aria-live="polite"/);
+  assert.doesNotMatch(script, /\.innerHTML\s*=/);
+});
+
+test("assets and downloads only accept same-origin HTTP URLs without embedded credentials", () => {
+  assert.equal(kit.safeUrl("/api/jobs/aabbccddeeff/files/highlight.mp4", origin), `${origin}/api/jobs/aabbccddeeff/files/highlight.mp4`);
+  for (const value of ["javascript:alert(1)", "data:video/mp4,AAA", "https://other.test/cat.mp4", "//other.test/x", "http://name:secret@127.0.0.1:8880/x", "/api/config", "/", "/api/jobs/aabbccddeeff/cancel", "/api/jobs/aabbccddeeff/files/../../other", "", null]) assert.equal(kit.safeUrl(value, origin), null);
+});
+
+test("generation retains eating defaults and adds story within the SAME task", () => {
+  assert.deepEqual(kit.generationOptions({ target: "40", min: "30", max: "50", interval: "1", story: "30" }), { target_duration: 40, min_duration: 30, max_duration: 50, sample_interval: 1, story_enabled: true, story_target_duration: 30, use_active_prompt: true });
+});
+
+test("bad duration bounds and nonfinite values are blocked before submission", () => {
+  const base = { target: 40, min: 30, max: 50, interval: 1, story: 30 };
+  for (const change of [{ target: NaN }, { target: 121 }, { min: 41 }, { max: 39 }, { story: 2 }, { story: 61 }, { interval: 0 }, { interval: Infinity }]) assert.throws(() => kit.generationOptions({ ...base, ...change }));
+});
+
+test("duration formatting never invents missing durations or totals", () => {
+  assert.equal(kit.durationLabel(40.2), "00:40"); assert.equal(kit.durationLabel(59.9), "01:00");
+  assert.equal(kit.durationLabel(null), "--:--"); assert.equal(kit.durationLabel("40"), "--:--"); assert.equal(kit.durationLabel(-1), "--:--");
+  assert.equal(kit.elapsedLabel(61.25), "1 分 1.25 秒"); assert.equal(kit.elapsedLabel(null), "未记录"); assert.equal(kit.elapsedLabel(.001), "<0.01 秒");
+});
+
+test("completed dual outputs expose their own real video, poster and duration", () => {
+  const out = kit.outputsFor(completed(), origin);
+  assert.equal(out.story.status, "ready"); assert.equal(out.story.duration, 18.4); assert.equal(out.eating.duration, 40);
+  assert.match(out.story.poster_url, /story\/poster\.jpg$/); assert.match(out.eating.poster_url, /eating\.jpg$/);
+});
+
+test("no interaction is honest, and does not remove a successful eating video", () => {
+  const job = completed(); job.result.story = { status: "not_found", reason: "只有小猫独自在吃饭。" };
+  const out = kit.outputsFor(job, origin); assert.equal(out.story.status, "not_found"); assert.equal(out.eating.status, "ready");
+});
+
+test("story-only result is usable, without pretending an eating video exists", () => {
+  const job = completed(); Object.assign(job.result, { highlight_status: "not_found", video_url: null });
+  const out = kit.outputsFor(job, origin); assert.equal(out.story.status, "ready"); assert.equal(out.eating.status, "not_found");
+});
+
+test("historical eating results do not falsely claim story extraction", () => {
+  const job = completed(); delete job.result.story; delete job.result.highlight_status; delete job.options.story_enabled;
+  const out = kit.outputsFor(job, origin); assert.equal(out.eating.status, "ready"); assert.equal(out.story.status, "historical"); assert.match(out.story.reason, /历史任务未提取小剧场/);
+});
+
+test("invalid ready URLs are not advertised as success", () => {
+  const job = completed(); job.result.video_url = "https://untrusted.test/a.mp4"; job.result.story.video_url = "javascript:alert(1)";
+  const out = kit.outputsFor(job, origin); assert.equal(out.eating.status, "failed"); assert.equal(out.story.status, "invalid");
+});
+
+test("no data and nonterminal jobs remain pending rather than fake ready", () => {
+  for (const job of [null, { status: "analyzing", options: { story_enabled: true } }]) {
+    const out = kit.outputsFor(job, origin); assert.equal(out.story.status, "pending"); assert.equal(out.eating.status, "pending");
+  }
+});
+
+test("timing rows preserve individual story stages and never count pending as zero", () => {
+  const timings = { schema_version: 1, available: true, stages: [{ id: "extract_frames", seconds: 1.2, status: "completed" }, { id: "render_story", seconds: 0, status: "pending" }, { id: "ai_request", seconds: 45.5, status: "completed" }] };
+  const rows = kit.timingRows(timings); assert.equal(rows[0].seconds, 1.2); assert.equal(rows[1].seconds, null); assert.equal(rows[1].label, "剪辑人宠小故事"); assert.equal(rows[2].seconds, 45.5);
+  assert.deepEqual(kit.timingRows({ available: false }), []);
+});
+
+test("boot connects only to read-only config/history and keeps generation disabled without file", async () => {
+  const page = harness(); await page.ready();
+  assert.deepEqual(page.calls.map((call) => call.url), ["/api/config", "/api/jobs"]);
+  assert.equal(page.nodes["generate-button"].disabled, true); assert.match(page.nodes["prompt-standard"].textContent, /P0004/);
+  assert.equal(page.nodes["history-list"].children.length, 0);
+});
+
+test("unsupported old server and missing model configuration never submit", async () => {
+  for (const change of [{ features: {} }, { configured: false }]) {
+    const page = harness({ settings: { ...config(), ...change } }); await page.ready(); page.choose();
+    assert.equal(page.nodes["generate-button"].disabled, true); await page.submit();
+    assert.equal(page.calls.filter((call) => call.options.method === "POST").length, 0);
+  }
+});
+
+test("empty, oversized and unsupported uploads are rejected without API writes", async () => {
+  const page = harness(); await page.ready();
+  for (const file of [{ name: "a.txt", size: 12 }, { name: "a.mp4", size: 0 }, { name: "a.mp4", size: 513 * 1024 * 1024 }]) {
+    page.choose(file); assert.equal(page.nodes["generate-button"].disabled, true); assert.equal(page.nodes["form-error"].hidden, false);
+  }
+  assert.equal(page.calls.filter((call) => call.options.method === "POST").length, 0);
+});
+
+test("a click submits file + dual options once and does not issue a separate story call", async () => {
+  const job = { id: "aabbccddeeff", filename: "日常.mp4", status: "queued", options: { story_enabled: true }, ai: { call_count: 0 } };
+  const page = harness({ postJob: job }); await page.ready(); page.choose();
+  assert.equal(page.nodes["generate-button"].disabled, false); await page.submit(); await page.submit();
+  const writes = page.calls.filter((call) => call.options.method === "POST"); assert.equal(writes.length, 1); assert.equal(writes[0].url, "/api/jobs");
+  assert.equal(writes[0].options.body.get("file").name, "日常.mp4"); assert.equal(writes[0].options.body.get("video"), undefined);
+  const options = JSON.parse(writes[0].options.body.get("options")); assert.equal(options.story_enabled, true); assert.equal(options.use_active_prompt, true); assert.equal(options.prompt, undefined);
+  assert.match(page.nodes["job-ai-count"].textContent, /0 次/); assert.equal(page.nodes["generate-button"].disabled, true);
+});
+
+test("successful history renders two actual players and source-specific duration", async () => {
+  const job = completed(); const page = harness({ jobs: [job], records: { [job.id]: job } }); await page.ready();
+  assert.equal(videos(page.nodes["story-output"]).length, 1); assert.equal(videos(page.nodes["eating-output"]).length, 1);
+  assert.match(text(page.nodes["story-output"]), /00:18/); assert.match(text(page.nodes["eating-output"]), /00:40/);
+  assert.match(text(page.nodes["eating-output"]), /1 段精选/); assert.doesNotMatch(text(page.nodes["eating-output"]), /3顿|累计/);
+  const video = videos(page.nodes["story-output"])[0]; assert.equal(video.controls, false);
+  await buttons(page.nodes["story-output"])[0].events.click(); assert.equal(video.controls, true); assert.equal(video.played, true);
+});
+
+test("model titles and reasons are plain text, never injected HTML", async () => {
+  const job = completed(); job.result.story.title = "<img src=x onerror=alert(1)>";
+  const page = harness({ jobs: [job], records: { [job.id]: job } }); await page.ready();
+  assert.match(text(page.nodes["story-output"]), /<img src=x/); assert.equal(find(page.nodes["story-output"], (node) => node.tagName === "IMG").length, 0);
+});
+
+test("history lacking story shows the historical disclosure while eating still plays", async () => {
+  const job = completed(); delete job.options.story_enabled; delete job.result.story;
+  const page = harness({ jobs: [job], records: { [job.id]: job } }); await page.ready();
+  assert.match(text(page.nodes["story-output"]), /历史任务未提取小剧场/); assert.equal(videos(page.nodes["story-output"]).length, 0); assert.equal(videos(page.nodes["eating-output"]).length, 1);
+});
+
+test("status polls are GET-only and arriving results become playable", async () => {
+  const job = completed(); const record = { ...job, status: "analyzing", result: undefined, ai: { call_count: 1 } };
+  const records = { [job.id]: record }; const page = harness({ jobs: [record], records }); await page.ready();
+  assert.equal(videos(page.nodes["eating-output"]).length, 0); records[job.id] = job; await page.poll();
+  assert.equal(videos(page.nodes["eating-output"]).length, 1); assert.equal(videos(page.nodes["story-output"]).length, 1);
+  assert.equal(page.calls.filter((call) => call.options.method === "POST").length, 0); assert.equal(page.timers.size, 0);
+});
+
+test("temporary polling failure retries only task status and preserves the task", async () => {
+  const job = { ...completed(), status: "analyzing", result: undefined };
+  let reads = 0;
+  const page = harness({ jobs: [job], records: { [job.id]: job }, route: (url) => url === `/api/jobs/${job.id}` && ++reads > 1 ? { error: new Error("网络暂断") } : null });
+  await page.ready(); await page.poll();
+  assert.match(page.nodes["job-message"].textContent, /不会重发 AI 请求/); assert.equal(page.calls.filter((call) => call.options.method === "POST").length, 0); assert.equal(page.timers.size, 1);
+});
+
+test("cancel targets only selected job and stops status polling on confirmed cancellation", async () => {
+  const job = { ...completed(), status: "analyzing", result: undefined };
+  const page = harness({ jobs: [job], records: { [job.id]: job } }); await page.ready(); await page.nodes["cancel-job"].events.click();
+  const writes = page.calls.filter((call) => call.options.method === "POST"); assert.equal(writes.length, 1); assert.equal(writes[0].url, `/api/jobs/${job.id}/cancel`);
+  assert.equal(page.nodes["cancel-job"].hidden, true); assert.equal(page.timers.size, 0);
+});
+
+test("uncertain submission locks resubmit; retry is never automatic", async () => {
+  const page = harness({ route: (url, options) => url === "/api/jobs" && options.method === "POST" ? { error: new Error("连接中断") } : null });
+  await page.ready(); page.choose(); await page.submit(); await page.submit();
+  assert.equal(page.calls.filter((call) => call.options.method === "POST").length, 1); assert.equal(page.nodes["generate-button"].disabled, true); assert.equal(page.nodes["resolve-upload"].hidden, false);
+  assert.match(page.nodes["form-error"].textContent, /不会自动重试/);
+});
+
+test("failed jobs retain honest error state and no playable fiction", async () => {
+  const job = { id: "aabbccddeeff", filename: "失败.mp4", status: "failed", error: "AI 返回未完整结束", options: { story_enabled: true }, ai: { call_count: 1 } };
+  const page = harness({ jobs: [job], records: { [job.id]: job } }); await page.ready();
+  assert.match(page.nodes["job-message"].textContent, /AI 返回未完整结束/); assert.equal(videos(page.nodes["story-output"]).length + videos(page.nodes["eating-output"]).length, 0);
+  assert.match(page.nodes["job-ai-count"].textContent, /1 次/); assert.equal(page.nodes["total-time"].textContent, "未记录");
+});
+
+test("query-selected real record wins over newest history and debug link carries identity", async () => {
+  const old = { ...completed(), id: "112233445566", filename: "旧记录.mp4" }; const latest = completed();
+  const page = harness({ jobs: [latest, old], records: { [latest.id]: latest, [old.id]: old }, search: `?job=${old.id}` }); await page.ready();
+  assert.equal(page.nodes["prompt-debug-link"].href, `/?job=${old.id}`); assert.match(page.context.window.location.href, new RegExp(old.id));
+});

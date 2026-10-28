@@ -6,6 +6,8 @@
 
 这是独立的本机调试服务，不替换仓库原有 `server/` 或 `vision/`，不需要微信小程序、摄像头 SDK、本地检测权重或音乐文件。没有自动接入每日吃播生产链路。
 
+新增 [每日双视频手机预览](docs/daily-dual-videos.md)：保留原吃播规则，在同一次多图请求中额外提取人宠互动故事，分别输出两段原声视频。运行 `python run_daily.py --port 8880` 后打开 [手机预览](http://127.0.0.1:8880/daily)；该入口默认用独立 `data/daily/`，原调试台仍保留。人宠合拍、丑萌照片本阶段未接入，不展示假结果。
+
 ## 启动
 
 需要 Python **3.11+**、可在 PATH 找到的 **FFmpeg / ffprobe**，FFmpeg 应包含 `libx264`。Node.js **18+** 仅用于前端测试，运行网页不需要 Node 或打包步骤。
@@ -148,6 +150,7 @@ AI 已完整返回但选片验证或媒体导出失败时，可核验已保存�
 ```powershell
 .venv/Scripts/python.exe -m pytest -q
 node --test scripts/test_frontend.cjs
+node --test scripts/test_daily_frontend.cjs
 ```
 
 媒体测试会实际运行 FFmpeg；未安装媒体工具时部分测试可能跳过。历史导入测试使用临时合成资料，不依赖某台电脑上的家庭录像。本次同步的实际测试结果、环境和限制见 [验证说明](docs/verification.md)。

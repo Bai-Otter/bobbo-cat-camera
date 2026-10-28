@@ -1156,5 +1156,9 @@
   document.addEventListener("visibilitychange", () => { if (!document.hidden && state.mode === "job" && state.job && !terminal.has(state.job.status)) { stopPolling(); pollJob(); } });
   updateOptionsPreview(); updateGenerateButton();
   renderPromptLibrary();
-  Promise.allSettled([loadConfig(), loadJobs(), loadLegacy(), healthCheck(), loadPromptLibrary()]);
+  Promise.allSettled([loadConfig(), loadJobs(), loadLegacy(), healthCheck(), loadPromptLibrary()]).then(() => {
+    let linkedJob;
+    try { linkedJob = new URL(window.location.href).searchParams.get("job"); } catch { return; }
+    if (linkedJob && /^[0-9a-f]{12}$/.test(linkedJob)) openJob(linkedJob);
+  });
 })();

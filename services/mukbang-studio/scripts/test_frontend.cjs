@@ -75,7 +75,7 @@ function legacyFixture() {
   return { runs: [{ id: "test-history", title: "测试历史", video_url: "/api/legacy/files/test/video.mp4", sheets: [{ id: "old", original_url: "/api/legacy/files/test/original.jpg", annotated_url: "/api/legacy/files/test/circled.jpg", count: 60 }], selected_frames: [], timeline: [] }] };
 }
 
-function harness({ config, jobs = [], job, postJob = job, legacy = { runs: [] }, feedback, feedbackByJob = {}, route, versions, library, proposals = [], postProposal }) {
+function harness({ config, jobs = [], job, postJob = job, legacy = { runs: [] }, feedback, feedbackByJob = {}, route, versions, library, proposals = [], postProposal, href = "http://127.0.0.1:8876/" }) {
   const nodes = {};
   ids.forEach((id) => { nodes[id] = new Element("div", nodes); nodes[id].id = id; });
   const values = { "target-duration": "40", "target-slider": "40", "min-duration": "30", "max-duration": "50", "sample-interval": "1", "api-style": "chat_completions" };
@@ -136,7 +136,7 @@ function harness({ config, jobs = [], job, postJob = job, legacy = { runs: [] },
   };
   const context = {
     document: { getElementById: (id) => nodes[id] || null, createElement: (tag) => new Element(tag, nodes), querySelectorAll: (selector) => selector === "[data-tab]" ? tabs : [], addEventListener() {} },
-    window: { location: { origin: "http://127.0.0.1:8876" }, innerWidth: 1440 },
+    window: { location: { origin: "http://127.0.0.1:8876", href }, innerWidth: 1440 },
     fetch, URL, FormData, Blob, console, crypto,
     navigator: { clipboard: { writeText: async () => {} } },
     setTimeout: (callback, milliseconds) => { const id = ++timerId; timers.set(id, { callback, milliseconds }); return id; },
@@ -515,6 +515,26 @@ function feedbackJob(id = "feedback-test", overrides = {}) {
     sampling: { interval: 1, frame_count: 2, sheet_count: 1, frames, sheets: [{ id: "S1", width: 240, height: 200, count: 2, url: `/api/jobs/${id}/files/sheet.jpg`, annotated_url: `/api/jobs/${id}/files/circled.jpg` }] },
     ai: { call_count: 1, model: "gpt-6.1-sol" }, result: { selected_frames: [frames[0]], clips: [], memes: [] }, ...overrides };
 }
+
+test("daily debug deep link opens the exact existing job using only GET", async () => {
+  const job = feedbackJob("c61d487f2a76");
+  const { nodes, calls, ready } = harness({ config: configFixture(), job, jobs: [job], href: `http://127.0.0.1:8876/?job=${job.id}` });
+  await ready();
+  await ready();
+  assert.equal(calls.filter((call) => call.url === `/api/jobs/${job.id}`).length, 1);
+  assert.equal(nodes["file-label"].textContent, job.filename);
+  assert.equal(calls.some((call) => (call.options.method || "GET") !== "GET"), false);
+});
+
+test("invalid debug deep links never request a job or start generation", async () => {
+  for (const id of ["", "../private", "c61d487f2a76/feedback", "C61D487F2A76", "c61d487f2a760"]) {
+    const { calls, ready } = harness({ config: configFixture(), href: `http://127.0.0.1:8876/?job=${encodeURIComponent(id)}` });
+    await ready();
+    await ready();
+    assert.equal(calls.some((call) => call.url.startsWith("/api/jobs/")), false, id);
+    assert.equal(calls.some((call) => (call.options.method || "GET") !== "GET"), false, id);
+  }
+});
 
 function frameFeedback(nodes, id, root = nodes["evidence-content"]) {
   const controls = withClass(root, "frame-feedback").find((node) => node.dataset.frameId === id);

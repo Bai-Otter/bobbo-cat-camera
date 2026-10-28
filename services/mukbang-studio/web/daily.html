@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f5f1">
+  <meta name="description" content="把小猫的日常，整理成一段故事和一顿好好吃的饭。">
+  <title>小猫的今天 · BOBBO</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%3E%3Crect%20width%3D%2232%22%20height%3D%2232%22%20rx%3D%229%22%20fill%3D%22%233c382f%22%2F%3E%3Ctext%20x%3D%228%22%20y%3D%2224%22%20font-size%3D%2223%22%20fill%3D%22%23fffaf1%22%3Eb%3C%2Ftext%3E%3C%2Fsvg%3E">
+  <link rel="stylesheet" href="/static/daily.css">
+  <script src="/static/daily.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#daily-content">跳到今日内容</a>
+  <div class="workspace">
+    <main class="phone" id="daily-content">
+      <header class="app-header">
+        <div class="app-wordmark">BOBBO <span>日常记录</span></div>
+        <div class="title-row">
+          <a class="back-link" href="/" aria-label="返回原调试页面">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 4-8 8 8 8"/></svg>
+          </a>
+          <div class="title-copy"><h1 id="daily-title">小猫的今天</h1><p id="daily-date">今天</p></div>
+          <button class="calendar-button" id="show-history" type="button" aria-label="查看生成记录" aria-controls="history-panel">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="16" rx="3"/><path d="M8 3v4m8-4v4M4 11h16m-11 4h2m2 0h2m-6 3h2"/></svg>
+          </button>
+        </div>
+        <div class="app-toolbar"><span class="quiet-note">它的小事，值得留住。</span><a href="#upload-panel" class="upload-shortcut">上传日常 <span aria-hidden="true">＋</span></a></div>
+      </header>
+
+      <section class="job-notice" id="job-notice" aria-labelledby="job-stage" hidden>
+        <div class="job-line"><h2 id="job-stage">等待处理</h2><span id="job-percent"></span></div>
+        <div class="progress-track" id="job-progress" role="progressbar" aria-label="生成进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="job-progress-fill"></span></div>
+        <p id="job-message" role="status" aria-live="polite"></p>
+        <div class="job-notice-foot"><span id="job-ai-count"></span><button type="button" class="text-button" id="cancel-job" hidden>取消本次</button></div>
+      </section>
+
+      <section class="daily-card story-card" aria-labelledby="story-heading">
+        <div class="card-heading"><h2 id="story-heading">今日小剧场</h2><span class="card-aside">人和它的小故事 <span aria-hidden="true">›</span></span></div>
+        <div id="story-output" aria-live="polite">
+          <div class="empty-media story-empty"><span class="empty-symbol" aria-hidden="true">↗</span><p>今天，会发生什么小故事？</p><span>上传一段日常，找找你们的互动。</span></div>
+        </div>
+      </section>
+
+      <section class="daily-card eating-card" aria-labelledby="eating-heading">
+        <div class="card-heading"><h2 id="eating-heading">纯享吃播</h2><span class="soft-tag">原速 · 原声</span></div>
+        <div id="eating-output" aria-live="polite">
+          <div class="empty-media eating-empty"><span class="empty-symbol bowl-symbol" aria-hidden="true">⌒</span><p>慢慢吃，也慢慢看。</p><span>近近的脸、认真吃饭的每一口。</span></div>
+        </div>
+      </section>
+
+      <section class="daily-card photos-card" aria-labelledby="photos-heading">
+        <div class="card-heading"><h2 id="photos-heading">今日精选</h2><span class="card-aside">下一步，留住一张</span></div>
+        <div class="photo-placeholders">
+          <div class="photo-placeholder"><svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="18" cy="15" r="6"/><path d="M7 37v-5a11 11 0 0 1 22 0v5m0-16 3-6 5 4 5-4v15a7 7 0 0 1-14 0v-9m5 5h.01M38 26h.01"/></svg><h3>人宠合拍</h3><span>暂未接入</span></div>
+          <div class="photo-placeholder"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="m10 18-1-9 10 6h10l10-6-1 9a17 17 0 1 1-28 0Z"/><path d="m16 25 4 2m8 0 4-2m-12 7q4 5 8 0M6 29l8 1m20 0 8-1"/></svg><h3>丑萌瞬间</h3><span>暂未接入</span></div>
+        </div>
+        <p class="photos-note">这次先做好两段视频，照片功能稍后再接。</p>
+      </section>
+      <footer class="app-footer"><span class="footer-dot" aria-hidden="true"></span> 小小日常，好好收藏。</footer>
+    </main>
+
+    <aside class="utility" aria-label="上传和生成设置">
+      <section class="utility-card composer" id="upload-panel" aria-labelledby="upload-heading">
+        <div class="utility-eyebrow">DAILY, LITTLE THINGS</div>
+        <h2 id="upload-heading">把日常，<br>变成今天的回忆。</h2>
+        <p class="utility-intro">上传一次，同时寻找人宠小故事与纯享吃播。没有合适互动，就如实留白。</p>
+        <form id="upload-form" novalidate>
+          <label class="file-picker" for="video-file"><span class="upload-icon" aria-hidden="true">↑</span><strong id="file-name">选择一段视频</strong><span id="file-detail">MP4 / MOV / MKV / AVI / WebM / M4V</span><input id="video-file" name="file" type="file" accept="video/*,.mkv,.avi,.m4v" required></label>
+          <details class="generation-settings" id="generation-settings">
+            <summary>时长与生成设置 <span id="settings-summary">吃播 40 秒 / 故事 30 秒</span></summary>
+            <div class="settings-fields">
+              <label>吃播目标 <span><input id="target-duration" type="number" value="40" min="1" max="120" step="1" required> 秒</span></label>
+              <div class="range-fields"><label>最短 <span><input id="min-duration" type="number" value="30" min="1" max="120" step="1" required> 秒</span></label><label>最长 <span><input id="max-duration" type="number" value="50" min="1" max="120" step="1" required> 秒</span></label></div>
+              <label>故事目标 <span><input id="story-target" type="number" value="30" min="3" max="60" step="1" required> 秒</span></label>
+              <p class="field-note">目标不是硬凑时长；故事必须有真实互动，人物或明确的人手与宠物同镜。</p>
+              <label>抽样间隔 <span><select id="sample-interval"><option value="1">1</option><option value="0.5">0.5</option><option value="2">2</option><option value="3">3</option></select> 秒 / 帧</span></label>
+              <label>小猫的称呼 <input id="pet-name" type="text" maxlength="20" placeholder="小猫" autocomplete="off"></label>
+            </div>
+          </details>
+          <div class="active-standard"><span class="standard-dot" aria-hidden="true"></span><span id="prompt-standard">正在读取通用提示词…</span><a id="prompt-debug-link" href="/">查看调试页 ↗</a></div>
+          <p class="form-error" id="form-error" role="alert" hidden></p>
+          <button class="text-button resolve-upload" id="resolve-upload" type="button" hidden>已核对生成记录，允许我重新上传</button>
+          <button class="generate-button" id="generate-button" type="submit" disabled><span>一起生成两段视频</span><span aria-hidden="true">↗</span></button>
+          <p class="generation-note" id="generation-note">同一批拼图，一次 AI 识别。不自动重试。</p>
+        </form>
+        <div class="pipeline-notes"><span>保留原吃播偏好</span><span>两段均原速原声</span><span>无配音 · 无 BGM</span></div>
+      </section>
+
+      <section class="utility-card timings-card" id="timings-panel" aria-labelledby="timings-heading" hidden>
+        <div class="utility-section-heading"><h2 id="timings-heading">这次花了多久</h2><strong id="total-time">—</strong></div>
+        <p class="timing-note" id="timings-note">各环节以服务端实际记录为准。</p>
+        <ol class="timing-list" id="timing-list"></ol>
+      </section>
+
+      <section class="utility-card history-card" id="history-panel" aria-labelledby="history-heading" tabindex="-1">
+        <div class="utility-section-heading"><h2 id="history-heading">生成记录</h2><button class="text-button" id="refresh-history" type="button">刷新</button></div>
+        <p class="history-note" id="history-note">正在读取记录…</p>
+        <ol class="history-list" id="history-list"></ol>
+      </section>
+      <p class="privacy-note">画面只在本地整理；生成时会把抽样拼图<br>发给当前配置的 AI 服务。</p>
+    </aside>
+  </div>
+</body>
+</html>

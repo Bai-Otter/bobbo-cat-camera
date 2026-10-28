@@ -21,6 +21,7 @@ STAGES = {
     "selection": "解析与验证选片",
     "annotate_sheets": "生成圈选图",
     "render_highlight": "精选剪辑与校验",
+    "render_story": "互动小剧场剪辑与校验",
     "export_memes": "表情包导出与校验",
     "final_validation": "最终检查与保存",
 }

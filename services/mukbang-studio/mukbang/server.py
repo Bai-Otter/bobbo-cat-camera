@@ -9,6 +9,7 @@ import hashlib
 import json
 import math
 import mimetypes
+import os
 from pathlib import Path
 import re
 import shutil
@@ -22,7 +23,7 @@ from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictBool
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from .config import DEFAULTS, LIMITS, ROOT, ProviderConfig
@@ -57,11 +58,15 @@ class JobOptions(BaseModel):
     sample_interval: float = Field(default=1, ge=0.25, le=3)
     prompt: str = Field(default="", max_length=40000)
     use_active_prompt: bool = False
+    story_enabled: StrictBool = False
+    story_target_duration: float = Field(default=30, ge=3, le=60)
 
 
 def requested_options(values: JobOptions) -> dict:
-    """Keep existing request fingerprints stable when the new flag is absent."""
-    result = values.model_dump(exclude={"use_active_prompt"})
+    """Keep legacy fingerprints stable for jobs that do not request a story."""
+    result = values.model_dump(exclude={"use_active_prompt", "story_enabled", "story_target_duration"})
+    if values.story_enabled:
+        result.update(story_enabled=True, story_target_duration=values.story_target_duration)
     if values.use_active_prompt:
         result["use_active_prompt"] = True
     return result
@@ -325,7 +330,8 @@ class JobManager:
             return self.get(child["id"])
 
     def resolve_prompt(self, supplied: JobOptions, secret: str = "") -> tuple[dict, dict]:
-        options = clean_public(supplied.model_dump(exclude={"use_active_prompt"}), secret)
+        options = clean_public(requested_options(supplied), secret)
+        options.pop("use_active_prompt", None)
         if self.prompt_library is not None and (supplied.use_active_prompt or not options["prompt"].strip()):
             # One library snapshot binds the active ID, revision and exact text
             # even if another browser publishes while this upload is accepted.
@@ -576,6 +582,7 @@ def create_app(data_dir: Path | None = None, provider: ProviderConfig | None = N
         current = library.public()
         active = next(row for row in current["versions"] if row["id"] == current["active_version_id"])
         return {**provider.public(), "defaults": DEFAULTS, "limits": LIMITS,
+                "features": {"dual_video": True, "story_max_duration": 60, "photos": False},
                 "prompt_template": active["text"],
                 "prompt_library": {"revision": current["revision"], "active_version_id": active["id"], "active": active},
                 "legacy_available": (data_dir / "legacy" / "manifest.json").is_file()}
@@ -755,10 +762,19 @@ def create_app(data_dir: Path | None = None, provider: ProviderConfig | None = N
             return JSONResponse({"detail": "网页正在准备，请稍后刷新"}, status_code=503)
         return FileResponse(path)
 
+    @app.get("/daily")
+    @app.get("/daily/", include_in_schema=False)
+    def daily():
+        path = ROOT / "web" / "daily.html"
+        if not path.is_file():
+            return JSONResponse({"detail": "每日视频页面正在准备，请稍后刷新"}, status_code=503)
+        return FileResponse(path)
+
     web = ROOT / "web"
     web.mkdir(exist_ok=True)
     app.mount("/static", StaticFiles(directory=web), name="static")
     return app
 
 
-app = create_app()
+app = create_app(data_dir=Path(os.environ["MUKBANG_APP_DATA_DIR"]).resolve()
+                 if os.environ.get("MUKBANG_APP_DATA_DIR") else None)
