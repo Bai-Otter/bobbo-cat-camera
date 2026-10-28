@@ -63,7 +63,7 @@ def test_config_announces_additive_features_without_changing_eating_defaults(dai
     result = client.get("/api/config")
     assert result.status_code == 200
     body = result.json()
-    assert body["features"] == {"dual_video": True, "story_max_duration": 60, "story_inner_monologue": True, "photos": True}
+    assert body["features"] == {"dual_video": True, "story_max_duration": 60, "story_inner_monologue": True, "photos": True, "photo_gallery": True}
     assert body["defaults"] == {"target_duration": 40, "min_duration": 30,
         "max_duration": 50, "sample_interval": 1, "frames_per_sheet": 60}
     assert body["prompt_template"] == body["prompt_library"]["active"]["text"]
@@ -92,6 +92,18 @@ def test_photos_opt_in_is_strict_and_default_keeps_old_request_identity(daily_ap
     assert response.status_code == 202
     drain(app)
     assert len(calls) == 1 and calls[0]["options"]["photos_enabled"] is True
+
+
+def test_gallery_is_versioned_and_reaches_one_job(daily_app):
+    app, client, calls = daily_app
+    assert requested_options(JobOptions(photo_mode="gallery")) == requested_options(JobOptions())
+    legacy = JobOptions(story_enabled=True, photos_enabled=True)
+    assert "photo_mode" not in requested_options(legacy)
+    assert upload(client, {"story_enabled": True, "photos_enabled": True, "photo_mode": "invalid"}).status_code == 400
+    result = upload(client, {"story_enabled": True, "photos_enabled": True, "photo_mode": "gallery"})
+    assert result.status_code == 202
+    drain(app)
+    assert len(calls) == 1 and calls[0]["options"]["photo_mode"] == "gallery"
 
 
 @pytest.mark.parametrize("path", ["/daily", "/daily/"])

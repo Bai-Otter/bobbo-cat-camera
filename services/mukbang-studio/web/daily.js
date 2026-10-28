@@ -39,7 +39,7 @@
     const options = {
       target_duration: Number(values.target), min_duration: Number(values.min), max_duration: Number(values.max),
       sample_interval: Number(values.interval), story_enabled: true,
-      story_target_duration: Number(values.story), story_mode: "inner_monologue", photos_enabled: true, use_active_prompt: true
+      story_target_duration: Number(values.story), story_mode: "inner_monologue", photos_enabled: true, photo_mode: "gallery", use_active_prompt: true
     };
     for (const key of ["target_duration", "min_duration", "max_duration"]) {
       if (!Number.isFinite(options[key]) || options[key] < 1 || options[key] > 120) throw new Error("吃播时长请填写 1–120 秒。 ");
@@ -91,22 +91,29 @@
 
   function photosFor(job, origin) {
     const terminal = TERMINAL.has(job?.status);
-    return ["portrait", "ugly_cute"].map((category) => {
-      const pick = job?.result?.photos?.[category];
-      const base = { category, label: category === "portrait" ? "人宠合拍" : "丑萌瞬间" };
+    function one(category, pick, index = null, count = null) {
+      const base = { category, label: category === "portrait" ? "人宠合拍" : index === null ? "丑萌瞬间" : `丑萌瞬间 ${index + 1}/${count}`,
+        download_name: index === null ? category : `${category}_${String(index + 1).padStart(2, "0")}` };
       if (pick?.status === "ready") {
         const url = safeUrl(pick.image_url, origin);
         if (!url) return { ...base, status: "invalid", reason: "照片地址无效，未展示为成功。" };
         return { ...base, status: "ready", image_url: url, title: pick.title || base.label, reason: pick.reason || "",
           time: measuredSeconds(pick.source?.source_time ?? pick.time), frame_id: pick.frame_id || "",
-          sample_url: safeUrl(pick.sample_url, origin), width: pick.width, height: pick.height };
+          sample_url: safeUrl(pick.sample_url, origin), width: pick.width, height: pick.height, difference: pick.difference || "" };
       }
       if (pick && ["not_found", "invalid", "failed"].includes(pick.status)) return { ...base, status: pick.status, reason: pick.reason || "这类照片未生成。" };
       if (!job) return { ...base, status: "empty", reason: "上传日常，留住一张。" };
       if (!terminal) return { ...base, status: "pending", reason: "正在同一批画面里寻找…" };
       if (!job.options?.photos_enabled) return { ...base, status: "historical", reason: "这条历史记录未提取照片。" };
       return { ...base, status: "failed", reason: "本次照片尚未生成完成。" };
-    });
+    }
+    const all = job?.result?.photos || {}, cute = all.ugly_cute;
+    if (Array.isArray(cute?.items) && cute.items.length) {
+      return [one("portrait", all.portrait), ...cute.items.map((pick, index) => ({
+        ...one("ugly_cute", pick, index, cute.items.length), count_goal: cute.count_goal
+      }))];
+    }
+    return [one("portrait", all.portrait), { ...one("ugly_cute", cute), count_goal: cute?.count_goal }];
   }
 
   // Pure helpers are exported for deterministic, no-network contract tests.
@@ -137,9 +144,9 @@
   function stopPolling() { clearTimeout(state.pollTimer); state.pollTimer = null; }
   function updateButton() {
     const configured = state.config?.configured === true;
-    const supported = state.config?.features?.dual_video === true && state.config?.features?.story_inner_monologue === true && state.config?.features?.photos === true;
+    const supported = state.config?.features?.dual_video === true && state.config?.features?.story_inner_monologue === true && state.config?.features?.photo_gallery === true;
     $("generate-button").disabled = !state.file || !configured || !supported || state.submitting || state.uncertainUpload || isRunning();
-    $("generate-button").firstElementChild.textContent = state.submitting ? "正在上传视频…" : state.uncertainUpload ? "提交结果待核对" : isRunning() ? "这次正在生成…" : !state.config ? "正在连接本地服务…" : !configured ? "请先在调试页配置模型" : !supported ? "请启动新版内心独白服务" : "一起生成两段视频";
+    $("generate-button").firstElementChild.textContent = state.submitting ? "正在上传视频…" : state.uncertainUpload ? "提交结果待核对" : isRunning() ? "这次正在生成…" : !state.config ? "正在连接本地服务…" : !configured ? "请先在调试页配置模型" : !supported ? "请启动新版照片相册服务" : "一起生成视频和照片";
     $("cancel-job").disabled = state.cancelling;
     $("cancel-job").textContent = state.cancelling ? "正在取消…" : "取消本次";
     $("video-file").disabled = state.submitting;
@@ -189,8 +196,17 @@
     if (state.signatures.photos === signature) return;
     state.signatures.photos = signature;
     const root = $("photo-outputs"); root.replaceChildren();
+    const gallery = job?.options?.photo_mode === "gallery" || Array.isArray(job?.result?.photos?.ugly_cute?.items);
+    let shownCount = false;
     picks.forEach((pick) => {
+      if (gallery && pick.category === "ugly_cute" && !shownCount) {
+        shownCount = true;
+        const actual = picks.filter((p) => p.category === "ugly_cute" && p.status === "ready").length;
+        root.append(el("p", "photo-gallery-count", `丑萌相册 · ${actual} 张 / 目标至少 4 张`));
+        if (pick.count_goal?.met === false) root.append(el("p", "photo-gallery-count", pick.count_goal.shortfall_reason || "当前照片不足4张，未用重复帧凑数。"));
+      }
       const card = el("article", "photo-pick"); card.setAttribute("data-category", pick.category);
+      if (gallery && pick.category === "portrait") card.classList.add("photo-portrait");
       card.append(el("h3", "", pick.label));
       if (pick.status !== "ready") {
         const empty = el("div", "photo-empty");
@@ -203,9 +219,10 @@
       const error = el("p", "", "照片加载失败，可用下方链接下载原图。"); error.hidden = true;
       image.addEventListener("error", () => { image.hidden = true; error.hidden = false; });
       link.append(image); card.append(link, error, el("strong", "", pick.title), el("p", "", `原片 ${elapsedLabel(pick.time)}`));
-      const download = el("a", "photo-download", "保存原图 ↗"); download.href = pick.image_url; download.setAttribute("download", `${pick.category}.png`);
+      const download = el("a", "photo-download", "保存原图 ↗"); download.href = pick.image_url; download.setAttribute("download", `${pick.download_name}.png`);
       card.append(download);
       const details = el("details"); details.append(el("summary", "", "为什么选这张"), el("p", "", pick.reason), el("p", "", `采样 ${pick.frame_id} · ${pick.width} × ${pick.height}`));
+      if (pick.difference) details.append(el("p", "", `这张的不同：${pick.difference}`));
       if (pick.sample_url) { const sample = el("a", "", "核对AI看到的采样图 ↗"); sample.href = pick.sample_url; sample.target = "_blank"; sample.rel = "noopener"; details.append(sample); }
       card.append(details); root.append(card);
     });
@@ -377,7 +394,7 @@
     event.preventDefault();
     if (state.submitting || state.uncertainUpload || isRunning()) return;
     if (!state.file) { formError("先选择一段视频。"); return; }
-    if (!state.config?.configured || !state.config?.features?.dual_video || !state.config?.features?.story_inner_monologue || !state.config?.features?.photos) { formError("请先确认模型连接和新版视频＋照片服务已就绪；可在原调试页检查配置。"); return; }
+    if (!state.config?.configured || !state.config?.features?.dual_video || !state.config?.features?.story_inner_monologue || !state.config?.features?.photo_gallery) { formError("请先确认模型连接和新版合拍＋丑萌相册服务已就绪；可在原调试页检查配置。"); return; }
     let options;
     try { options = currentOptions(); } catch (error) { formError(error.message); $("generation-settings").open = true; return; }
     const file = state.file;
@@ -427,7 +444,7 @@
       const active = state.config.prompt_library?.active?.id || state.config.prompt_library?.active_version_id;
       $("prompt-standard").textContent = active ? `新生成使用通用提示词 ${active}` : "新生成使用当前通用提示词";
       if (!state.config.configured) formError("模型尚未配置，请打开原调试页完成连接配置。这里不会读取或展示密钥。");
-      else if (!state.config.features?.dual_video || !state.config.features?.story_inner_monologue || !state.config.features?.photos) formError("这个服务尚未加载视频＋照片版，请启动新版服务后刷新；旧记录仍可回看。");
+      else if (!state.config.features?.dual_video || !state.config.features?.story_inner_monologue || !state.config.features?.photo_gallery) formError("这个服务尚未加载合拍＋丑萌相册版，请启动新版服务后刷新；旧记录仍可回看。");
       updateSettingsSummary(); updateButton();
     } catch (error) { $("prompt-standard").textContent = "本地服务暂时未连接"; formError(`无法读取配置：${error.message}。请检查服务后刷新页面。`); updateButton(); }
   }

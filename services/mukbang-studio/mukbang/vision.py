@@ -42,6 +42,7 @@ events按源时间升序且不重叠，时间完整位于其clip内，每个fram
 
 STORY_MONOLOGUE_SYSTEM_APPENDIX = "\n\n" + (Path(__file__).parents[1] / "prompts" / "story-inner-monologue-system-appendix.txt").read_text(encoding="utf-8").strip()
 PHOTOS_SYSTEM_APPENDIX = "\n\n" + (Path(__file__).parents[1] / "prompts" / "daily-photos-system-appendix.txt").read_text(encoding="utf-8").strip()
+PHOTO_GALLERY_SYSTEM_APPENDIX = "\n\n" + (Path(__file__).parents[1] / "prompts" / "daily-photo-gallery-system-appendix.txt").read_text(encoding="utf-8").strip()
 
 
 class VisionError(RuntimeError):
@@ -120,8 +121,12 @@ def build_prompts(options: dict, source: dict, sampling: dict, feedback_context=
         user += ("\n\n人宠互动小故事的独立参数（原吃播参数及提示词不变）：\n" +
                  json.dumps(story_parameters(options), ensure_ascii=False, indent=2))
     if options.get("photos_enabled") is True:
-        system += PHOTOS_SYSTEM_APPENDIX
-        user += "\n\n本次额外提取人宠合拍和丑萌照片，各最多1张、必须不同源帧；没有合格照片就具体说明。"
+        if options.get("photo_mode") == "gallery":
+            system += PHOTO_GALLERY_SYSTEM_APPENDIX
+            user += "\n\n照片目标：有人宠同镜（含手/腿/身体局部）就至少选1张最好合拍；丑萌至少4张，通常4–6张不同瞬间。不得以没露脸为由拒绝合拍。"
+        else:
+            system += PHOTOS_SYSTEM_APPENDIX
+            user += "\n\n本次额外提取人宠合拍和丑萌照片，各最多1张、必须不同源帧；没有合格照片就具体说明。"
     return {"system": system, "user": user}
 
 

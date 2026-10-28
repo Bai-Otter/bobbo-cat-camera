@@ -16,7 +16,7 @@ def run_photos(tmp_path, state, monkeypatch, *, export_fails=False):
         state["clock"].advance(2)
         if export_fails:
             raise RuntimeError("test-only photo export failure")
-        for i in (1, 2):
+        for i in range(1, 6 if state["options"].get("photo_mode") == "gallery" else 3):
             Image.new("RGB", (128, 192), (i * 50, 0, 0)).save(tmp_path / "photos" / f"selected-{i:02}.png")
         return ""
     monkeypatch.setattr(media, "run", extract)
@@ -76,3 +76,25 @@ def test_legacy_vision_input_unchanged_and_photos_only_append_to_shared_prompt()
     four = vision.build_prompts({**options, "story_enabled": True, "story_mode": "inner_monologue", "photos_enabled": True}, source, sampling)
     assert four["system"] == both["system"] + vision.PHOTOS_SYSTEM_APPENDIX
     assert four["user"].startswith(both["user"])
+    gallery = vision.build_prompts({**options, "story_enabled": True, "story_mode": "inner_monologue", "photos_enabled": True, "photo_mode": "gallery"}, source, sampling)
+    assert gallery["system"] == both["system"] + vision.PHOTO_GALLERY_SYSTEM_APPENDIX
+    assert gallery["user"].startswith(both["user"])
+
+
+@pytest.mark.parametrize("failure", [None, "decode", "directory"])
+def test_gallery_preserves_two_videos_and_one_call_even_on_local_failure(tmp_path, instrumented_pipeline, monkeypatch, failure):
+    from test_photo_gallery import gallery_fixture
+    from mukbang.photo_gallery import ready_count
+    state = instrumented_pipeline
+    _, raw = gallery_fixture()
+    state["parsed"].update(interaction_story=ready_story(), daily_photos=raw)
+    state["options"]["photo_mode"] = "gallery"
+    if failure == "directory":
+        (tmp_path / "photos").write_text("blocked directory", encoding="utf-8")
+    result = run_photos(tmp_path, state, monkeypatch, export_fails=failure == "decode")
+    assert state["calls"] == result["ai"]["call_count"] == 1
+    assert result["result"]["highlight_status"] == result["result"]["story"]["status"] == "ready"
+    photos = result["result"]["photos"]
+    assert ready_count(photos) == (0 if failure else 5)
+    assert photos["ugly_cute"]["count_goal"]["actual"] == (0 if failure else 4)
+    assert ("合拍0张，丑萌0张" if failure else "合拍1张，丑萌4张") in result["message"]

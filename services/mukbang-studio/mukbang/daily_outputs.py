@@ -219,11 +219,13 @@ def render_dual_outputs(job_dir: Path, source_path: Path, options: dict, info: d
     photo_outputs = None
     if options.get("photos_enabled") is True:
         from .photos import export_photos
+        from .photo_gallery import export_gallery
+        photo_exporter = export_gallery if options.get("photo_mode") == "gallery" else export_photos
         emit({"status": "rendering", "progress": 94, "stage": "提取合拍与丑萌照片",
               "message": "按AI选中的真实源帧导出原尺寸照片，不再请求AI，不重绘或裁切"})
         try:
             with timings.measure("export_photos"):
-                photo_outputs = export_photos(job_dir, source_path, choices["photos"], info, sampling,
+                photo_outputs = photo_exporter(job_dir, source_path, choices["photos"], info, sampling,
                                               original_hash, cancelled, on_step=lambda ident, label, seconds, status:
                                               timings.record_detail("export_photos", ident, label, seconds, status))
         except media.Cancelled:
@@ -233,6 +235,11 @@ def render_dual_outputs(job_dir: Path, source_path: Path, options: dict, info: d
             photo_outputs = {category: ({**pick, "status": "failed", "reason": str(exc)}
                                         if pick["status"] == "ready" else deepcopy(pick))
                              for category, pick in choices["photos"].items()}
+            for group in photo_outputs.values():
+                if isinstance(group.get("items"), list):
+                    group["items"] = [{**p, "status": "failed", "reason": str(exc)} for p in group["items"]]
+                    if "count_goal" in group:
+                        group["count_goal"] = {**group["count_goal"], "actual": 0, "met": False, "shortfall_reason": str(exc)}
             media.write_json(job_dir / "photo-result.json", photo_outputs)
     with timings.measure("final_validation"):
         if media.sha256(source_path) != original_hash:
@@ -257,9 +264,14 @@ def render_dual_outputs(job_dir: Path, source_path: Path, options: dict, info: d
         successes = sum(state == "ready" for state in (result["highlight_status"], story_output["status"]))
         note = (f"吃播{result['video_duration']:.2f}秒；小剧场{story_output['video_duration']:.2f}秒" if successes == 2 else
                 f"已生成{successes}类视频；其他类别的未生成原因已单独列出")
-        photo_successes = sum(p["status"] == "ready" for p in (photo_outputs or {}).values())
+        from .photo_gallery import ready_count
+        photo_successes = ready_count(photo_outputs)
         if photo_outputs is not None:
-            note += f"；照片{photo_successes}/2张（各类结果单独列出）"
+            if options.get("photo_mode") == "gallery":
+                portrait_count = int(photo_outputs["portrait"]["status"] == "ready")
+                note += f"；合拍{portrait_count}张，丑萌{photo_successes - portrait_count}张（目标至少4张）"
+            else:
+                note += f"；照片{photo_successes}/2张（各类结果单独列出）"
         request_note = "复用已保存视觉结果，本次未调用AI" if recovery is not None else "共用一次视觉判断，未重试看图"
         fields = {**eating_fields, "status": "completed", "progress": 100, "stage": "处理完成",
                   "message": note + "。" + request_note, "source": source, "sampling": sampling,

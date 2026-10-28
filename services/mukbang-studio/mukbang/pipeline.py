@@ -47,8 +47,15 @@ def validate_decisions(parsed: dict, frames: list[dict], duration: float, option
                             "clips": [], "events": [], "warnings": [str(exc)]}
         choices["story"] = story_choice
     if options.get("photos_enabled") is True:
-        from .photos import validate_photos
-        choices["photos"] = validate_photos(parsed.get("daily_photos"), frames, duration)
+        if options.get("photo_mode") == "gallery":
+            from .photo_gallery import validate_gallery
+            story_data = parsed.get("interaction_story")
+            events = story_data.get("events", []) if isinstance(story_data, dict) else []
+            human_visible = isinstance(events, list) and any(isinstance(e, dict) and e.get("human_visible") is True for e in events)
+            choices["photos"] = validate_gallery(parsed.get("daily_photos"), frames, duration, known_human_visible=human_visible)
+        else:
+            from .photos import validate_photos
+            choices["photos"] = validate_photos(parsed.get("daily_photos"), frames, duration)
     return choices
 
 

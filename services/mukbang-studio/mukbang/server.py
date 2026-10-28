@@ -62,6 +62,7 @@ class JobOptions(BaseModel):
     story_target_duration: float = Field(default=30, ge=3, le=60)
     story_mode: Literal["interaction", "inner_monologue"] = "interaction"
     photos_enabled: StrictBool = False
+    photo_mode: Literal["single", "gallery"] = "single"
 
     @model_validator(mode="after")
     def photo_bundle(self):
@@ -72,9 +73,11 @@ class JobOptions(BaseModel):
 
 def requested_options(values: JobOptions) -> dict:
     """Keep legacy fingerprints stable for jobs that do not request a story."""
-    result = values.model_dump(exclude={"use_active_prompt", "story_enabled", "story_target_duration", "story_mode", "photos_enabled"})
+    result = values.model_dump(exclude={"use_active_prompt", "story_enabled", "story_target_duration", "story_mode", "photos_enabled", "photo_mode"})
     if values.photos_enabled:
         result["photos_enabled"] = True
+        if values.photo_mode == "gallery":
+            result["photo_mode"] = "gallery"
     if values.story_enabled:
         result.update(story_enabled=True, story_target_duration=values.story_target_duration)
         if values.story_mode == "inner_monologue":
@@ -594,7 +597,7 @@ def create_app(data_dir: Path | None = None, provider: ProviderConfig | None = N
         current = library.public()
         active = next(row for row in current["versions"] if row["id"] == current["active_version_id"])
         return {**provider.public(), "defaults": DEFAULTS, "limits": LIMITS,
-                "features": {"dual_video": True, "story_max_duration": 60, "story_inner_monologue": True, "photos": True},
+                "features": {"dual_video": True, "story_max_duration": 60, "story_inner_monologue": True, "photos": True, "photo_gallery": True},
                 "prompt_template": active["text"],
                 "prompt_library": {"revision": current["revision"], "active_version_id": active["id"], "active": active},
                 "legacy_available": (data_dir / "legacy" / "manifest.json").is_file()}

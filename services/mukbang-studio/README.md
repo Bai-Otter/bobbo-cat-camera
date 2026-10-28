@@ -12,6 +12,8 @@
 
 后续已补齐 [两类照片](docs/daily-photos-2026-10-29.md)：手机页默认一次生成两段视频及人宠合拍/丑萌照片，各类独立状态；照片原尺寸、可打开/下载、可核对采样帧和选择理由。图片提取单独计时，不增加模型调用。照片版独立验收入口为 `python run_daily.py --port 8882 --data-dir data/daily-photos`；原8881样片仍保留。新实例的数据和提示词库独立，不会自动同步其他实例的修改。
 
+**当前照片规则已更新为 [合拍＋丑萌相册](docs/photo-gallery-2026-10-29.md)**：有人宠同镜就选一张最好合拍，手/腿/身体局部也算；丑萌至少4张、通常4–6张，强调不同表情和角度。手机页发送 `photo_mode:"gallery"`，旧单张接口/记录仍兼容。新版独立预览：`python run_daily.py --port 8883 --data-dir data/daily-photo-gallery`，打开 `/daily`。8882是上轮单张实例，未重启加载新代码前只用于回看。
+
 ## 启动
 
 需要 Python **3.11+**、可在 PATH 找到的 **FFmpeg / ffprobe**，FFmpeg 应包含 `libx264` 和烧录字幕所需的 `libass`；系统应安装中文字体（Windows优先使用微软雅黑）。Node.js **18+** 仅用于前端测试，运行网页不需要 Node 或打包步骤。

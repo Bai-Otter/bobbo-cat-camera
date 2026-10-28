@@ -47,3 +47,35 @@ def test_photo_cancellation_is_terminal_even_when_no_photo_qualifies(tmp_path):
     with pytest.raises(media.Cancelled):
         photos.export_photos(tmp_path, tmp_path / "unused.mp4", {}, {}, {}, "hash", lambda: True)
     assert not (tmp_path / "photos").exists()
+
+
+@pytest.mark.skipif(not shutil.which("ffmpeg"), reason="FFmpeg not installed")
+def test_gallery_exports_five_distinct_exact_native_frames_in_one_decode(tmp_path, monkeypatch):
+    from mukbang import photo_gallery
+    from test_photo_gallery import gallery_fixture
+    source = tmp_path / "source.mp4"
+    media.run(["ffmpeg", "-v", "error", "-nostdin", "-n", "-f", "lavfi", "-i",
+               "testsrc2=size=320x180:rate=10:duration=12", "-c:v", "libx264", str(source)])
+    info = media.video_info(media.probe(source), media.frame_times(source))
+    frames, raw = gallery_fixture()
+    for frame in frames:
+        frame["source_pts"] = info["pts"][frame["source_frame_index"]]
+    decisions = photo_gallery.validate_gallery(raw, frames, 12.)
+    run, calls = media.run, []
+    def tracked(args, *a, **kw):
+        calls.append(args)
+        return run(args, *a, **kw)
+    monkeypatch.setattr(media, "run", tracked)
+    digest = media.sha256(source)
+    result = photo_gallery.export_gallery(tmp_path, source, decisions, info, {"frames": frames}, digest)
+    assert len(calls) == 1
+    assert photo_gallery.ready_count(result) == 5
+    assert result["ugly_cute"]["count_goal"]["actual"] == 4
+    for name, pick in photo_gallery.iter_picks(result):
+        expected = tmp_path / f"expected-{name}.png"
+        run(["ffmpeg", "-v", "error", "-nostdin", "-n", "-i", str(source), "-vf",
+             f"select=eq(n\\,{pick['source_frame_index']})", "-fps_mode", "passthrough", "-frames:v", "1", str(expected)])
+        with Image.open(expected) as a, Image.open(tmp_path / "photos" / f"{name}.png") as b:
+            assert a.size == b.size == (320, 180)
+            assert a.tobytes() == b.tobytes()
+    assert media.sha256(source) == digest

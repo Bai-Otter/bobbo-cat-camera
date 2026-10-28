@@ -123,6 +123,8 @@ def _options(value) -> dict:
         raise ValueError("原任务photos_enabled参数必须为布尔值")
     if options.get("photos_enabled") is True and options.get("story_enabled") is not True:
         raise ValueError("原任务照片模式缺少双视频设置")
+    if options.get("photo_mode", "single") not in ("single", "gallery"):
+        raise ValueError("原任务照片模式无效")
     if "story_target_duration" in options:
         seconds = options["story_target_duration"]
         if (isinstance(seconds, bool) or not isinstance(seconds, (int, float)) or
@@ -274,7 +276,8 @@ def _preflight_selection(directory: Path, evidence: dict) -> None:
             failures.append(str(exc))
     if evidence["options"].get("photos_enabled") is True:
         from .photos import source_identity
-        for pick in choices["photos"].values():
+        from .photo_gallery import iter_picks
+        for _, pick in iter_picks(choices["photos"]):
             if pick["status"] == "ready":
                 try:
                     source_identity(pick, frames, info)

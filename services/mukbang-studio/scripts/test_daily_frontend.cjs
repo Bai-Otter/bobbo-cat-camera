@@ -38,7 +38,7 @@ const text = (node) => [node.textContent, ...node.children.map(text)].join(" ");
 const find = (node, predicate) => [...(predicate(node) ? [node] : []), ...node.children.flatMap((child) => find(child, predicate))];
 const videos = (node) => find(node, (item) => item.tagName === "VIDEO");
 const buttons = (node) => find(node, (item) => item.tagName === "BUTTON");
-const config = () => ({ configured: true, defaults: { target_duration: 40, min_duration: 30, max_duration: 50, sample_interval: 1 }, features: { dual_video: true, story_inner_monologue: true, photos: true }, limits: { max_upload_mb: 512 }, prompt_library: { active_version_id: "P0004" } });
+const config = () => ({ configured: true, defaults: { target_duration: 40, min_duration: 30, max_duration: 50, sample_interval: 1 }, features: { dual_video: true, story_inner_monologue: true, photos: true, photo_gallery: true }, limits: { max_upload_mb: 512 }, prompt_library: { active_version_id: "P0004" } });
 const completed = () => ({
   id: "aabbccddeeff", filename: "日常.mp4", status: "completed", stage: "整理完成", progress: 100, created_at: "2026-10-28T12:00:00+08:00", updated_at: "2026-10-28T12:01:00+08:00",
   options: { story_enabled: true }, ai: { call_count: 1 }, result: {
@@ -106,7 +106,7 @@ test("assets and downloads only accept same-origin HTTP URLs without embedded cr
 });
 
 test("generation retains eating defaults and adds story within the SAME task", () => {
-  assert.deepEqual(kit.generationOptions({ target: "40", min: "30", max: "50", interval: "1", story: "30" }), { target_duration: 40, min_duration: 30, max_duration: 50, sample_interval: 1, story_enabled: true, story_target_duration: 30, story_mode: "inner_monologue", photos_enabled: true, use_active_prompt: true });
+  assert.deepEqual(kit.generationOptions({ target: "40", min: "30", max: "50", interval: "1", story: "30" }), { target_duration: 40, min_duration: 30, max_duration: 50, sample_interval: 1, story_enabled: true, story_target_duration: 30, story_mode: "inner_monologue", photos_enabled: true, photo_mode: "gallery", use_active_prompt: true });
 });
 
 test("bad duration bounds and nonfinite values are blocked before submission", () => {
@@ -189,6 +189,7 @@ test("a click submits file + dual options once and does not issue a separate sto
   assert.equal(writes[0].options.body.get("file").name, "日常.mp4"); assert.equal(writes[0].options.body.get("video"), undefined);
   const options = JSON.parse(writes[0].options.body.get("options")); assert.equal(options.story_enabled, true); assert.equal(options.use_active_prompt, true); assert.equal(options.prompt, undefined);
   assert.equal(options.photos_enabled, true);
+  assert.equal(options.photo_mode, "gallery");
   assert.match(page.nodes["job-ai-count"].textContent, /0 次/); assert.equal(page.nodes["generate-button"].disabled, true);
 });
 
@@ -321,4 +322,36 @@ test("photo absence, invalid URL, errors and old records never show fake picture
   assert.match(text(page.nodes["photo-outputs"]), /照片地址无效/);
   delete job.result.photos;
   assert.ok(kit.photosFor(job, origin).every((p) => p.status === "failed"));
+});
+
+test("gallery displays one portrait and four unique original-photo downloads", async () => {
+  const job = completed(); Object.assign(job.options, { photos_enabled: true, photo_mode: "gallery" });
+  const pick = (name) => ({ status: "ready", image_url: `/api/jobs/${job.id}/files/photos/${name}.png`, title: name, reason: "真实源帧", difference: "<script>各自不同的表情</script>", time: 12 });
+  job.result.photos = { portrait: pick("portrait"), ugly_cute: { status: "ready", items: [1,2,3,4].map(i => pick(`ugly_cute_0${i}`)), count_goal: { minimum: 4, actual: 4, met: true } } };
+  const page = harness({ jobs: [job], records: { [job.id]: job } }); await page.ready();
+  const root = page.nodes["photo-outputs"];
+  assert.equal(find(root, n => n.tagName === "IMG").length, 5);
+  const downloads = find(root, n => n.attrs.download).map(n => n.attrs.download);
+  assert.equal(new Set(downloads).size, 5);
+  assert.match(text(root), /至少 4 张/);
+  assert.match(text(root), /各自不同的表情/);
+  assert.equal(find(root, n => n.tagName === "SCRIPT").length, 0);
+});
+
+test("single-photo backend cannot silently accept a gallery upload", async () => {
+  const settings = config(); delete settings.features.photo_gallery;
+  const page = harness({ settings }); await page.ready(); page.choose(); await page.submit();
+  assert.equal(page.nodes["generate-button"].disabled, true);
+  assert.equal(page.calls.filter(c => c.options.method === "POST").length, 0);
+});
+
+test("gallery shortfall is visible rather than claiming four photos", async () => {
+  const job = completed(); Object.assign(job.options, { photos_enabled: true, photo_mode: "gallery" });
+  job.result.photos = { portrait: { status: "not_found", reason: "无人" }, ugly_cute: {
+    status: "ready", count_goal: { minimum: 4, actual: 1, met: false, shortfall_reason: "猫只在一张采样中出现" },
+    items: [{ status: "ready", image_url: `/api/jobs/${job.id}/files/photos/ugly_cute_01.png`, time: 1 }]
+  } };
+  const page = harness({ jobs: [job], records: { [job.id]: job } }); await page.ready();
+  assert.match(text(page.nodes["photo-outputs"]), /1 张 \/ 目标至少 4 张/);
+  assert.match(text(page.nodes["photo-outputs"]), /猫只在一张采样中出现/);
 });

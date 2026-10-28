@@ -127,3 +127,22 @@ def test_photos_only_recovery_exports_saved_exact_frames_without_ai(saved_failur
     assert all(p["status"] == "ready" for p in final["result"]["photos"].values())
     assert (saved_failure / "jobs" / RECOVERY_ID / "photo-decision.json").exists()
     assert hashes(original) == before
+
+
+def test_gallery_recovery_keeps_original_and_exports_five_images_without_ai(saved_failure):
+    from test_photo_gallery import gallery_fixture
+    from mukbang.photo_gallery import ready_count
+    original = save_dual_failure(saved_failure, eating="invalid", story="not_found")
+    record = json.loads((original / "job.json").read_text(encoding="utf-8"))
+    record["options"].update(photos_enabled=True, photo_mode="gallery")
+    media.write_json(original / "job.json", record)
+    _, raw = gallery_fixture()
+    raw["portrait"].update(frame_id="F0001", time=0.)
+    for i, pick in enumerate(raw["ugly_cute"]["items"], 1):
+        pick.update(frame_id=f"F{i+1:04d}", time=float(i))
+    save_selection_failure(saved_failure, lambda parsed: parsed.update(daily_photos=raw))
+    before = hashes(original)
+    final = recovery.recover_render(saved_failure, SOURCE_ID, job_id=RECOVERY_ID)
+    assert final["status"] == "completed" and final["ai"]["call_count"] == 0
+    assert ready_count(final["result"]["photos"]) == 5
+    assert hashes(original) == before
