@@ -18,7 +18,7 @@ import wave
 import httpx
 
 from . import media
-from .story_subtitles import plain_caption
+from .story_subtitles import plain_caption, performance_direction
 
 BASE = "https://api.breeze.blue"
 INSTRUCTIONS = "保持这个音色本身的女宝宝声音，轻轻地自言自语，笨笨软软，带一点好奇和馋嘴。自然停顿，不喊叫，不拔高句尾，不用播音腔。"
@@ -36,6 +36,8 @@ class BreezeConfig:
     instructions: str = INSTRUCTIONS
     concurrency: int = 2
     deadline_seconds: float = 120.
+    voice_label: str = '小布女宝宝'
+    voice_kind: str = 'saved-voice'
 
     def __post_init__(self):
         if not self.api_key or any(ord(c) < 33 or ord(c) > 126 for c in self.api_key):
@@ -47,9 +49,9 @@ class BreezeConfig:
         if not 1 <= self.concurrency <= 4 or not 5 <= self.deadline_seconds <= 300:
             raise NarrationError("Breeze并发或请求时限超出安全范围")
 
-    def payload(self, text):
+    def payload(self, text, direction=''):
         return {"text": plain_caption(text), "model_id": self.model_id, "language_code": "zh",
-                "instructions": self.instructions,
+                "instructions": self.instructions + performance_direction(direction),
                 "voice_settings": {"guidance_scale": 1., "use_speaker_boost": True, "speed": 1., "volume": 1.}}
 
 
@@ -65,6 +67,11 @@ def configured() -> BreezeConfig:
             key = Path(key_file).read_text(encoding="utf-8-sig").strip() if key_file else ""
         except OSError:
             raise NarrationError("无法读取本地Breeze凭证文件") from None
+    from . import story_profile
+    profile = story_profile.load()
+    if profile:
+        return BreezeConfig(key, profile['voice_id'], instructions=story_profile.VOICE_INSTRUCTIONS,
+                            voice_label='已确认的咪参考克隆', voice_kind='authorized-reference-clone')
     return BreezeConfig(key, os.getenv("MUKBANG_BREEZE_VOICE_ID", ""),
                         model_id=os.getenv("MUKBANG_BREEZE_MODEL", "breeze-tts-2"))
 
@@ -100,7 +107,7 @@ async def _synthesize(config, cues, directory, cancelled, transport):
                               ("plan_code", "status", "commercial_use_allowed", "current_period_end")}
         gate = asyncio.Semaphore(min(config.concurrency, max(1, int(entitlement.get("max_concurrent_generations", 1)))))
         async def one(index, cue):
-            body = config.payload(cue["text"])
+            body = config.payload(cue["text"], cue.get('performance_direction',''))
             identity = {"voice_id": config.voice_id, "body": body, "format": "wav_24000", "version": 1}
             digest = hashlib.sha256(json.dumps(identity, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
             audio = directory / f"{digest}.wav"
@@ -112,7 +119,8 @@ async def _synthesize(config, cues, directory, cancelled, transport):
                     if (meta.get("request_sha256") == digest and meta.get("entitlement", {}).get("commercial_use_allowed") is True
                             and meta.get("sha256") == hashlib.sha256(data).hexdigest()):
                         return {**meta, "duration": wav_duration(data), "cache_hit": True,
-                                "request_seconds": 0., "first_body_seconds": None, "id": cue["id"]}
+                                "request_seconds": 0., "first_body_seconds": None, "id": cue["id"],
+                                "instructions":body['instructions']}
                 except (ValueError, OSError, NarrationError):
                     pass
             async with gate:
@@ -150,7 +158,8 @@ async def _synthesize(config, cues, directory, cancelled, transport):
                         "request_sha256": digest, "sha256": hashlib.sha256(data).hexdigest(),
                         "entitlement": public_entitlement, "created_at": datetime.now(timezone.utc).isoformat(),
                         "request_seconds": elapsed, "first_body_seconds": first, "cache_hit": False,
-                        "first_body_note": "同步WAV响应首个非空数据块，含容器头；不是流式首音频TTFA"}
+                        "first_body_note": "同步WAV响应首个非空数据块，含容器头；不是流式首音频TTFA",
+                        "instructions":body['instructions']}
                 media.write_json(meta_file, meta)
                 return meta
         tasks = [asyncio.create_task(one(i, cue)) for i, cue in enumerate(cues)]
@@ -162,6 +171,7 @@ async def _synthesize(config, cues, directory, cancelled, transport):
                     task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
     return {"status": "ready", "provider": "BreezeBlue", "voice_id": config.voice_id,
+            "voice_label":config.voice_label, "voice_kind":config.voice_kind,
             "model_id": config.model_id, "language_code": "zh", "instructions": config.instructions,
             "entitlement": public_entitlement, "clips": clips, "seconds": time.monotonic() - started,
             "bgm_added": False, "speed": 1., "pitch_shift": False}
@@ -172,6 +182,7 @@ def synthesize(config, cues, directory, cancelled=None, *, transport=None):
         raise NarrationError("配音只接受1–12句稀疏独白")
     for cue in cues:
         plain_caption(cue["text"])
+        performance_direction(cue.get('performance_direction',''))
     async def cancellable():
         task = asyncio.create_task(_synthesize(config, cues, Path(directory), cancelled, transport))
         try:

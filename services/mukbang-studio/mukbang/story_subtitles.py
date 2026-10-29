@@ -16,6 +16,15 @@ def plain_caption(value) -> str:
     return text
 
 
+def performance_direction(value) -> str:
+    if value == '' or value is None:
+        return ''
+    text = _text(value, '逐句演绎', limit=160)
+    if any(c in '{}\\<>\r\n' or unicodedata.category(c).startswith('C') for c in text):
+        raise StoryError('逐句演绎只允许短纯文字，不接受指令代码或标签')
+    return text
+
+
 def validate_cue_rhythm(cues: list[dict], duration: float, *, start_key="start", end_key="end") -> None:
     if not 1 <= len(cues) <= max(1, math.ceil(duration / 5)):
         raise StoryError("内心独白数量过多或缺失；持续动作需要留白")
@@ -82,6 +91,8 @@ def validate_monologues(decision: dict, parsed: dict, frames: list[dict], durati
             raise StoryError("内心独白必须引用对应动作的已有事实证据")
         cue = {"id": ident, "clip_id": clip_id, "event_id": event_id, "start": start, "end": end,
                "frame_ids": refs, "text": plain_caption(row.get("text"))}
+        if row.get('performance_direction'):
+            cue['performance_direction'] = performance_direction(row['performance_direction'])
         if "caption_placement" in row:
             from .head_captions import validate_placement
             cue["caption_placement"] = validate_placement(row["caption_placement"], cue, clip, frame_map)

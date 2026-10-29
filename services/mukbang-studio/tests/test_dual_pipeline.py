@@ -181,3 +181,42 @@ def test_optional_paid_narration_success_or_fallback(tmp_path, instrumented_pipe
     assert state["calls"] == 1
     assert result["narration"]["status"] == ("failed" if failure else "ready")
     assert result["video_url"].endswith("interaction-story.mp4" if failure else "interaction-story-voiced.mp4")
+
+
+@pytest.mark.parametrize('music_failure',[False,True])
+def test_production_profile_mixes_bgm_in_normal_pipeline_once(tmp_path,instrumented_pipeline,monkeypatch,music_failure):
+    from mukbang import narration,story_music,story_profile
+    state=instrumented_pipeline
+    value=ready_story()
+    value.update(narrative_arc='人摸猫，猫回头看手。',reviewed_full_video=True,shortfall_reason='',
+                 inner_monologues=[{'id':'m1','clip_id':'s01','event_id':'e01','start':1.,'end':2.4,
+                                    'frame_ids':['F0002'],'text':'给咪的？','performance_direction':'先疑惑再得意。'}])
+    state['parsed']['interaction_story']=value
+    state['options'].update(story_enabled=True,story_mode='inner_monologue',story_target_duration=4)
+    monkeypatch.setenv('MUKBANG_BREEZE_ENABLED','1')
+    monkeypatch.setattr(story_profile,'load',lambda:{'version':'mi-production-v1','voice_id':'clone',
+                        'music_label':'参考音乐','music_rights':'local_preview_only'})
+    monkeypatch.setattr(narration,'configured',lambda:object())
+    def synth(config,cues,*args):
+        assert cues[0]['performance_direction']=='先疑惑再得意。'
+        return {'status':'ready','voice_label':'已确认的咪参考克隆','clips':[{'duration':1.2}],'seconds':1}
+    monkeypatch.setattr(narration,'synthesize',synth)
+    monkeypatch.setattr(narration,'mix_video',lambda *args:{'narration_added':True,'actual_container_duration_seconds':4})
+    music_calls=[]
+    def mix(*args):
+        music_calls.append(args)
+        if music_failure: raise ValueError('bad music')
+        return {'status':'ready','bgm_added':True,'steps_seconds':{'mix':.1},'label':'参考音乐'}
+    monkeypatch.setattr(story_music,'mix',mix)
+    original=media.render_video
+    def render(source,destination,clips,info,*args,subtitle_file=None,**kwargs):
+        return {**original(source,destination,clips,info,*args,**kwargs),'actual_container_duration_seconds':sum(c['duration'] for c in clips)}
+    monkeypatch.setattr(media,'render_video',render)
+    output=pipeline.run_pipeline(tmp_path,state['source'],state['options'],state['config'],lambda _:None,lambda:False)
+    story=output['result']['story']
+    assert state['calls']==1 and len(music_calls)==1
+    assert story['style_version']=='mi-inner-v1'
+    assert story['narration']['voice_label']=='已确认的咪参考克隆'
+    assert story['validation']['bgm_added'] is (not music_failure)
+    assert story['video_url'].endswith('interaction-story-voiced.mp4' if music_failure else 'interaction-story-mi.mp4')
+    assert story['bgm']['status']==('failed' if music_failure else 'ready')

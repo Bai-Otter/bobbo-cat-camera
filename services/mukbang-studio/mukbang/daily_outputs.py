@@ -173,7 +173,17 @@ def render_dual_outputs(job_dir: Path, source_path: Path, options: dict, info: d
                     timeline.update(inner_monologues=monologues, duration_goal=goal,
                                     story_mode="inner_monologue", subtitle_kind="fictional_inner_monologue")
                 media.write_json(job_dir / "story-timeline.json", timeline)
-            from . import narration
+            from . import narration, story_profile, story_music
+            profile = None
+            profile_error = None
+            try:
+                profile = story_profile.load()
+                story_output['production_profile'] = story_profile.public(profile)
+                story_output['style_version'] = (story_profile.STYLE_VERSION if story_profile.STYLE_VERSION in prompts.get('system','') else 'legacy')
+            except ValueError as exc:
+                profile_error = str(exc)
+                story_output['production_profile'] = {'status':'invalid','reason':profile_error}
+                story_output.setdefault('warnings',[]).append(profile_error)
             speech = None
             if monologues and narration.enabled():
                 emit({"status": "rendering", "progress": 78, "stage": "生成小布配音",
@@ -196,7 +206,7 @@ def render_dual_outputs(job_dir: Path, source_path: Path, options: dict, info: d
                     media.write_json(job_dir / "story-narration.json", story_output["narration"])
             emit({"status": "rendering", "progress": 80, "stage": "剪辑人宠互动小故事",
                   "message": f"{len(clips)}段可见互动，{duration:.2f}秒；原速、原画幅、原声" +
-                             (f"＋{len(monologues)}句小布内心独白字幕" + ("，准备加入配音，无BGM" if speech else "，原声无BGM") if monologues else "，不加配音或BGM")})
+                             (f"＋{len(monologues)}句内心独白字幕" + ("，准备加入已配置配音" if speech else "，保留原声") if monologues else "，不加配音")})
             with timings.measure("render_story"):
                 subtitle_options = {}
                 if monologues:
@@ -238,6 +248,30 @@ def render_dual_outputs(job_dir: Path, source_path: Path, options: dict, info: d
                 media.write_json(job_dir / "story-inner-monologues.json", {
                     "kind": "fictional_inner_monologue", "narration_added": True,
                     "cues": monologues, "duration_goal": goal})
+            if monologues and profile:
+                if not mixed:
+                    reason = '咪预设的配音未成功，未用只有BGM的版本冒充完整效果'
+                    story_output['bgm'] = {'status':'skipped','reason':reason}
+                    story_output.setdefault('warnings',[]).append(reason)
+                else:
+                    try:
+                        emit({'status':'rendering','progress':91,'stage':'加入小剧场BGM',
+                              'message':'使用已确认本地音乐；配音时压低音乐，不重跑识图'})
+                        with timings.measure('story_bgm'):
+                            music = story_music.mix(job_dir/story_filename,job_dir/'interaction-story-mi.mp4',
+                                                    monologues,profile,cancelled)
+                            for ident,seconds in music['steps_seconds'].items():
+                                timings.record_detail('story_bgm',ident,ident,seconds,'completed')
+                        story_filename = 'interaction-story-mi.mp4'
+                        story_output['bgm'] = music
+                        validation.update({k:v for k,v in music.items() if k not in {'status','label','rights_status','steps_seconds','seconds'}})
+                    except media.Cancelled:
+                        raise
+                    except Exception:
+                        reason = 'BGM合成失败，当前是配音无BGM版；请检查已确认音乐文件及哈希，未偷偷替换音乐'
+                        story_output['bgm'] = {'status':'failed','reason':reason}
+                        story_output.setdefault('warnings',[]).append(reason)
+                media.write_json(job_dir/'story-bgm.json',story_output['bgm'])
             if monologues:
                 validation.update(subtitles_burned_in=True, subtitle_count=len(monologues),
                                   subtitle_kind="fictional_inner_monologue", subtitle_sha256=media.sha256(subtitle_files["ass"]),

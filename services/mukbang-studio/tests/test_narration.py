@@ -131,3 +131,28 @@ def test_mix_complete_speech_with_source_audio(tmp_path):
     assert result["narration_added"] and result["full_decode_pass"]
     assert result["audio_sample_rate"] == 48000
     assert result["actual_container_duration_seconds"] == pytest.approx(3, abs=.15)
+
+
+def test_per_cue_performance_reaches_tts_and_changes_cache(tmp_path):
+    import json
+    posted=[]
+    def handle(request):
+        if request.method=='GET':
+            return httpx.Response(200,json={'commercial_use_allowed':True})
+        posted.append(json.loads(request.content))
+        return httpx.Response(200,content=wav(),headers={'content-type':'audio/wav'})
+    transport=httpx.MockTransport(handle)
+    for direction in ('前半句疑问，后半句小得意。','先疑惑，再短短收住。'):
+        result=synthesize(config(),[{'id':'m1','text':'给咪的？','performance_direction':direction}],tmp_path,transport=transport)
+        assert result['clips'][0]['instructions'].endswith(direction)
+    assert len(posted)==2 and posted[0]['instructions']!=posted[1]['instructions']
+
+
+def test_private_profile_overrides_legacy_voice(tmp_path,monkeypatch):
+    from mukbang import narration,story_profile
+    monkeypatch.setenv('BREEZE_API_KEY','test-only')
+    monkeypatch.setenv('MUKBANG_BREEZE_VOICE_ID','old_voice')
+    monkeypatch.setattr(story_profile,'load',lambda:{'voice_id':'confirmed_clone'})
+    selected=narration.configured()
+    assert selected.voice_id=='confirmed_clone' and selected.voice_kind=='authorized-reference-clone'
+    assert '不故意含糊' in selected.instructions

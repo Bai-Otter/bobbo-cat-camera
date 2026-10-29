@@ -70,6 +70,11 @@
       if (video) {
         narrative.has_monologues = story.story_mode === "inner_monologue" && story.validation?.subtitles_burned_in === true;
         narrative.has_narration = story.validation?.narration_added === true;
+        narrative.has_bgm = story.validation?.bgm_added === true;
+        narrative.voice_label = narrative.has_narration ? (story.narration?.voice_label || "小布女宝宝") : "";
+        narrative.style_version = story.style_version || "历史文案";
+        narrative.bgm_label = narrative.has_bgm ? (story.bgm?.label || "BGM") : "无BGM";
+        narrative.music_rights = story.bgm?.rights_status;
         narrative.monologues = narrative.has_monologues && Array.isArray(story.inner_monologues) ? story.inner_monologues.filter((cue) => cue && typeof cue.text === "string" && measuredSeconds(cue.output_start) !== null && measuredSeconds(cue.output_end) > cue.output_start) : [];
         narrative.subtitle_url = narrative.has_monologues ? safeUrl(story.subtitle_url, origin) : null;
         narrative.duration_goal = measuredSeconds(story.duration_goal?.target) !== null ? story.duration_goal : null;
@@ -272,9 +277,12 @@
     root.append(stage);
     const foot = el("div", "media-footer");
     const clipCount = output.clips.length;
-    foot.append(el("span", "", isStory ? output.has_narration ? "原声＋小布女宝宝配音＋字幕" : output.has_monologues ? "原声＋内心独白字幕" : "原声历史版 · 未加独白字幕" : clipCount ? `${clipCount} 段精选 · ${historyDate(job?.updated_at || job?.created_at)} 更新` : "原速原声 · 慢慢看它吃"));
+    foot.append(el("span", "", isStory ? output.has_narration ? `原声＋${output.voice_label}配音＋字幕${output.has_bgm ? "＋BGM" : "（无BGM）"}` : output.has_monologues ? "原声＋内心独白字幕" : "原声历史版 · 未加独白字幕" : clipCount ? `${clipCount} 段精选 · ${historyDate(job?.updated_at || job?.created_at)} 更新` : "原速原声 · 慢慢看它吃"));
     const download = el("a", "", "下载视频 ↗"); download.href = output.video_url; download.setAttribute("download", "");
     foot.append(download); root.append(foot, error);
+    if (isStory && output.has_monologues) {
+      root.append(el("p", "output-notice", `本次实际：${output.style_version} · ${output.bgm_label}${output.music_rights === "local_preview_only" ? "（本地试听素材，商用授权待确认）" : ""}`));
+    }
     if (isStory && output.duration_goal) {
       root.append(el("p", "output-notice", `目标 ${output.duration_goal.target} 秒 · 成片 ${output.duration} 秒${output.duration_goal.met === false ? " · 素材不足，未凑时长" : ""}`));
     }
@@ -453,6 +461,8 @@
       [["target-duration", "target_duration"], ["min-duration", "min_duration"], ["max-duration", "max_duration"], ["sample-interval", "sample_interval"]].forEach(([id, key]) => { if (defaults[key] !== undefined) $(id).value = String(defaults[key]); });
       const active = state.config.prompt_library?.active?.id || state.config.prompt_library?.active_version_id;
       $("prompt-standard").textContent = active ? `新生成使用通用提示词 ${active}` : "新生成使用当前通用提示词";
+      const preset = state.config.story_production_profile;
+      if (preset) $("prompt-standard").textContent += preset.status === "invalid" ? ` · 小剧场配置异常：${preset.reason}` : ` · 小剧场 ${preset.style_version} · ${preset.narration_enabled ? preset.voice_label : "配音未启用"} · ${preset.bgm_enabled ? "BGM已配置" : "无BGM"}`;
       if (!state.config.configured) formError("模型尚未配置，请打开原调试页完成连接配置。这里不会读取或展示密钥。");
       else if (!state.config.features?.dual_video || !state.config.features?.story_inner_monologue || !state.config.features?.photo_gallery) formError("这个服务尚未加载合拍＋丑萌相册版，请启动新版服务后刷新；旧记录仍可回看。");
       updateSettingsSummary(); updateButton();

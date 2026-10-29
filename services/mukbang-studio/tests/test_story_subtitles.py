@@ -58,6 +58,14 @@ def test_fuller_connected_story_has_sparse_monologues_and_target_band():
     assert value == before
 
 
+def test_performance_direction_survives_validation_but_rejects_code():
+    frames,value=sample_story()
+    value['inner_monologues'][0]['performance_direction']='前半句疑问，后半句小得意。'
+    assert validate(value,frames)['inner_monologues'][0]['performance_direction']==value['inner_monologues'][0]['performance_direction']
+    value['inner_monologues'][0]['performance_direction']='<script>bad</script>'
+    with pytest.raises(story.StoryError): validate(value,frames)
+
+
 @pytest.mark.parametrize("change", [
     lambda v: v.pop("inner_monologues"),
     lambda v: v.update(inner_monologues=[]),

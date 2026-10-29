@@ -176,6 +176,21 @@ model-generated ASS, executable styles or output paths. New uploads do not call 
 historical-audition migration script. See [head-top captions](head-top-captions-2026-10-29.md).
 `GET /api/config` exposes `story_caption_layout:"forehead-v2"` to verify the running version.
 
+The same inner-monologue response may include `performance_direction` per cue (1–160 plain-text
+characters, no control characters, tags or ASS instructions). It is preserved in validation/mapping
+and passed to that cue's TTS instructions, never rendered or spoken as caption text. Actual instructions
+participate in speech cache identity. `MI_STYLE_SYSTEM_APPENDIX` is loaded in the same request,
+with style version `mi-inner-v1`; eating P0004 and photo selection remain separate.
+
+`GET /api/config.story_production_profile` exposes the configured nonsecret label/version,
+`narration_enabled`, `bgm_enabled` and music rights status, never the private voice ID or source paths.
+The server-only `<data-dir>/story-profile.json` binds voice metadata and a hash-pinned local music
+file. Browser input and model output cannot set media paths or private audio settings.
+Each result exposes actual `story.style_version`, `story.narration`, `story.bgm` and
+`story.validation.bgm_added`; configured intent is not a success flag. `story_bgm` measures local
+normalization, speech ducking, mixing and output validation. Failed music retains the voiced result
+with a visible warning; failed TTS does not silently substitute the legacy voice.
+
 ```
 {
  summary:string,

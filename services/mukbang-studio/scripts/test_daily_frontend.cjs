@@ -88,6 +88,20 @@ test("page uses dedicated static assets and no fake statusbar or media", () => {
   assert.doesNotMatch(html, /暂未接入/);
 });
 
+test("actual voice and BGM are based on result, not current configured preset", async () => {
+  const job = completed();
+  Object.assign(job.result.story, {story_mode:"inner_monologue",style_version:"mi-inner-v1",
+    validation:{narration_added:true,bgm_added:true,subtitles_burned_in:true},
+    narration:{voice_label:"已确认的咪参考克隆"},bgm:{label:"参考轻音乐",rights_status:"local_preview_only"},inner_monologues:[]});
+  const ui = harness({jobs:[job],records:{[job.id]:job}}); await ui.ready();
+  const all=Object.values(ui.nodes).map(text).join(" ");
+  assert.match(all,/已确认的咪参考克隆配音/);
+  assert.match(all,/mi-inner-v1/); assert.match(all,/商用授权待确认/);
+  job.result.story.validation.bgm_added=false;
+  const without=kit.outputsFor(job,origin);
+  assert.equal(without.story?.has_bgm ?? without.narrative?.has_bgm,false);
+});
+
 test("all DOM IDs referenced by implementation exist exactly once", () => {
   assert.equal(ids.length, new Set(ids).size);
   const refs = [...script.matchAll(/\$\("([^"]+)"\)/g)].map((match) => match[1]);
