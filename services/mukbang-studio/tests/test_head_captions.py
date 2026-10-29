@@ -1,5 +1,7 @@
 from copy import deepcopy
 import math
+import shutil
+import subprocess
 
 import pytest
 
@@ -19,7 +21,7 @@ def test_valid_boxes_keep_real_frame_time_and_do_not_mutate_input():
     raw=placement(); before=deepcopy(raw)
     result=normalized(raw)
     assert result["anchors"][0]["source_time"]==4.
-    assert result["mode"]=="head_top" and raw==before
+    assert result["mode"]=="forehead" and raw==before
 
 
 @pytest.mark.parametrize("raw", [None, [], {"mode":"safe","anchors":[]}, placement(confidence=.2),
@@ -32,19 +34,19 @@ def test_bad_anchor_falls_back_without_retry_or_story_failure(raw):
 
 
 @pytest.mark.parametrize("width,height", [(2560,1440),(1280,720),(720,1280)])
-def test_auto_layout_is_above_head_in_bounds_and_nonoverlapping(width,height):
+def test_auto_layout_is_at_forehead_in_bounds_not_floating_above_head(width,height):
     cue={"text":"给咪的？咪就知道。","caption_placement":normalized(placement())}
     layout=head_captions.layout_caption(cue,width,height)
-    assert layout["mode"]=="head_top"
+    assert layout["mode"]=="forehead"
     left,top,right,bottom=layout["text_box"]
     assert 0<=left<right<=width and 0<=top<bottom<=height
-    assert bottom<.45*height
+    assert .45*height < layout['y'] < .6*height
 
 
-def test_top_edge_uses_side_or_safe_fallback_instead_of_covering_cat():
+def test_top_edge_keeps_forehead_caption_inside_frame():
     cue={"text":"咪先尝尝。","caption_placement":normalized(placement(box=(.35,.01,.8,.7)))}
     result=head_captions.layout_caption(cue,1280,720)
-    assert result["mode"] in {"head_side","safe"}
+    assert result["mode"]=='forehead'
     assert all(math.isfinite(v) for v in result["text_box"])
 
 
@@ -58,7 +60,8 @@ def test_writer_uses_program_generated_tags_and_records_layout(tmp_path):
     cue={"id":"m1","text":"给咪的？咪就知道。","output_start":1.,"output_end":3.4,"caption_placement":normalized(placement())}
     files=story_subtitles.write_subtitles(tmp_path,[cue],{"width":1280,"height":720})
     text=files['ass'].read_text(encoding='utf-8')
-    assert "\\pos(" in text and "\\fad(" in text and "\\t(" in text
+    assert "\\pos(" in text and "\\an5" in text
+    assert all(tag not in text for tag in ('\\fad(', '\\fade(', '\\t(', '\\fscx', '\\fscy'))
     assert (tmp_path/'story-caption-layout.json').is_file()
     assert files['srt'].read_text(encoding='utf-8').count('给咪的')==1
 
@@ -77,7 +80,8 @@ def test_next_sample_guards_against_cat_approaching_between_samples():
     current['anchors'].append({'frame_id':'F0008','source_time':7.,'head_box':[.1,.01,.9,.9],'confidence':.9})
     cue={'text':'咪来啦。','source_start':4.,'source_end':6.5,'caption_placement':current}
     layout=head_captions.layout_caption(cue,1280,720)
-    assert layout['mode'] in {'safe','head_side'} and layout['anchor_count']==2
+    assert layout['mode']=='forehead' and layout['anchor_count']==2
+    assert layout['points'][-1]['y'] < layout['points'][0]['y']
 
 
 def test_distant_future_anchor_is_not_used_for_current_caption():
@@ -85,14 +89,14 @@ def test_distant_future_anchor_is_not_used_for_current_caption():
     current['anchors'].append({'frame_id':'F0010','source_time':9.,'head_box':[.1,.01,.9,.9],'confidence':.9})
     layout=head_captions.layout_caption({'text':'咪来啦。','source_start':4.,'source_end':6.5,
                                         'caption_placement':current},1280,720)
-    assert layout['mode']=='head_top' and layout['anchor_count']==1
+    assert layout['mode']=='forehead' and layout['anchor_count']==1
 
 
-def test_slightly_smaller_caption_stays_over_closeup_head():
+def test_closeup_caption_is_on_forehead_not_near_screen_top():
     cue={'text':'本咪先替你尝尝。','caption_placement':normalized(placement(box=(.25,.13,.68,.86)))}
     layout=head_captions.layout_caption(cue,2560,1440)
-    assert layout['mode']=='head_top'
-    assert 86<=layout['font_size']<108
+    assert layout['mode']=='forehead'
+    assert .2*1440<layout['y']<.4*1440
     assert layout['text_box'][1]>=36
 
 
@@ -102,3 +106,46 @@ def test_long_caption_wrapping_stays_inside_portrait_frame():
     assert len(layout['lines'])>1
     left,top,right,bottom=layout['text_box']
     assert 0<=left<right<=720 and 0<=top<bottom<=1280
+
+
+def test_explicit_forehead_point_is_used_and_bad_point_only_drops_optional_point():
+    raw=placement()
+    raw['mode']='forehead'
+    raw['anchors'][0]['forehead']=[.52,.54]
+    result=normalized(raw)
+    assert result['anchors'][0]['forehead']==[.52,.54]
+    layout=head_captions.layout_caption({'text':'咪来啦。','caption_placement':result},1280,720)
+    assert layout['x']==round(.52*1280) and layout['y']==round(.54*720)
+    raw['anchors'][0]['forehead']=[.9,.95]
+    result=normalized(raw)
+    assert result['mode']=='forehead' and 'forehead' not in result['anchors'][0]
+
+
+def test_moving_head_uses_contiguous_position_only_segments(tmp_path):
+    value=normalized(placement())
+    value['anchors'].append({'frame_id':'F0006','source_time':5.,'head_box':[.5,.5,.75,.85],'confidence':.9})
+    cue={'id':'m1','text':'咪来啦。','source_start':4.,'source_end':6.,'output_start':10.,'output_end':12.,'caption_placement':value}
+    files=story_subtitles.write_subtitles(tmp_path,[cue],{'width':1280,'height':720})
+    text=files['ass'].read_text(encoding='utf-8')
+    assert '\\move(' in text and '\\fad' not in text and '\\t(' not in text
+    rows=[r for r in text.splitlines() if r.startswith('Dialogue:')]
+    assert rows[0].split(',')[1]=='0:00:10.00'
+    assert rows[0].split(',')[2]==rows[1].split(',')[1]=='0:00:11.00'
+    assert rows[-1].split(',')[2]=='0:00:12.00'
+
+
+@pytest.mark.skipif(not shutil.which('ffmpeg'), reason='FFmpeg not installed')
+def test_real_render_appears_fully_on_first_frame_and_disappears_at_end(tmp_path):
+    cue={'id':'m1','text':'咪来啦。','output_start':.2,'output_end':.8,
+         'caption_placement':normalized(placement())}
+    story_subtitles.write_subtitles(tmp_path,[cue],{'width':640,'height':360})
+    rendered=subprocess.run(['ffmpeg','-v','error','-nostdin','-f','lavfi','-i',
+        'color=c=black:size=640x360:rate=20:duration=1','-vf','ass=interaction-story.ass',
+        '-pix_fmt','rgb24','-f','rawvideo','-'],cwd=tmp_path,capture_output=True,check=True,timeout=30)
+    stride=640*360*3
+    frames=[rendered.stdout[i:i+stride] for i in range(0,len(rendered.stdout),stride)]
+    assert len(frames)==20
+    assert not any(frames[3]), 'No caption before start'
+    assert any(frames[4]), 'Caption must be visible on its first frame'
+    assert frames[4]==frames[5]==frames[10]==frames[15], 'No fade, zoom or bounce at either boundary'
+    assert not any(frames[16]), 'Caption must disappear on its exact end frame'

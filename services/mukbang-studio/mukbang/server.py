@@ -595,10 +595,12 @@ def create_app(data_dir: Path | None = None, provider: ProviderConfig | None = N
 
     def config_result() -> dict:
         from .narration import enabled as narration_enabled
+        from .head_captions import LAYOUT_VERSION
         current = library.public()
         active = next(row for row in current["versions"] if row["id"] == current["active_version_id"])
         return {**provider.public(), "defaults": DEFAULTS, "limits": LIMITS,
                 "features": {"dual_video": True, "story_max_duration": 60, "story_inner_monologue": True, "story_head_captions": True, "photos": True, "photo_gallery": True, "story_narration": narration_enabled()},
+                "story_caption_layout": LAYOUT_VERSION,
                 "prompt_template": active["text"],
                 "prompt_library": {"revision": current["revision"], "active_version_id": active["id"], "active": active},
                 "legacy_available": (data_dir / "legacy" / "manifest.json").is_file()}

@@ -134,7 +134,7 @@ def test_monologue_upgrades_same_story_render_and_never_creates_a_third_video(tm
     assert (tmp_path / "story-inner-monologues.json").exists()
     assert result["result"]["highlight_status"] == "ready"
     if head_mode:
-        assert story_result["subtitle_layout"] == "head-top-v1"
+        assert story_result["subtitle_layout"] == "forehead-v2"
         assert story_result["validation"]["additional_caption_visual_api_calls"] == 0
         assert story_result["inner_monologues"][0]["caption_placement"]["anchors"][0]["source_time"] == 1.
         assert (tmp_path / "story-caption-layout.json").is_file()

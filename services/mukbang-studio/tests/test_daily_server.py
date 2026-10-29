@@ -64,6 +64,7 @@ def test_config_announces_additive_features_without_changing_eating_defaults(dai
     result = client.get("/api/config")
     assert result.status_code == 200
     body = result.json()
+    assert body["story_caption_layout"] == "forehead-v2"
     assert body["features"] == {"dual_video": True, "story_max_duration": 60, "story_inner_monologue": True, "story_head_captions": True, "photos": True, "photo_gallery": True, "story_narration": False}
     assert body["defaults"] == {"target_duration": 40, "min_duration": 30,
         "max_duration": 50, "sample_interval": 1, "frames_per_sheet": 60}
