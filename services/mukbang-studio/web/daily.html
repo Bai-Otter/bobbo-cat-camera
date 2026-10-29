@@ -70,7 +70,7 @@
               <label>吃播目标 <span><input id="target-duration" type="number" value="40" min="1" max="120" step="1" required> 秒</span></label>
               <div class="range-fields"><label>最短 <span><input id="min-duration" type="number" value="30" min="1" max="120" step="1" required> 秒</span></label><label>最长 <span><input id="max-duration" type="number" value="50" min="1" max="120" step="1" required> 秒</span></label></div>
               <label>故事目标 <span><input id="story-target" type="number" value="35" min="3" max="60" step="1" required> 秒</span></label>
-              <p class="field-note">按目标前后约5秒组织完整互动，人物或明确的人手与宠物同镜。素材不足会注明原因。独白是趣味拟人字幕，不加配音或BGM。</p>
+              <p class="field-note">按目标前后约5秒组织完整互动，人物或明确的人手与宠物同镜。素材不足会注明原因。独白是趣味拟人演绎；启用配音后使用小布固定音色，不加BGM。</p>
               <label>抽样间隔 <span><select id="sample-interval"><option value="1">1</option><option value="0.5">0.5</option><option value="2">2</option><option value="3">3</option></select> 秒 / 帧</span></label>
               <label>小猫的称呼 <input id="pet-name" type="text" maxlength="20" placeholder="小猫" autocomplete="off"></label>
             </div>
@@ -81,7 +81,7 @@
           <button class="generate-button" id="generate-button" type="submit" disabled><span>一起生成视频和照片</span><span aria-hidden="true">↗</span></button>
           <p class="generation-note" id="generation-note">同一批拼图，一次 AI 识别。不自动重试。</p>
         </form>
-        <div class="pipeline-notes"><span>保留原吃播偏好</span><span>两段均原速原声</span><span>无配音 · 无 BGM</span></div>
+        <div class="pipeline-notes"><span>保留原吃播偏好</span><span>原速 · 保留原声</span><span>可配小布声音 · 无 BGM</span></div>
       </section>
 
       <section class="utility-card timings-card" id="timings-panel" aria-labelledby="timings-heading" hidden>

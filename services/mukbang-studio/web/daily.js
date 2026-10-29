@@ -69,11 +69,13 @@
       narrative = video ? { status: "ready", video_url: video, poster_url: safeUrl(story.poster_url, origin), duration: measuredSeconds(story.video_duration), title: story.title || "今天的小故事", summary: story.summary || "", clips: Array.isArray(story.clips) ? story.clips : [], warnings: story.warnings || [] } : { status: "invalid", reason: "故事视频地址无效，未展示为已完成。" };
       if (video) {
         narrative.has_monologues = story.story_mode === "inner_monologue" && story.validation?.subtitles_burned_in === true;
+        narrative.has_narration = story.validation?.narration_added === true;
         narrative.monologues = narrative.has_monologues && Array.isArray(story.inner_monologues) ? story.inner_monologues.filter((cue) => cue && typeof cue.text === "string" && measuredSeconds(cue.output_start) !== null && measuredSeconds(cue.output_end) > cue.output_start) : [];
         narrative.subtitle_url = narrative.has_monologues ? safeUrl(story.subtitle_url, origin) : null;
         narrative.duration_goal = measuredSeconds(story.duration_goal?.target) !== null ? story.duration_goal : null;
         narrative.local_postprocess_kind = story.local_postprocess?.kind;
-        narrative.local_postprocess_seconds = ["subtitle_style_only", "subtitle_timing_fix"].includes(narrative.local_postprocess_kind) ? measuredSeconds(story.local_postprocess.seconds) : null;
+        narrative.local_postprocess_seconds = ["subtitle_style_only", "subtitle_timing_fix", "paid_breeze_narration"].includes(narrative.local_postprocess_kind) ? measuredSeconds(story.local_postprocess.seconds) : null;
+        narrative.postprocess_steps = narrative.local_postprocess_kind === "paid_breeze_narration" && Array.isArray(story.local_postprocess?.steps) ? story.local_postprocess.steps : [];
       }
     } else if (story && ["not_found", "invalid", "failed"].includes(story.status)) narrative = { status: story.status, reason: story.reason || "没有找到人和宠物同镜、真正发生互动的完整小故事。", warnings: story.warnings || [] };
     else if (pending) narrative = { status: "pending" };
@@ -270,15 +272,21 @@
     root.append(stage);
     const foot = el("div", "media-footer");
     const clipCount = output.clips.length;
-    foot.append(el("span", "", isStory ? output.has_monologues ? "原声＋内心独白字幕" : "原声历史版 · 未加独白字幕" : clipCount ? `${clipCount} 段精选 · ${historyDate(job?.updated_at || job?.created_at)} 更新` : "原速原声 · 慢慢看它吃"));
+    foot.append(el("span", "", isStory ? output.has_narration ? "原声＋小布女宝宝配音＋字幕" : output.has_monologues ? "原声＋内心独白字幕" : "原声历史版 · 未加独白字幕" : clipCount ? `${clipCount} 段精选 · ${historyDate(job?.updated_at || job?.created_at)} 更新` : "原速原声 · 慢慢看它吃"));
     const download = el("a", "", "下载视频 ↗"); download.href = output.video_url; download.setAttribute("download", "");
     foot.append(download); root.append(foot, error);
     if (isStory && output.duration_goal) {
       root.append(el("p", "output-notice", `目标 ${output.duration_goal.target} 秒 · 成片 ${output.duration} 秒${output.duration_goal.met === false ? " · 素材不足，未凑时长" : ""}`));
     }
     if (isStory && output.local_postprocess_seconds !== null && output.local_postprocess_seconds !== undefined) {
-      const label = output.local_postprocess_kind === "subtitle_timing_fix" ? "另做本地字幕时长修正" : "另做字幕排版调整";
-      root.append(el("p", "output-notice", `${label}：${elapsedLabel(output.local_postprocess_seconds)}（不计入首次生成耗时；未重新调用 AI）`));
+      const voiced = output.local_postprocess_kind === "paid_breeze_narration";
+      const label = voiced ? "另做付费配音与合成" : output.local_postprocess_kind === "subtitle_timing_fix" ? "另做本地字幕时长修正" : "另做字幕排版调整";
+      root.append(el("p", "output-notice", `${label}：${elapsedLabel(output.local_postprocess_seconds)}（不计入首次生成耗时；${voiced ? "未重新识图" : "未重新调用 AI"}）`));
+      if (voiced) {
+        const details = el("details", "output-warnings"); details.append(el("summary", "", "配音与合成耗时明细"));
+        (output.postprocess_steps || []).forEach((step) => { if (typeof step.label === "string" && measuredSeconds(step.seconds) !== null) details.append(el("p", "", `${step.label}：${elapsedLabel(step.seconds)}`)); });
+        root.append(details);
+      }
     }
     if (isStory && output.has_monologues) {
       const details = el("details", "output-warnings");

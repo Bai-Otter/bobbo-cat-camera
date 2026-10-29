@@ -22,6 +22,8 @@ STAGES = {
     "annotate_sheets": "生成圈选图",
     "render_highlight": "精选剪辑与校验",
     "render_story": "互动小剧场剪辑与校验",
+    "story_tts": "小布配音：订阅核验与语音生成",
+    "story_audio_mix": "小剧场配音混合与校验",
     "export_memes": "表情包导出与校验",
     "export_photos": "人宠合拍与丑萌照片提取",
     "final_validation": "最终检查与保存",

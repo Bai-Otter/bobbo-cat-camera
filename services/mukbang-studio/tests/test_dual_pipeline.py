@@ -139,3 +139,35 @@ def test_invalid_monologue_preserves_eating_without_a_second_ai_call(tmp_path, i
     assert state["calls"] == 1
     assert result["result"]["highlight_status"] == "ready"
     assert result["result"]["story"]["status"] == "invalid"
+
+
+@pytest.mark.parametrize("failure", [False, True])
+def test_optional_paid_narration_success_or_fallback(tmp_path, instrumented_pipeline, monkeypatch, failure):
+    from mukbang import narration
+    state = instrumented_pipeline
+    value = ready_story()
+    value.update(narrative_arc="人摸猫，猫随后回头看手。", reviewed_full_video=True, shortfall_reason="",
+                 inner_monologues=[{"id":"m1","clip_id":"s01","event_id":"e01","start":1.,"end":2.4,
+                                    "frame_ids":["F0002"],"text":"咦？"}])
+    state["parsed"]["interaction_story"] = value
+    state["options"].update(story_enabled=True,story_mode="inner_monologue",story_target_duration=4)
+    monkeypatch.setenv("MUKBANG_BREEZE_ENABLED", "1")
+    monkeypatch.setattr(narration,"configured",lambda: object())
+    def synth(*args):
+        if failure:
+            raise narration.NarrationError("Breeze配音失败（HTTP 429），未自动重试")
+        return {"status":"ready","clips":[{"duration":1.5}],"seconds":1}
+    monkeypatch.setattr(narration,"synthesize",synth)
+    monkeypatch.setattr(narration,"mix_video",lambda *args: {"narration_added":True,"actual_container_duration_seconds":4})
+    original_render = media.render_video
+    def render(source,destination,clips,info,*args,subtitle_file=None,**kwargs):
+        report=original_render(source,destination,clips,info,*args,**kwargs)
+        return {**report,"actual_container_duration_seconds":sum(c["duration"] for c in clips)}
+    monkeypatch.setattr(media,"render_video",render)
+    output = pipeline.run_pipeline(tmp_path,state["source"],state["options"],state["config"],lambda _:None,lambda:False)
+    result = output["result"]["story"]
+    assert result["status"] == "ready"
+    assert result["validation"]["narration_added"] is (not failure)
+    assert state["calls"] == 1
+    assert result["narration"]["status"] == ("failed" if failure else "ready")
+    assert result["video_url"].endswith("interaction-story.mp4" if failure else "interaction-story-voiced.mp4")

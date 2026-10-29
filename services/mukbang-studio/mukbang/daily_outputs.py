@@ -1,6 +1,7 @@
 """Independent, original-sound products from a single already-returned decision.
 
-This module never calls a provider or resamples the video. Legacy eating edits
+This module never calls a vision provider or resamples the video. Optional paid
+text-only narration is independent of the original visual decision. Legacy eating edits
 still use the existing renderer; a story is a separate, inward-quantized cut.
 """
 from __future__ import annotations
@@ -172,9 +173,30 @@ def render_dual_outputs(job_dir: Path, source_path: Path, options: dict, info: d
                     timeline.update(inner_monologues=monologues, duration_goal=goal,
                                     story_mode="inner_monologue", subtitle_kind="fictional_inner_monologue")
                 media.write_json(job_dir / "story-timeline.json", timeline)
+            from . import narration
+            speech = None
+            if monologues and narration.enabled():
+                emit({"status": "rendering", "progress": 78, "stage": "生成小布配音",
+                      "message": "使用已保存音色，仅发送独白文字；保留自然语速，不截尾"})
+                try:
+                    with timings.measure("story_tts"):
+                        speech = narration.synthesize(narration.configured(), monologues, job_dir / "narration", cancelled)
+                        monologues = narration.align_cues(monologues, clips, speech["clips"])
+                        speech["cues"] = monologues
+                        media.write_json(job_dir / "story-narration.json", speech)
+                except media.Cancelled:
+                    raise
+                except Exception as exc:
+                    speech = None
+                    reason = "配音生成或对齐未完成，已保留原声字幕版；未自动重试或截断声音"
+                    if isinstance(exc, narration.NarrationError):
+                        reason += "：" + str(exc)
+                    story_output["narration"] = {"status": "failed", "reason": reason}
+                    story_output.setdefault("warnings", []).append(reason)
+                    media.write_json(job_dir / "story-narration.json", story_output["narration"])
             emit({"status": "rendering", "progress": 80, "stage": "剪辑人宠互动小故事",
                   "message": f"{len(clips)}段可见互动，{duration:.2f}秒；原速、原画幅、原声" +
-                             (f"＋{len(monologues)}句小布内心独白字幕，不加配音或BGM" if monologues else "，不加配音或BGM")})
+                             (f"＋{len(monologues)}句小布内心独白字幕" + ("，准备加入配音，无BGM" if speech else "，原声无BGM") if monologues else "，不加配音或BGM")})
             with timings.measure("render_story"):
                 subtitle_options = {}
                 if monologues:
@@ -190,10 +212,32 @@ def render_dual_outputs(job_dir: Path, source_path: Path, options: dict, info: d
                     source_path, job_dir / "interaction-story.mp4", clips, info, cancelled,
                     on_step=lambda ident, label, seconds, status: timings.record_detail(
                         "render_story", ident, label, seconds, status), **subtitle_options)
+            story_filename = "interaction-story.mp4"
+            mixed = None
+            if speech:
+                try:
+                    with timings.measure("story_audio_mix"):
+                        mixed = narration.mix_video(job_dir / story_filename, job_dir / "interaction-story-voiced.mp4",
+                                                    monologues, speech, job_dir / "narration", cancelled)
+                    story_filename = "interaction-story-voiced.mp4"
+                    story_output["narration"] = {**speech, "mix": mixed}
+                    media.write_json(job_dir / "story-narration.json", story_output["narration"])
+                except media.Cancelled:
+                    raise
+                except Exception:
+                    reason = "配音混合未完成，已保留原声字幕版；可复用已生成的配音"
+                    story_output["narration"] = {"status": "failed", "reason": reason}
+                    story_output.setdefault("warnings", []).append(reason)
+                    media.write_json(job_dir / "story-narration.json", {**speech, "status": "mix_failed", "reason": reason})
             validation.update(visual_api_call_count=ai["call_count"], additional_visual_api_calls=0,
                               achieved_source_timeline_duration=duration,
                               sampled_co_visibility_checked=True, unsampled_co_visibility_verified=False,
                               story_target_is_aspirational=not bool(monologues), narration_added=False, bgm_added=False)
+            if mixed:
+                validation = {**validation, **mixed}
+                media.write_json(job_dir / "story-inner-monologues.json", {
+                    "kind": "fictional_inner_monologue", "narration_added": True,
+                    "cues": monologues, "duration_goal": goal})
             if monologues:
                 validation.update(subtitles_burned_in=True, subtitle_count=len(monologues),
                                   subtitle_kind="fictional_inner_monologue", subtitle_sha256=media.sha256(subtitle_files["ass"]),
@@ -208,7 +252,7 @@ def render_dual_outputs(job_dir: Path, source_path: Path, options: dict, info: d
             story_output.update(status="ready", clips=clips, events=events, adjustments=audit,
                                 duration=duration, video_duration=duration,
                                 container_duration=validation["actual_container_duration_seconds"],
-                                video_url=media.artifact_url(job_dir, "interaction-story.mp4"),
+                                video_url=media.artifact_url(job_dir, story_filename),
                                 poster_url=poster_url(sampling, clips), validation=validation)
             media.write_json(job_dir / "story-technical-validation.json", validation)
         except media.Cancelled:

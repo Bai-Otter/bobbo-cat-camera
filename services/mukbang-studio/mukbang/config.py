@@ -82,7 +82,8 @@ def _load_local_env() -> None:
                "MUKBANG_VISION_API_KEY", "DASHSCOPE_API_KEY", "OPENAI_BASE_URL", "OPENAI_API_KEY",
                "MUKBANG_VISION_USE_CODEX_PROVIDER", "MUKBANG_CODEX_HOME",
                "MUKBANG_VISION_TIMEOUT_SECONDS", "MUKBANG_FFPROBE_THREADS",
-               "MUKBANG_VISION_CODEX_CLIENT_COMPAT"}
+               "MUKBANG_VISION_CODEX_CLIENT_COMPAT", "MUKBANG_BREEZE_ENABLED",
+               "BREEZE_API_KEY_FILE", "BREEZE_API_KEY", "MUKBANG_BREEZE_VOICE_ID", "MUKBANG_BREEZE_MODEL"}
     for line in path.read_text(encoding="utf-8-sig").splitlines():
         if not line.strip() or line.lstrip().startswith("#") or "=" not in line:
             continue

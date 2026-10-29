@@ -58,12 +58,13 @@ def test_dual_video_is_opt_in_and_legacy_request_fingerprint_is_unchanged():
         **requested_options(model), "story_enabled": True, "story_target_duration": 25}
 
 
-def test_config_announces_additive_features_without_changing_eating_defaults(daily_app):
+def test_config_announces_additive_features_without_changing_eating_defaults(daily_app, monkeypatch):
+    monkeypatch.delenv("MUKBANG_BREEZE_ENABLED", raising=False)
     _, client, calls = daily_app
     result = client.get("/api/config")
     assert result.status_code == 200
     body = result.json()
-    assert body["features"] == {"dual_video": True, "story_max_duration": 60, "story_inner_monologue": True, "photos": True, "photo_gallery": True}
+    assert body["features"] == {"dual_video": True, "story_max_duration": 60, "story_inner_monologue": True, "photos": True, "photo_gallery": True, "story_narration": False}
     assert body["defaults"] == {"target_duration": 40, "min_duration": 30,
         "max_duration": 50, "sample_interval": 1, "frames_per_sheet": 60}
     assert body["prompt_template"] == body["prompt_library"]["active"]["text"]

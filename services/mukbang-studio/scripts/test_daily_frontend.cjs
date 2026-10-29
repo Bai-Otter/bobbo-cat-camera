@@ -126,6 +126,28 @@ test("completed dual outputs expose their own real video, poster and duration", 
   assert.match(out.story.poster_url, /story\/poster\.jpg$/); assert.match(out.eating.poster_url, /eating\.jpg$/);
 });
 
+test("narration and separate postprocess timing appear only on validated voiced stories", async () => {
+  const job = completed();
+  Object.assign(job.result.story, {
+    story_mode: "inner_monologue",
+    validation: { subtitles_burned_in: true, narration_added: true },
+    local_postprocess: { kind: "paid_breeze_narration", seconds: 57.515,
+      steps: [{ label: "付费配音生成与订阅核验", seconds: 12.891 }] }
+  });
+  const out = kit.outputsFor(job, origin);
+  assert.equal(out.story.has_narration, true);
+  assert.equal(out.story.local_postprocess_seconds, 57.515);
+  assert.equal(out.story.postprocess_steps.length, 1);
+  const h = harness({ jobs: [job], records: { [job.id]: job }, search: `?job=${job.id}` });
+  await h.ready();
+  const rendered = Object.values(h.nodes).map(text).join(" ");
+  assert.match(rendered, /原声＋小布女宝宝配音＋字幕/);
+  assert.match(rendered, /付费配音生成与订阅核验：12.89 秒/);
+  assert.match(rendered, /不计入首次生成耗时；未重新识图/);
+  delete job.result.story.validation.narration_added;
+  assert.equal(kit.outputsFor(job, origin).story.has_narration, false);
+});
+
 test("no interaction is honest, and does not remove a successful eating video", () => {
   const job = completed(); job.result.story = { status: "not_found", reason: "只有小猫独自在吃饭。" };
   const out = kit.outputsFor(job, origin); assert.equal(out.story.status, "not_found"); assert.equal(out.eating.status, "ready");
