@@ -7,6 +7,21 @@ import pytest
 from mukbang import vision
 
 
+def test_compact_serialization_preserves_full_evidence_contract():
+    assert "transport-compact-v1" in vision.COMPACT_OUTPUT_APPENDIX
+    assert "不能减少" in vision.COMPACT_OUTPUT_APPENDIX
+    assert "co_visible_frame_ids" in vision.COMPACT_OUTPUT_APPENDIX
+    assert "不以缩短内心独白" in vision.COMPACT_OUTPUT_APPENDIX
+    options, source, sampling = prompt_input()
+    old = vision.build_prompts(options, source, sampling)
+    assert "transport-compact-v1" not in old["system"]
+    options.update(story_enabled=True, story_mode="inner_monologue", photos_enabled=True, photo_mode="gallery")
+    current = vision.build_prompts(options, source, sampling)
+    assert current["system"].endswith(vision.COMPACT_OUTPUT_APPENDIX)
+    assert "mi-inner-v2" in current["system"] and "closeup-v2" in current["system"]
+    assert current["user"].startswith(old["user"])
+
+
 def prompt_input():
     return ({"target_duration": 43, "min_duration": 32, "max_duration": 49, "prompt": "自定义测试"},
             {"duration": 180}, {"interval": 1, "frame_count": 180, "sheet_count": 3,

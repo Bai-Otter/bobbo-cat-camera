@@ -45,6 +45,7 @@ HEAD_CAPTION_SYSTEM_APPENDIX = "\n\n" + (Path(__file__).parents[1] / "prompts" /
 MI_STYLE_SYSTEM_APPENDIX = "\n\n" + (Path(__file__).parents[1] / "prompts" / "story-mi-style-v2.txt").read_text(encoding="utf-8").strip()
 PHOTOS_SYSTEM_APPENDIX = "\n\n" + (Path(__file__).parents[1] / "prompts" / "daily-photos-system-appendix.txt").read_text(encoding="utf-8").strip()
 PHOTO_GALLERY_SYSTEM_APPENDIX = "\n\n" + (Path(__file__).parents[1] / "prompts" / "daily-photo-gallery-system-appendix.txt").read_text(encoding="utf-8").strip()
+COMPACT_OUTPUT_APPENDIX = "\n\n" + (Path(__file__).parents[1] / "prompts" / "compact-output-v1.txt").read_text(encoding="utf-8").strip()
 
 
 class VisionError(RuntimeError):
@@ -131,6 +132,9 @@ def build_prompts(options: dict, source: dict, sampling: dict, feedback_context=
         else:
             system += PHOTOS_SYSTEM_APPENDIX
             user += "\n\n本次额外提取人宠合拍和丑萌照片，各最多1张、必须不同源帧；没有合格照片就具体说明。"
+    if (options.get("story_enabled") is True and options.get("photos_enabled") is True
+            and options.get("photo_mode") == "gallery"):
+        system += COMPACT_OUTPUT_APPENDIX
     return {"system": system, "user": user}
 
 
@@ -227,11 +231,27 @@ def extract_text(envelope: dict, api_style: str) -> str:
     raise VisionError("视觉服务没有返回可读取的文本结果")
 
 
+def _failure_message(envelope: dict) -> str:
+    """Only allowlisted codes become UI copy; never echo provider internals."""
+    error = envelope.get("error")
+    code = error.get("code") if isinstance(error, dict) else envelope.get("code")
+    details = envelope.get("incomplete_details")
+    reason = details.get("reason") if isinstance(details, dict) else None
+    if code in ("upstream_error", "server_error"):
+        return (f"视觉服务上游中断（{code}），未返回完整结果；已停止，未自动重试。"
+                "本次不能直接补剪；可手动重新生成，若反复出现请检查中转服务。")
+    if reason == "max_output_tokens":
+        return "视觉服务达到输出长度上限，结果未完成；未自动重试，不能使用残缺JSON生成视频"
+    if code in ("rate_limit_exceeded", "insufficient_quota"):
+        return "视觉服务限流或额度不足，结果未完成；未自动重试，请检查服务额度或稍后手动生成"
+    return "视觉服务返回失败或未完成状态；已停止，不会自动重试"
+
+
 def _check_response_status(envelope: dict, raw: str) -> None:
     if not isinstance(envelope, dict):
         raise VisionError("视觉服务响应必须是JSON对象", raw)
     if envelope.get("status") in {"failed", "incomplete", "cancelled", "queued", "in_progress"}:
-        raise VisionError("视觉服务返回失败或未完成状态；已停止，不会自动重试", raw)
+        raise VisionError(_failure_message(envelope), raw)
 
 
 def parse_response_sse(raw: str) -> dict:
@@ -260,7 +280,8 @@ def parse_response_sse(raw: str) -> dict:
             raise VisionError("视觉服务SSE事件结构无效", raw)
         kind = event.get("type", name)
         if kind in {"error", "response.failed", "response.incomplete", "response.cancelled"} or name == "error":
-            raise VisionError("视觉服务流式返回失败或未完成事件；已停止，不会自动重试", raw)
+            detail = event.get("response")
+            raise VisionError(_failure_message(detail if isinstance(detail, dict) else event), raw)
         if kind == "response.completed":
             envelope = event.get("response")
             if not isinstance(envelope, dict):

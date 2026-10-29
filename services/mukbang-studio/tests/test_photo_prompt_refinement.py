@@ -27,7 +27,7 @@ def test_closeup_v2_prioritizes_hero_style_without_fixed_source_references():
 def test_photo_refinement_keeps_both_video_prompt_prefixes_exact():
     base = prompts()
     new = prompts(photos_enabled=True, photo_mode="gallery")
-    assert new["system"] == base["system"] + vision.PHOTO_GALLERY_SYSTEM_APPENDIX
+    assert new["system"] == base["system"] + vision.PHOTO_GALLERY_SYSTEM_APPENDIX + vision.COMPACT_OUTPUT_APPENDIX
     assert new["user"].startswith(base["user"])
     assert "closeup-v2" in new["user"]
     assert "普通圆脸" in new["user"]

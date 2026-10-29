@@ -134,6 +134,31 @@ def test_nonstream_json_failed_status_is_not_success(tmp_path, monkeypatch, stat
     assert len(calls) == 1
 
 
+@pytest.mark.parametrize("streaming", [True, False])
+def test_upstream_failure_is_actionable_without_echoing_private_provider_message(tmp_path, monkeypatch, streaming):
+    calls = []
+    envelope = {"status":"failed", "error":{"code":"upstream_error", "message":"OFFLINE_FIXTURE_SECRET internal host"}}
+    def handler(request):
+        calls.append(request)
+        return (httpx.Response(200, headers={"content-type":"text/event-stream"},
+                              text=event("response.output_text.delta", delta='{"partial":') + event("response.failed", response=envelope))
+                if streaming else httpx.Response(200, json=envelope))
+    install_transport(monkeypatch, handler)
+    with pytest.raises(vision.VisionError, match="上游.*中断") as caught:
+        vision.call_vision({"system":"s","user":"u"}, sheets(tmp_path), tmp_path, config(stream=streaming))
+    assert "upstream_error" in str(caught.value)
+    assert "未自动重试" in str(caught.value)
+    assert "OFFLINE_FIXTURE_SECRET" not in str(caught.value) + caught.value.raw_text
+    assert "internal host" not in str(caught.value)
+    assert len(calls) == 1
+
+
+def test_output_limit_failure_not_mislabeled_as_network_problem():
+    raw = event("response.incomplete", response={"status":"incomplete", "incomplete_details":{"reason":"max_output_tokens"}})
+    with pytest.raises(vision.VisionError, match="输出长度上限"):
+        vision.parse_response_sse(raw)
+
+
 def test_sse_success_with_unicode_split_across_bytes(tmp_path, monkeypatch):
     raw = completed('{"猫":"可爱"}').encode("utf-8")
     class Split(httpx.AsyncByteStream):

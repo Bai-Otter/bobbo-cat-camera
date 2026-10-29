@@ -77,7 +77,7 @@ def test_legacy_vision_input_unchanged_and_photos_only_append_to_shared_prompt()
     assert four["system"] == both["system"] + vision.PHOTOS_SYSTEM_APPENDIX
     assert four["user"].startswith(both["user"])
     gallery = vision.build_prompts({**options, "story_enabled": True, "story_mode": "inner_monologue", "photos_enabled": True, "photo_mode": "gallery"}, source, sampling)
-    assert gallery["system"] == both["system"] + vision.PHOTO_GALLERY_SYSTEM_APPENDIX
+    assert gallery["system"] == both["system"] + vision.PHOTO_GALLERY_SYSTEM_APPENDIX + vision.COMPACT_OUTPUT_APPENDIX
     assert gallery["user"].startswith(both["user"])
 
 
