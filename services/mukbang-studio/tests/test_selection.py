@@ -8,6 +8,46 @@ from mukbang.selection import SelectionError, validate_and_adjust, validate_resu
 FRAMES = [{"id": f"F{i + 1:04d}", "time": float(i)} for i in range(100)]
 
 
+def test_optional_overlong_meme_keeps_all_evidence_and_does_not_block_eating():
+    source = fixture_result()
+    source["memes"][0].update(start=8., end=13.5)
+    before = deepcopy(source)
+    result = validate_and_adjust(source, FRAMES, 100,
+        {"target_duration":40,"min_duration":30,"max_duration":50}, isolate_meme_errors=True)
+    assert len(result["clips"]) == 2
+    meme = result["memes"][0]
+    assert meme["end"] - meme["start"] == 4.
+    assert 8. <= meme["start"] <= 10. < meme["end"] <= 13.5
+    assert meme["frame_ids"] == ["F0011"]
+    assert any(a["type"] == "trim_meme_hold" for a in result["adjustments"])
+    assert source == before
+
+
+@pytest.mark.parametrize("change", [
+    lambda r: r["memes"][0].update(start=8.,end=52.,frame_ids=["F0011","F0051"]),
+    lambda r: r["memes"][0].update(frame_ids=["F9999"]),
+    lambda r: r["memes"][0].update(end=9.8),
+    lambda r: r.update(memes=None),
+])
+def test_invalid_optional_meme_is_reported_without_destroying_highlights(change):
+    source = fixture_result()
+    change(source)
+    result = validate_and_adjust(source, FRAMES, 100,
+        {"target_duration":40,"min_duration":30,"max_duration":50}, isolate_meme_errors=True)
+    assert len(result["clips"]) == 2 and result["memes"] == []
+    assert any(a["type"] == "skip_invalid_meme" for a in result["adjustments"])
+    assert any("表情包" in w for w in result["warnings"])
+    validate_result(result["validated"], FRAMES, 100)
+
+
+def test_meme_isolation_does_not_relax_highlight_evidence():
+    source = fixture_result()
+    source["highlight_clips"][0]["frame_ids"] = ["F9999"]
+    with pytest.raises(SelectionError):
+        validate_and_adjust(source, FRAMES, 100,
+            {"target_duration":40,"min_duration":30,"max_duration":50}, isolate_meme_errors=True)
+
+
 def fixture_result():
     return {"summary": "抬头舔鼻子", "selected_frames": [
         {"frame_id": "F0011", "score": 92, "reason": "眼睛和舌头都清楚", "labels": ["舔嘴"]},

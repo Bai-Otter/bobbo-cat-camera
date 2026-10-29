@@ -238,6 +238,18 @@ test("successful history renders two actual players and source-specific duration
   await buttons(page.nodes["story-output"])[0].events.click(); assert.equal(video.controls, true); assert.equal(video.played, true);
 });
 
+test("partial video failures never show a green all-complete banner", async () => {
+  const job = completed();
+  job.stage = "生成完成";
+  job.result.highlight_status = "invalid";
+  job.result.story.status = "invalid";
+  const page = harness({ jobs: [job], records: { [job.id]: job } }); await page.ready();
+  assert.match(page.nodes["job-stage"].textContent, /部分完成/);
+  assert.match(page.nodes["job-notice"].className, /is-error/);
+  assert.doesNotMatch(page.nodes["job-notice"].className, /is-complete/);
+  assert.equal(page.calls.filter(call => call.options.method === "POST").length, 0);
+});
+
 test("model titles and reasons are plain text, never injected HTML", async () => {
   const job = completed(); job.result.story.title = "<img src=x onerror=alert(1)>";
   const page = harness({ jobs: [job], records: { [job.id]: job } }); await page.ready();

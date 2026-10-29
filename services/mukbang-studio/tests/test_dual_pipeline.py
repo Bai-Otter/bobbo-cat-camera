@@ -42,6 +42,18 @@ def test_same_response_produces_independent_two_videos_and_measured_cost(tmp_pat
     assert json.loads((tmp_path / "story-timeline.json").read_text(encoding="utf-8"))["duration"] == 4.
 
 
+def test_bad_optional_meme_does_not_block_both_videos_or_retry_vision(tmp_path, instrumented_pipeline):
+    state = instrumented_pipeline
+    state["parsed"]["interaction_story"] = ready_story()
+    state["parsed"]["memes"][0].update(end=1.7)
+    output = run_dual(tmp_path, state)
+    assert output["result"]["highlight_status"] == "ready"
+    assert output["result"]["story"]["status"] == "ready"
+    assert output["result"]["memes"] == []
+    assert any(a["type"] == "skip_invalid_meme" for a in output["result"]["adjustments"])
+    assert state["calls"] == 1
+
+
 @pytest.mark.parametrize("story_value,status", [
     ({"status": "not_found", "reason": "只有猫独自吃饭，没有可见人宠互动", "clips": [], "events": [], "warnings": []}, "not_found"),
     (None, "invalid"),

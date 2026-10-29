@@ -107,6 +107,27 @@ def test_performance_direction_survives_validation_but_rejects_code():
     with pytest.raises(story.StoryError): validate(value,frames)
 
 
+def test_short_reading_window_extends_inside_approved_clip_without_rewriting():
+    frames, value = sample_story()
+    cue = value["inner_monologues"][0]
+    cue.update(text="哎，怎么把我托起来了？", end=6.)
+    before = deepcopy(value)
+    result = validate(value, frames)
+    repaired = result["inner_monologues"][0]
+    assert repaired["end"] == 4. + len(cue["text"]) / 5.
+    assert repaired["start"] == 4. and repaired["text"] == cue["text"]
+    assert repaired["frame_ids"] == cue["frame_ids"]
+    assert result["caption_timing_adjustments"][0]["type"] == "extend_caption_reading_hold"
+    assert value == before
+
+
+def test_reading_extension_cannot_cross_cut_or_steal_next_cue_gap():
+    frames, value = cross_cut_story()
+    value["inner_monologues"][0].update(text="哎，怎么把我托起来了？", start=8., end=10.)
+    with pytest.raises(story.StoryError):
+        validate(value, frames)
+
+
 @pytest.mark.parametrize("change", [
     lambda v: v.pop("inner_monologues"),
     lambda v: v.update(inner_monologues=[]),

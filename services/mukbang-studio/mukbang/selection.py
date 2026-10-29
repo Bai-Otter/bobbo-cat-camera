@@ -244,13 +244,69 @@ def adjust_duration(validated: dict, frames: list[dict], options: dict) -> dict:
             "adjustments": adjustments, "warnings": warnings}
 
 
-def validate_and_adjust(parsed: dict, frames: list[dict], duration: float, options: dict) -> dict:
+def _optional_memes(parsed: dict, frames: list[dict], duration: float) -> tuple[dict, list]:
+    """Validate the main product first; optional meme errors stay independent."""
+    candidate = deepcopy(parsed)
+    candidate["memes"] = []
+    _validate_result(candidate, frames, duration, reference_adjustments=[])
+    mapping = {f["id"]: f for f in frames}
+    selected = {f["frame_id"] for f in candidate["selected_frames"]}
+    rows, audit, seen = parsed.get("memes"), [], set()
+    if not isinstance(rows, list) or len(rows) > 4:
+        audit.append({"type": "skip_invalid_meme", "collection": "memes",
+                      "reason": "表情包列表无效或条数过多，已单独跳过；不影响吃播"})
+        return candidate, audit
+    for index, raw in enumerate(rows):
+        ident, changes = None, []
+        try:
+            if not isinstance(raw, dict):
+                raise SelectionError("表情包条目必须是对象")
+            row = deepcopy(raw)
+            ident = row.get("id")
+            if not isinstance(ident, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,40}", ident) or ident in seen:
+                raise SelectionError("表情包ID重复或格式无效")
+            seen.add(ident)
+            start, end = number(row.get("start"), "开始时间"), number(row.get("end"), "结束时间")
+            if not 0 <= start < end <= duration:
+                raise SelectionError("表情包时间超出源视频或顺序错误")
+            if end - start > 4. + .000001:
+                refs = row.get("frame_ids")
+                if not isinstance(refs, list) or not refs or any(not isinstance(f, str) or f not in selected for f in refs):
+                    raise SelectionError("表情包引用未知或未选中帧")
+                times = [mapping[f]["time"] for f in refs]
+                if any(not start <= t < end for t in times):
+                    raise SelectionError("超长表情包含区间外证据，不自动裁切")
+                # Fit a four-second window wholly inside the approved interval.
+                # Preserve every reference; never choose a different peak.
+                left = max(start, min(min(times), max(times) + .35 - 4., end - 4.))
+                right = left + 4.
+                if any(not left <= t < right for t in times):
+                    raise SelectionError("表情包全部证据放不进4秒，已单独跳过")
+                row.update(start=left, end=right)
+                changes.append({"type": "trim_meme_hold", "collection": "memes", "clip_id": ident,
+                                "before": [start, end], "after": [left, right],
+                                "reason": f"表情包 {ident} 在原批准区间内缩至4秒，保留全部引用帧；未变速或新增识图"})
+            valid = _validate_clips([row], "表情包", mapping, selected, duration, meme=True,
+                                    reference_adjustments=changes)
+            candidate["memes"].extend(valid)
+            audit.extend(changes)
+        except SelectionError as exc:
+            audit.append({"type": "skip_invalid_meme", "collection": "memes", "index": index,
+                          "clip_id": ident if isinstance(ident, str) and len(ident) <= 40 else None,
+                          "reason": f"表情包第{index + 1}项未导出：{exc}；不影响吃播"})
+    return candidate, audit
+
+
+def validate_and_adjust(parsed: dict, frames: list[dict], duration: float, options: dict, *,
+                        isolate_meme_errors: bool = False) -> dict:
     """Converge redundant references with an audit, then apply normal edit rules.
 
     Raw decisions remain untouched. This is not an AI retry or a tolerance:
     surviving evidence must pass the same exact half-open interval checks.
     """
     references = []
+    if isolate_meme_errors and isinstance(parsed, dict):
+        parsed, references = _optional_memes(parsed, frames, duration)
     validated = _validate_result(parsed, frames, duration, reference_adjustments=references)
     # Fail closed if a future normalization change ever weakens the invariant.
     validated = validate_result(validated, frames, duration)

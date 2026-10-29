@@ -77,9 +77,9 @@ def instrumented_pipeline(tmp_path, monkeypatch):
         return {"text": json.dumps(model_result), "envelope": {"fixture": True}, "elapsed_seconds": .25, "usage": {}}
     monkeypatch.setattr(vision, "call_vision", ai)
     original_selection = pipeline.selection.validate_and_adjust
-    def choose(*args):
+    def choose(*args, **kwargs):
         clock.advance(3)
-        return original_selection(*args)
+        return original_selection(*args, **kwargs)
     monkeypatch.setattr(pipeline.selection, "validate_and_adjust", choose)
     def annotate(job_dir, sampling, selected, memes):
         clock.advance(4)

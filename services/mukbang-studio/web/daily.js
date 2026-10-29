@@ -333,8 +333,10 @@
     const previousTerminal = state.job && TERMINAL.has(state.job.status);
     state.job = job;
     show($("job-notice"), true);
-    $("job-notice").className = `job-notice${["failed", "interrupted"].includes(job.status) ? " is-error" : job.status === "completed" ? " is-complete" : ""}`;
-    $("job-stage").textContent = job.stage || STATUS_LABELS[job.status] || "处理中";
+    const partial = job.status === "completed" && [job.result?.highlight_status, job.result?.story?.status,
+      ...Object.values(job.result?.photos || {}).map(photo => photo?.status)].some(status => ["failed", "invalid"].includes(status));
+    $("job-notice").className = `job-notice${partial || ["failed", "interrupted"].includes(job.status) ? " is-error" : job.status === "completed" ? " is-complete" : ""}`;
+    $("job-stage").textContent = partial ? "部分完成，请查看未生成原因" : job.stage || STATUS_LABELS[job.status] || "处理中";
     const progress = typeof job.progress === "number" && Number.isFinite(job.progress) ? Math.max(0, Math.min(100, job.progress)) : 0;
     $("job-percent").textContent = `${Math.round(progress)}%`;
     $("job-progress").setAttribute("aria-valuenow", String(progress)); $("job-progress-fill").style.width = `${progress}%`;

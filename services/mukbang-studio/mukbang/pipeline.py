@@ -31,7 +31,7 @@ def _retain_quantized_evidence(clips: list[dict], frames: list[dict], adjustment
 def validate_decisions(parsed: dict, frames: list[dict], duration: float, options: dict) -> dict:
     """One shared decision gate for fresh runs and zero-provider offline recovery."""
     try:
-        choices = selection.validate_and_adjust(parsed, frames, duration, options)
+        choices = selection.validate_and_adjust(parsed, frames, duration, options, isolate_meme_errors=True)
     except selection.SelectionError as exc:
         if options.get("story_enabled") is not True:
             raise

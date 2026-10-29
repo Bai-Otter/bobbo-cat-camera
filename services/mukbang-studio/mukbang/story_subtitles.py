@@ -120,6 +120,23 @@ def validate_monologues(decision: dict, parsed: dict, frames: list[dict], durati
                                    "reason": "缩短冗余字幕停留，保留起点、文字、全部证据及1.5秒留白；配音后仍校验完整音频"})
         source_cue["end"] = new_end
         previous["end"] -= deficit
+    # The visual model estimates display time, not speech duration. Correct a
+    # small underestimate only inside the approved shot and existing silence.
+    for index, cue in enumerate(cues):
+        needed = max(1.4, len(cue["text"]) / 5.)
+        deficit = needed - (cue["end"] - cue["start"])
+        if not .02 < deficit <= 1. or needed > 5.5:
+            continue
+        output = output_cues[index]
+        new_end = cue["start"] + needed
+        next_start = output_cues[index + 1]["start"] if index + 1 < len(cues) else math.inf
+        if new_end > clips[cue["clip_id"]]["end"] or output["end"] + deficit > next_start - 1.5:
+            continue
+        timing_adjustments.append({"type": "extend_caption_reading_hold", "cue_id": cue["id"],
+                                   "before_end": cue["end"], "after_end": new_end,
+                                   "reason": "在批准镜头及已有留白内补足阅读时间；不改台词、起点或剪点，不加速/裁尾"})
+        cue["end"] = new_end
+        output["end"] += deficit
     validate_cue_rhythm(output_cues, achieved)
     result = deepcopy(decision)
     result.update(story_mode="inner_monologue", narrative_arc=arc, reviewed_full_video=True,
