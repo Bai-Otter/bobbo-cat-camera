@@ -724,6 +724,27 @@ def create_app(data_dir: Path | None = None, provider: ProviderConfig | None = N
             rows = [{k: v for k, v in j.items() if k in fields} for j in manager.jobs.values()]
         return {"jobs": sorted(rows, key=lambda row: row["created_at"], reverse=True)}
 
+    @app.get('/api/music')
+    def music_catalog():
+        from . import story_profile, story_music_library
+        try:
+            return story_music_library.public_catalog(story_profile.load())
+        except ValueError as exc:
+            raise HTTPException(503, str(exc)) from None
+
+    @app.get('/api/music/{track_id}/audio')
+    def music_audio(track_id: str):
+        from . import story_profile, story_music_library
+        try:
+            path = story_music_library.audio_path(story_profile.load(), track_id)
+        except (ValueError, TypeError):
+            raise HTTPException(404, '音乐尚不可用') from None
+        return FileResponse(path, media_type='audio/mpeg')
+
+    @app.get('/music')
+    def music_page():
+        return FileResponse(ROOT / 'web' / 'music.html')
+
     @app.get("/api/jobs/{job_id}")
     def get_job(job_id: str):
         return manager.get(job_id)

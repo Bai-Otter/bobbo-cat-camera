@@ -256,7 +256,7 @@ def render_dual_outputs(job_dir: Path, source_path: Path, options: dict, info: d
                 else:
                     try:
                         emit({'status':'rendering','progress':91,'stage':'加入小剧场BGM',
-                              'message':'使用已确认本地音乐；配音时压低音乐，不重跑识图'})
+                              'message':'从本地曲库选曲并固定到本任务；配音时压低音乐，不重跑识图' if profile.get('music_library_file') else '使用已确认本地音乐；配音时压低音乐，不重跑识图'})
                         with timings.measure('story_bgm'):
                             music = story_music.mix(job_dir/story_filename,job_dir/'interaction-story-mi.mp4',
                                                     monologues,profile,cancelled)

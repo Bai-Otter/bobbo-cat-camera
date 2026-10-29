@@ -15,6 +15,7 @@ auth.json
 config.toml
 *.log
 *.pid
+web/music-catalog.local.json
 .env
 .env.*
 !.env.example

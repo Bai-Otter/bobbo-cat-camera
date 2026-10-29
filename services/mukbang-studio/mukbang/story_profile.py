@@ -40,6 +40,9 @@ def load():
             raise ValueError
         if not isinstance(value['music_label'],str) or not 1 <= len(value['music_label']) <= 120:
             raise ValueError
+        if 'music_library_file' in value and (not isinstance(value['music_library_file'], str)
+                or not Path(value['music_library_file']).is_absolute()):
+            raise ValueError
         return {**value, 'voice_id':voice}
     except (OSError, ValueError, TypeError, KeyError):
         raise ValueError('咪小剧场预设不完整；未自动退回旧音色，请检查服务私有配置') from None
@@ -49,6 +52,12 @@ def public(profile):
     if profile is None:
         return {'version':'legacy-audio', 'style_version':STYLE_VERSION,
                 'voice_label':'旧配置音色', 'bgm_enabled':False}
-    return {'version':profile['version'], 'style_version':STYLE_VERSION,
+    result = {'version':profile['version'], 'style_version':STYLE_VERSION,
             'voice_label':'已确认的咪参考克隆', 'voice_kind':'authorized-reference-clone',
             'bgm_enabled':True, 'bgm_label':profile['music_label'], 'music_rights':profile['music_rights']}
+    if profile.get('music_library_file'):
+        from .story_music_library import public_catalog
+        pool = public_catalog(profile)
+        result.update(bgm_label=f"俏皮小猫曲库 · {pool['count']}首随机", music_rights='cc_by_4_0',
+                      music_mode=pool['mode'], music_library_version=pool['version'], music_track_count=pool['count'])
+    return result

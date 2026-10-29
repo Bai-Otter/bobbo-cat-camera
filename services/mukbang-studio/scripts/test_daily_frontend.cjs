@@ -16,6 +16,47 @@ const origin = "http://127.0.0.1:8880";
 const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
 const tick = () => new Promise((resolve) => setImmediate(resolve));
 
+test("random BGM exposes actual track and publish credits, not a fixed reference label", () => {
+  const job = completed();
+  job.result.story.validation = { bgm_added: true, narration_added: true, subtitles_burned_in: true };
+  job.result.story.bgm = { label: "Plucky Daisy", rights_status: "cc_by_4_0", track: { attribution: "Kevin / CC BY 4.0" }, credits_url: `/api/jobs/${job.id}/files/story-music-credits.txt` };
+  const output = kit.outputsFor(job, origin).story;
+  assert.equal(output.bgm_label, "Plucky Daisy");
+  assert.equal(output.music_rights, "cc_by_4_0");
+  assert.equal(output.music_credit, "Kevin / CC BY 4.0");
+  assert.ok(output.music_credits_url.endsWith("story-music-credits.txt"));
+  assert.match(html, /href="\/static\/music.html"/);
+});
+
+test("music audition page renders all tracks safely and pauses other players", async () => {
+  const status = new Element(); const tracks = new Element();
+  tracks.querySelectorAll = () => find(tracks, n => ["AUDIO", "VIDEO"].includes(n.tagName));
+  const document = {
+    getElementById: id => id === "music-status" ? status : tracks,
+    createElement: tag => { const n = new Element(tag); n.pause = () => { n.paused = true; }; return n; }
+  };
+  const rows = Array.from({ length: 12 }, (_, i) => ({ title: `<script>track ${i}</script>`, style_note: "轻巧", attribution: "CC credit", audio_url: `/api/music/track-${i}/audio`, source_url: "https://incompetech.com/", preview_url: `/api/jobs/aabbccddeeff/files/local-postprocess/music-audition-v1/track-${i}/preview.mp4` }));
+  await vm.runInNewContext(fs.readFileSync(path.join(root, "web/music.js"), "utf8"), { document, fetch: async () => ({ ok: true, json: async () => ({ count: 12, tracks: rows }) }) });
+  assert.match(status.textContent, /12 首已接入/);
+  const players = tracks.querySelectorAll();
+  assert.equal(players.length, 24);
+  assert.equal(find(tracks, n => n.tagName === "SCRIPT").length, 0);
+  players[0].events.play();
+  assert.ok(players.slice(1).every(n => n.paused));
+});
+
+test("old service audition fallback never claims random production is active", async () => {
+  const nodes = { "music-status": new Element(), "music-mode": new Element(), "music-tracks": new Element() };
+  const calls = [];
+  await vm.runInNewContext(fs.readFileSync(path.join(root, "web/music.js"), "utf8"), {
+    document: { getElementById: id => nodes[id], createElement: tag => new Element(tag) },
+    fetch: async url => { calls.push(url); return url === "/api/music" ? { status: 404, ok: false } : { ok: true, json: async () => ({ mode: "preview_only", count: 12, tracks: [] }) }; }
+  });
+  assert.match(nodes["music-status"].textContent, /尚待重启服务/);
+  assert.match(nodes["music-mode"].textContent, /仍用旧固定BGM/);
+  assert.deepEqual(calls, ["/api/music", "/static/music-catalog.local.json"]);
+});
+
 class Element {
   constructor(tag = "div") {
     this.tagName = tag.toUpperCase(); this.children = []; this.events = {}; this.style = {}; this.attrs = {}; this.value = ""; this._text = ""; this.className = ""; this.hidden = false; this.disabled = false;

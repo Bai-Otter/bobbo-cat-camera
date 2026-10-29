@@ -13,6 +13,11 @@ from . import media
 def mix(video, destination, cues, profile, cancelled=None):
     started = time.monotonic()
     video, destination = Path(video), Path(destination)
+    from .story_music_library import select
+    profile = select(profile, destination.parent)
+    attribution = profile.get('music_track', {}).get('attribution')
+    if attribution:
+        (destination.parent / 'story-music-credits.txt').write_text(attribution, encoding='utf-8')
     music = Path(profile['music_file'])
     if not music.is_file() or media.sha256(music) != profile['music_sha256']:
         raise ValueError('BGM文件缺失或与已确认版本不一致；未自动替换音乐')
@@ -55,10 +60,11 @@ def mix(video, destination, cues, profile, cancelled=None):
              '[0:a]aformat=sample_rates=48000:channel_layouts=stereo[base];'
              '[base][music]amix=inputs=2:normalize=0:duration=first,'
              'alimiter=limit=0.8414:level=false:latency=true[mix]')
+    credits_options = ['-metadata', 'comment=' + attribution] if attribution else []
     media.run(['ffmpeg','-v','error','-nostdin','-y',*media.SAFE_INPUT_OPTIONS,'-i',str(video.resolve()),
                '-protocol_whitelist','file,pipe','-i',str(decoded.resolve()),'-filter_complex',graph,
                '-map','0:v:0','-map','[mix]','-c:v','copy','-c:a','aac','-ar','48000','-b:a','192k',
-               '-t',str(duration),'-movflags','+faststart',str(destination.resolve())],cancelled)
+               '-t',str(duration),'-movflags','+faststart',*credits_options,str(destination.resolve())],cancelled)
     mix_seconds = time.monotonic()-mix_start
     check_start = time.monotonic()
     final = media.probe(destination,cancelled)
@@ -73,7 +79,11 @@ def mix(video, destination, cues, profile, cancelled=None):
     if video_hash(video) != video_hash(destination):
         raise ValueError('BGM合成改变了视频流')
     media.run(['ffmpeg','-v','error','-xerror',*media.SAFE_INPUT_OPTIONS,'-i',str(destination.resolve()),'-f','null','-'],cancelled)
-    return {'status':'ready','bgm_added':True,'label':profile['music_label'],
+    track_info = ({'track': profile['music_track'], 'selection_mode': profile['music_selection_mode'],
+                   'library_version': profile['music_library_version'], 'attribution_required': True,
+                   'credits_url': media.artifact_url(destination.parent, 'story-music-credits.txt')}
+                  if attribution else {})
+    return {**track_info, 'status':'ready','bgm_added':True,'label':profile['music_label'],
             'rights_status':profile['music_rights'],'music_source_sha256':profile['music_sha256'],
             'nominal_rms_dbfs':-28,'gain':gain,'speech_duck_windows':windows,
             'video_bitstream_unchanged':True,'full_decode_pass':True,

@@ -75,6 +75,8 @@
         narrative.style_version = story.style_version || "历史文案";
         narrative.bgm_label = narrative.has_bgm ? (story.bgm?.label || "BGM") : "无BGM";
         narrative.music_rights = story.bgm?.rights_status;
+        narrative.music_credit = typeof story.bgm?.track?.attribution === "string" ? story.bgm.track.attribution : "";
+        narrative.music_credits_url = safeUrl(story.bgm?.credits_url, origin);
         narrative.monologues = narrative.has_monologues && Array.isArray(story.inner_monologues) ? story.inner_monologues.filter((cue) => cue && typeof cue.text === "string" && measuredSeconds(cue.output_start) !== null && measuredSeconds(cue.output_end) > cue.output_start) : [];
         narrative.subtitle_url = narrative.has_monologues ? safeUrl(story.subtitle_url, origin) : null;
         narrative.duration_goal = measuredSeconds(story.duration_goal?.target) !== null ? story.duration_goal : null;
@@ -282,6 +284,16 @@
     foot.append(download); root.append(foot, error);
     if (isStory && output.has_monologues) {
       root.append(el("p", "output-notice", `本次实际：${output.style_version} · ${output.bgm_label}${output.music_rights === "local_preview_only" ? "（本地试听素材，商用授权待确认）" : ""}`));
+      if (output.has_bgm && output.music_rights === "cc_by_4_0") {
+        const credits = el("details", "output-warnings");
+        credits.append(el("summary", "", "音乐署名 · 发布时请一并附上"), el("p", "output-notice", "本曲按 CC BY 4.0 使用。下载视频后，发布时请把下面署名贴到作品说明里。"));
+        const text = el("pre", "", output.music_credit); text.style.whiteSpace = "pre-wrap"; text.style.overflowWrap = "anywhere";
+        credits.append(text);
+        if (output.music_credits_url) {
+          const link = el("a", "", "下载本次音乐署名"); link.href = output.music_credits_url; link.setAttribute("download", ""); credits.append(link);
+        }
+        root.append(credits);
+      }
     }
     if (isStory && output.duration_goal) {
       root.append(el("p", "output-notice", `目标 ${output.duration_goal.target} 秒 · 成片 ${output.duration} 秒${output.duration_goal.met === false ? " · 素材不足，未凑时长" : ""}`));
