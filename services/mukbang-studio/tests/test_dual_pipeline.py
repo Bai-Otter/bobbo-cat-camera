@@ -103,7 +103,8 @@ def test_legacy_mode_does_not_add_story_output_or_render_cost(tmp_path, instrume
     assert state["calls"] == 1
 
 
-def test_monologue_upgrades_same_story_render_and_never_creates_a_third_video(tmp_path, instrumented_pipeline, monkeypatch):
+@pytest.mark.parametrize("head_mode", [False, True])
+def test_monologue_upgrades_same_story_render_and_never_creates_a_third_video(tmp_path, instrumented_pipeline, monkeypatch, head_mode):
     state = instrumented_pipeline
     value = ready_story()
     value.update(narrative_arc="人摸猫，猫随后回头看手。", reviewed_full_video=True, shortfall_reason="",
@@ -111,6 +112,9 @@ def test_monologue_upgrades_same_story_render_and_never_creates_a_third_video(tm
                                     "frame_ids": ["F0002"], "text": "咦？"}])
     state["parsed"]["interaction_story"] = value
     state["options"].update(story_enabled=True, story_mode="inner_monologue", story_target_duration=4)
+    if head_mode:
+        value["inner_monologues"][0]["caption_placement"] = {
+            "mode":"head_top", "anchors":[{"frame_id":"F0002","head_box":[.4,.5,.6,.8],"confidence":.9}]}
     original_render, rendered = media.render_video, []
     def render(source, destination, clips, info, *args, subtitle_file=None, **kwargs):
         rendered.append((destination.name, subtitle_file))
@@ -129,6 +133,12 @@ def test_monologue_upgrades_same_story_render_and_never_creates_a_third_video(tm
     assert story_result["subtitle_url"].endswith(".srt")
     assert (tmp_path / "story-inner-monologues.json").exists()
     assert result["result"]["highlight_status"] == "ready"
+    if head_mode:
+        assert story_result["subtitle_layout"] == "head-top-v1"
+        assert story_result["validation"]["additional_caption_visual_api_calls"] == 0
+        assert story_result["inner_monologues"][0]["caption_placement"]["anchors"][0]["source_time"] == 1.
+        assert (tmp_path / "story-caption-layout.json").is_file()
+        assert "\\pos(" in (tmp_path / "interaction-story.ass").read_text(encoding="utf-8")
 
 
 def test_invalid_monologue_preserves_eating_without_a_second_ai_call(tmp_path, instrumented_pipeline):

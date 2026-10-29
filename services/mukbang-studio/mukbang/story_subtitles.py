@@ -82,6 +82,9 @@ def validate_monologues(decision: dict, parsed: dict, frames: list[dict], durati
             raise StoryError("内心独白必须引用对应动作的已有事实证据")
         cue = {"id": ident, "clip_id": clip_id, "event_id": event_id, "start": start, "end": end,
                "frame_ids": refs, "text": plain_caption(row.get("text"))}
+        if "caption_placement" in row:
+            from .head_captions import validate_placement
+            cue["caption_placement"] = validate_placement(row["caption_placement"], cue, clip, frame_map)
         cues.append(cue)
         output_cues.append({**cue, "start": offsets[clip_id] + start - clip["start"],
                             "end": offsets[clip_id] + end - clip["start"]})
@@ -108,6 +111,9 @@ def _clock(seconds: float, *, ass=False) -> str:
 
 def write_subtitles(directory: Path, cues: list[dict], info: dict) -> dict[str, Path]:
     """Write trusted ASS styling and plain SRT; no untrusted styling can be injected."""
+    if cues and any("caption_placement" in cue for cue in cues):
+        from .head_captions import write_head_subtitles
+        return write_head_subtitles(directory, cues, info)
     ass, srt = directory / "interaction-story.ass", directory / "interaction-story.srt"
     width, height = int(info["width"]), int(info["height"])
     # Readable when the native landscape frame is scaled into a phone card.

@@ -41,6 +41,7 @@ events按源时间升序且不重叠，时间完整位于其clip内，每个fram
 
 
 STORY_MONOLOGUE_SYSTEM_APPENDIX = "\n\n" + (Path(__file__).parents[1] / "prompts" / "story-inner-monologue-system-appendix.txt").read_text(encoding="utf-8").strip()
+HEAD_CAPTION_SYSTEM_APPENDIX = "\n\n" + (Path(__file__).parents[1] / "prompts" / "story-head-caption-system-appendix.txt").read_text(encoding="utf-8").strip()
 PHOTOS_SYSTEM_APPENDIX = "\n\n" + (Path(__file__).parents[1] / "prompts" / "daily-photos-system-appendix.txt").read_text(encoding="utf-8").strip()
 PHOTO_GALLERY_SYSTEM_APPENDIX = "\n\n" + (Path(__file__).parents[1] / "prompts" / "daily-photo-gallery-system-appendix.txt").read_text(encoding="utf-8").strip()
 
@@ -118,6 +119,8 @@ def build_prompts(options: dict, source: dict, sampling: dict, feedback_context=
     system = SYSTEM_PROMPT
     if options.get("story_enabled") is True:
         system += STORY_MONOLOGUE_SYSTEM_APPENDIX if options.get("story_mode") == "inner_monologue" else STORY_SYSTEM_APPENDIX
+        if options.get("story_mode") == "inner_monologue":
+            system += HEAD_CAPTION_SYSTEM_APPENDIX
         user += ("\n\n人宠互动小故事的独立参数（原吃播参数及提示词不变）：\n" +
                  json.dumps(story_parameters(options), ensure_ascii=False, indent=2))
     if options.get("photos_enabled") is True:

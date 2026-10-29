@@ -76,7 +76,7 @@ def test_archived_daily_story_contract_matches_live_appendix():
 def test_monologue_mode_changes_only_the_existing_story_appendix_not_eating():
     args = inputs(story_enabled=True, story_mode="inner_monologue", story_target_duration=35)
     prompts = vision.build_prompts(*args)
-    assert prompts["system"] == vision.SYSTEM_PROMPT + vision.STORY_MONOLOGUE_SYSTEM_APPENDIX
+    assert prompts["system"] == vision.SYSTEM_PROMPT + vision.STORY_MONOLOGUE_SYSTEM_APPENDIX + vision.HEAD_CAPTION_SYSTEM_APPENDIX
     assert "inner_monologues" in prompts["system"] and "不增加第三条" in prompts["system"]
     assert '"story_min_duration_seconds": 30' in prompts["user"]
     assert '"story_preferred_max_duration_seconds": 40' in prompts["user"]

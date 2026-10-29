@@ -159,6 +159,17 @@ Relative artifacts inside job_dir. Build artifact URLs `/api/jobs/{job_dir.name}
 
 ## Model result schema
 
+In `story_mode:"inner_monologue"`, the SAME visual response also supplies each cue's
+`caption_placement:{mode:"head_top"|"safe",anchors:[{frame_id,head_box:[left,top,right,bottom],confidence}],reason}`.
+Coordinates are normalized 0–1 within the original individual video frame, not the contact sheet.
+At most 10 anchors per cue, within its parent clip and `[cue.start,cue.end+1s)`; the validator
+requires known IDs, finite ordered boxes and confidence ≥0.6. Invalid optional anchors degrade
+to a safe caption placement without another visual request. Local stable-per-cue layout creates
+trusted ASS tags and `story-caption-layout.json`; `story.subtitle_layout_url` exposes the audit.
+Legacy results without this field retain the ordinary subtitle path. The API does not accept
+model-generated ASS, executable styles or output paths. New uploads do not call the independent
+historical-audition migration script. See [head-top captions](head-top-captions-2026-10-29.md).
+
 ```
 {
  summary:string,

@@ -245,6 +245,10 @@ def render_dual_outputs(job_dir: Path, source_path: Path, options: dict, info: d
                 story_output.update(inner_monologues=monologues, duration_goal=goal,
                                     subtitle_url=media.artifact_url(job_dir, subtitle_files["srt"].name),
                                     subtitle_timeline_url=media.artifact_url(job_dir, "story-inner-monologues.json"))
+                if any("caption_placement" in cue for cue in monologues):
+                    validation.update(subtitle_layout="head-top-v1", additional_caption_visual_api_calls=0)
+                    story_output.update(subtitle_layout="head-top-v1",
+                                        subtitle_layout_url=media.artifact_url(job_dir, "story-caption-layout.json"))
             if recovery is not None:
                 validation.update(reused_ai_result=True, source_job_id=recovery["source_job_id"],
                                   source_ai_call_count=recovery["source_ai_call_count"],
