@@ -20,6 +20,8 @@ def main() -> int:
     parser.add_argument("--data-dir", type=Path, default=ROOT / "data")
     parser.add_argument("--job-id", help="可选的新12位任务ID；已有目录绝不覆盖")
     parser.add_argument("--port", type=int, default=8876, help="必须已停止的本地服务端口，默认8876")
+    parser.add_argument("--retry-incomplete-story", action="store_true",
+                        help="允许为整体完成但小剧场失败的任务新建恢复任务；不覆盖原结果")
     args = parser.parse_args()
     last_stage = None
     def progress(record):
@@ -31,7 +33,8 @@ def main() -> int:
                              ensure_ascii=False), flush=True)
             last_stage = stage
     try:
-        result = recover_render(args.data_dir, args.source_job_id, job_id=args.job_id, port=args.port, emit=progress)
+        result = recover_render(args.data_dir, args.source_job_id, job_id=args.job_id, port=args.port, emit=progress,
+                                retry_incomplete_story=args.retry_incomplete_story)
     except Exception as exc:
         print(json.dumps({"status": "failed", "error": str(exc), "ai_call_count": 0}, ensure_ascii=False), file=sys.stderr)
         return 1

@@ -180,7 +180,10 @@ The same inner-monologue response may include `performance_direction` per cue (1
 characters, no control characters, tags or ASS instructions). It is preserved in validation/mapping
 and passed to that cue's TTS instructions, never rendered or spoken as caption text. Actual instructions
 participate in speech cache identity. `MI_STYLE_SYSTEM_APPENDIX` is loaded in the same request,
-with style version `mi-inner-v1`; eating P0004 and photo selection remain separate.
+with current style version `mi-inner-v2` (concrete spoken reactions and cross-cue contrast, not
+repeated two-part declarations); eating P0004 and photo selection remain separate. Historical
+`mi-inner-v1` prompts retain their actual version when recovered; current configuration is not
+retroactively stamped onto old decisions.
 
 `GET /api/config.story_production_profile` exposes the configured nonsecret label/version,
 `narration_enabled`, `bgm_enabled` and music rights status, never the private voice ID or source paths.
@@ -210,3 +213,7 @@ Prompt must include frame ID→source timestamp map, actual video duration, actu
 Each removal is exposed in `result.adjustments` as `{type:"drop_out_of_interval_references",collection:"highlight_clips"|"memes",clip_id,before:[frame_id...],after:[frame_id...],interval:[start,end],removed:[{frame_id,time}],reason}` and as a readable `result.warnings` entry. These describe reference cleanup, not footage additions/removals, a new aesthetic judgment, or recovery of an excluded action peak. Raw response, parsed decisions, selected frames, reasons and timestamps remain available independently. Raw dislike checks precede convergence; unknown/unselected/malformed references and clips without original in-clip support still fail. No epsilon or rounded sampling times are used to admit evidence.
 
 Offline recovery may additionally accept a `selection` failure with mutually consistent completed AI response, prompts and manifest. It preflights the saved decision against native cached PTS before creating the target, then still verifies all input integrity and mappings and revalidates before rendering. Unsupported or incomplete evidence and feedback iterations remain rejected. It creates a separate job with zero current AI calls; original artifacts are never overwritten.
+
+Explicit CLI `--retry-incomplete-story` additionally accepts a completed aggregate job whose enabled story is `invalid` or `failed`, not a successful story. Provenance records `source_status` and the opt-in. Zero calls means zero additional vision calls; enabled text-only TTS remains separately metered.
+
+Story caption validation may shorten excess hold by at most 0.75s at a cross-clip boundary to restore the existing 1.5s pre-TTS gap. It preserves text, onset, all referenced frames and head anchors, and readable duration; larger/unsafe errors still fail. `story.caption_timing_adjustments` (also in final `story.adjustments`) records `cross_cut_caption_hold` with original and adjusted source ends. No raw response mutation or audio truncation occurs.

@@ -133,12 +133,17 @@ def _options(value) -> dict:
     return options
 
 
-def _evidence(directory: Path, ident: str) -> dict:
+def _evidence(directory: Path, ident: str, *, retry_incomplete_story=False) -> dict:
     record = _read_json(_file(directory, "job.json"))
-    if record.get("id") != ident or record.get("status") != "failed":
+    partial_story = (retry_incomplete_story is True and record.get("status") == "completed" and
+                     record.get("options", {}).get("story_enabled") is True and
+                     record.get("result", {}).get("story", {}).get("status") in {"invalid", "failed"})
+    if record.get("id") != ident or (record.get("status") != "failed" and not partial_story):
         raise ValueError("只允许恢复原始失败任务，不覆盖成功任务")
     timings = record.get("timings")
     stage = timings.get("failed_stage") if isinstance(timings, dict) else None
+    if partial_story:
+        stage = "render_story"
     if stage not in _RECOVERABLE_FAILURES:
         raise ValueError("原任务不是已有完整AI结果的选片或导出失败，不能使用离线恢复")
     if record.get("iteration") or record.get("feedback") or record.get("comparison"):
@@ -290,7 +295,7 @@ def _preflight_selection(directory: Path, evidence: dict) -> None:
 
 
 def recover_render(data_dir: Path, source_job_id: str, *, job_id: str | None = None,
-                   port: int = 8876, emit=None) -> dict:
+                   port: int = 8876, emit=None, retry_incomplete_story=False) -> dict:
     """Create a new terminal task using saved decisions, without an AI fallback.
 
     The returned record is also atomically persisted for normal job history.
@@ -311,13 +316,15 @@ def recover_render(data_dir: Path, source_job_id: str, *, job_id: str | None = N
     if target.exists():
         raise ValueError("恢复任务目录已存在，拒绝覆盖")
     before = _hashes(original)
-    evidence = _evidence(original, source_job_id)
+    evidence = _evidence(original, source_job_id, retry_incomplete_story=retry_incomplete_story)
     if evidence["stage"] == "selection" or evidence["options"].get("story_enabled") is True:
         _preflight_selection(original, evidence)
     if _hashes(original) != before:
         raise ValueError("读取或预检期间原任务文件发生变化；不会创建恢复任务")
     inherited = evidence["record"]
     provenance = {"source_job_id": source_job_id, "source_failed_stage": evidence["stage"],
+                  "source_status": evidence["record"]["status"],
+                  "retry_incomplete_story": retry_incomplete_story,
                   "source_ai_call_count": 1, "source_response_sha256": before["ai-raw-response.txt"],
                   "source_ai_usage": deepcopy(evidence["ai"].get("usage", {})), "no_ai_calls": True,
                   "source_prompt_is_historical": True, "original_artifact_hashes": before}

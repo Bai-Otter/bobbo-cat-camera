@@ -215,7 +215,7 @@ def test_production_profile_mixes_bgm_in_normal_pipeline_once(tmp_path,instrumen
     output=pipeline.run_pipeline(tmp_path,state['source'],state['options'],state['config'],lambda _:None,lambda:False)
     story=output['result']['story']
     assert state['calls']==1 and len(music_calls)==1
-    assert story['style_version']=='mi-inner-v1'
+    assert story['style_version']=='mi-inner-v2'
     assert story['narration']['voice_label']=='已确认的咪参考克隆'
     assert story['validation']['bgm_added'] is (not music_failure)
     assert story['video_url'].endswith('interaction-story-voiced.mp4' if music_failure else 'interaction-story-mi.mp4')

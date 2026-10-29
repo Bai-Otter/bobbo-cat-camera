@@ -128,6 +128,24 @@ def test_complete_selection_failure_can_create_new_zero_call_recovery(saved_fail
     assert hashes(original) == before
 
 
+def test_partial_story_requires_explicit_opt_in_and_original_stays_unchanged(saved_failure):
+    original = saved_failure / "jobs" / SOURCE_ID
+    record = load(original / "job.json")
+    record.update(status="completed", result={"story": {"status": "invalid"}})
+    record["options"]["story_enabled"] = True
+    media.write_json(original / "job.json", record)
+    before = hashes(original)
+    with pytest.raises(ValueError, match="只允许恢复"):
+        recovery._evidence(original, SOURCE_ID)
+    evidence = recovery._evidence(original, SOURCE_ID, retry_incomplete_story=True)
+    assert evidence["stage"] == "render_story"
+    assert hashes(original) == before
+    record["result"]["story"]["status"] = "ready"
+    media.write_json(original / "job.json", record)
+    with pytest.raises(ValueError, match="只允许恢复"):
+        recovery._evidence(original, SOURCE_ID, retry_incomplete_story=True)
+
+
 def test_selection_failure_reuses_audited_redundant_reference_convergence(saved_failure):
     def redundant(parsed):
         parsed["selected_frames"].append({"frame_id": "F0003", "score": 91,
@@ -290,8 +308,8 @@ def test_evidence_change_during_preflight_is_rejected_without_destination(saved_
     real_evidence = recovery._evidence
     changed = []
 
-    def alter_after_read(directory, ident):
-        evidence = real_evidence(directory, ident)
+    def alter_after_read(directory, ident, **kwargs):
+        evidence = real_evidence(directory, ident, **kwargs)
         raw = directory / "ai-raw-response.txt"
         raw.write_text(raw.read_text(encoding="utf-8") + "\n", encoding="utf-8")
         changed.append(hashes(directory))

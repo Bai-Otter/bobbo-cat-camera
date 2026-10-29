@@ -1,5 +1,7 @@
 # 咪小剧场：试听效果正式进入新上传流程
 
+> 文案后续更新：当前为[mi-inner-v2](mi-style-v2-reference-review-2026-10-29.md)，修正抽象宣言和整齐两截句式。本文下面保留最初接通mi-inner-v1的验收记录；声音/BGM预设版本仍为mi-production-v1，不能混同于文案版本。
+
 ## 本次故障原因
 
 用户新生成的任务bf11c6e26d57没有音乐，仍使用旧女宝宝音色。证据不是猜测：该任务story-narration.json保存旧演绎指令，验证bgm_added=false；原混音函数根本没有音乐输入。用户认可的mi-clone-v1及mi-clone-bgm-v1均为独立local-postprocess样片，明确production_defaults_changed=false。参考风格文件虽已保存，但vision.build_prompts未加载。上轮只上线了forehead-v2字幕位置，并没有同步音色、音乐和文案风格。

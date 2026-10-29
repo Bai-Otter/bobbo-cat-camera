@@ -30,7 +30,15 @@ def test_mi_style_is_in_same_prompt_but_not_legacy_eating():
     sampling={'frames':[],'interval':1,'frame_count':0,'sheet_count':0}
     options={'target_duration':40,'min_duration':30,'max_duration':50,'story_enabled':True,'story_mode':'inner_monologue'}
     prompt=vision.build_prompts(options,{'duration':120},sampling)
-    assert 'mi-inner-v1' in prompt['system'] and 'performance_direction' in prompt['system']
+    assert 'mi-inner-v2' in prompt['system'] and 'performance_direction' in prompt['system']
+    assert '前后的反差' in prompt['system'] and '不要连续重复' in prompt['system']
+    assert '取消“多数4–12字”' in prompt['system']
     assert '本咪' in prompt['system'] and '近脸' in prompt['system']
     options['story_enabled']=False
-    assert 'mi-inner-v1' not in vision.build_prompts(options,{'duration':120},sampling)['system']
+    assert 'mi-inner-v2' not in vision.build_prompts(options,{'duration':120},sampling)['system']
+
+
+def test_style_version_is_taken_from_actual_prompt_not_current_default():
+    assert story_profile.detect_style('【mi-inner-v1】旧任务')=='mi-inner-v1'
+    assert story_profile.detect_style('【mi-inner-v2】新任务')=='mi-inner-v2'
+    assert story_profile.detect_style('没有咪风格的旧提示词')=='legacy'

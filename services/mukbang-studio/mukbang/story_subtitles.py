@@ -99,12 +99,35 @@ def validate_monologues(decision: dict, parsed: dict, frames: list[dict], durati
         cues.append(cue)
         output_cues.append({**cue, "start": offsets[clip_id] + start - clip["start"],
                             "end": offsets[clip_id] + end - clip["start"]})
+    # A small cross-cut gap error can be repaired before speech synthesis by
+    # shortening only excess subtitle hold. Never move the reaction onset,
+    # discard evidence, rewrite text, or relax the rhythm validation.
+    timing_adjustments = []
+    for index in range(1, len(output_cues)):
+        previous, current = output_cues[index - 1], output_cues[index]
+        deficit = previous["end"] + 1.5 - current["start"]
+        if previous["clip_id"] == current["clip_id"] or not .001 < deficit <= .75:
+            continue
+        source_cue = cues[index - 1]
+        new_end = source_cue["end"] - deficit
+        evidence_times = [frame_map[f]["time"] for f in source_cue["frame_ids"]]
+        evidence_times += [a["source_time"] for a in source_cue.get("caption_placement", {}).get("anchors", [])]
+        if (new_end - source_cue["start"] < max(1.4, len(source_cue["text"]) / 5.) or
+                any(t >= new_end for t in evidence_times)):
+            continue
+        timing_adjustments.append({"type": "cross_cut_caption_hold", "cue_id": source_cue["id"],
+                                   "before_end": source_cue["end"], "after_end": new_end,
+                                   "reason": "缩短冗余字幕停留，保留起点、文字、全部证据及1.5秒留白；配音后仍校验完整音频"})
+        source_cue["end"] = new_end
+        previous["end"] -= deficit
     validate_cue_rhythm(output_cues, achieved)
     result = deepcopy(decision)
     result.update(story_mode="inner_monologue", narrative_arc=arc, reviewed_full_video=True,
                   inner_monologues=cues, subtitle_kind="fictional_inner_monologue",
                   duration_goal={"target": parameters["story_target_duration_seconds"], "minimum": minimum,
                                  "maximum": maximum, "met": achieved >= minimum, "shortfall_reason": shortfall})
+    if timing_adjustments:
+        result["caption_timing_adjustments"] = timing_adjustments
     if shortfall:
         result["warnings"].append(f"素材不足：目标{parameters['story_target_duration_seconds']:g}秒，实际{achieved:g}秒。{shortfall}")
     return result

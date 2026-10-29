@@ -58,6 +58,47 @@ def test_fuller_connected_story_has_sparse_monologues_and_target_band():
     assert value == before
 
 
+def cross_cut_story():
+    frames, value = sample_story()
+    value["inner_monologues"][0].update(start=7., end=10., frame_ids=["F0009"])
+    value["events"][1]["frame_ids"].append("F0009")
+    value["clips"][0]["frame_ids"].append("F0009")
+    value["inner_monologues"][1].update(event_id="a1", start=21., end=24., frame_ids=["F0022"])
+    return frames, value
+
+
+def test_small_cross_cut_gap_shortens_only_excess_hold_with_audit():
+    frames, value = cross_cut_story()
+    before = deepcopy(value)
+    result = validate(value, frames)
+    assert result["inner_monologues"][0]["end"] == 9.5
+    assert result["inner_monologues"][0]["start"] == 7.
+    assert result["inner_monologues"][0]["frame_ids"] == ["F0009"]
+    assert result["caption_timing_adjustments"][0]["before_end"] == 10.
+    assert value == before
+
+
+@pytest.mark.parametrize("condition", ["reading", "evidence", "anchor", "large"])
+def test_cross_cut_gap_repair_must_keep_reading_evidence_and_small_bound(condition):
+    frames, value = cross_cut_story()
+    cue = value["inner_monologues"][0]
+    if condition == "reading":
+        cue["text"] = "这次给我的是什么好吃的呀？"
+    elif condition == "evidence":
+        frames[9]["time"] = 9.7
+        cue["frame_ids"] = ["F0010"]
+        value["events"][1]["frame_ids"].append("F0010")
+        value["clips"][0]["frame_ids"].append("F0010")
+    elif condition == "anchor":
+        frames[9]["time"] = 9.7
+        cue["caption_placement"] = {"mode": "forehead", "anchors": [
+            {"frame_id": "F0010", "head_box": [.1,.1,.8,.8], "confidence": .9}]}
+    else:
+        value["inner_monologues"][1]["start"] = 20.5
+    with pytest.raises(story.StoryError, match="过密"):
+        validate(value, frames)
+
+
 def test_performance_direction_survives_validation_but_rejects_code():
     frames,value=sample_story()
     value['inner_monologues'][0]['performance_direction']='前半句疑问，后半句小得意。'

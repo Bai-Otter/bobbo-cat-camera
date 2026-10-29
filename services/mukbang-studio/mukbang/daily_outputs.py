@@ -179,7 +179,7 @@ def render_dual_outputs(job_dir: Path, source_path: Path, options: dict, info: d
             try:
                 profile = story_profile.load()
                 story_output['production_profile'] = story_profile.public(profile)
-                story_output['style_version'] = (story_profile.STYLE_VERSION if story_profile.STYLE_VERSION in prompts.get('system','') else 'legacy')
+                story_output['style_version'] = story_profile.detect_style(prompts.get('system',''))
             except ValueError as exc:
                 profile_error = str(exc)
                 story_output['production_profile'] = {'status':'invalid','reason':profile_error}
@@ -288,7 +288,8 @@ def render_dual_outputs(job_dir: Path, source_path: Path, options: dict, info: d
                 validation.update(reused_ai_result=True, source_job_id=recovery["source_job_id"],
                                   source_ai_call_count=recovery["source_ai_call_count"],
                                   source_sheet_count=sampling["sheet_count"])
-            story_output.update(status="ready", clips=clips, events=events, adjustments=audit,
+            story_output.update(status="ready", clips=clips, events=events,
+                                adjustments=decision.get("caption_timing_adjustments", []) + audit,
                                 duration=duration, video_duration=duration,
                                 container_duration=validation["actual_container_duration_seconds"],
                                 video_url=media.artifact_url(job_dir, story_filename),

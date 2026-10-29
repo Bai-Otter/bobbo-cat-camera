@@ -42,7 +42,7 @@ events按源时间升序且不重叠，时间完整位于其clip内，每个fram
 
 STORY_MONOLOGUE_SYSTEM_APPENDIX = "\n\n" + (Path(__file__).parents[1] / "prompts" / "story-inner-monologue-system-appendix.txt").read_text(encoding="utf-8").strip()
 HEAD_CAPTION_SYSTEM_APPENDIX = "\n\n" + (Path(__file__).parents[1] / "prompts" / "story-head-caption-system-appendix.txt").read_text(encoding="utf-8").strip()
-MI_STYLE_SYSTEM_APPENDIX = "\n\n" + (Path(__file__).parents[1] / "prompts" / "story-mi-style-reference-v1.txt").read_text(encoding="utf-8").strip()
+MI_STYLE_SYSTEM_APPENDIX = "\n\n" + (Path(__file__).parents[1] / "prompts" / "story-mi-style-v2.txt").read_text(encoding="utf-8").strip()
 PHOTOS_SYSTEM_APPENDIX = "\n\n" + (Path(__file__).parents[1] / "prompts" / "daily-photos-system-appendix.txt").read_text(encoding="utf-8").strip()
 PHOTO_GALLERY_SYSTEM_APPENDIX = "\n\n" + (Path(__file__).parents[1] / "prompts" / "daily-photo-gallery-system-appendix.txt").read_text(encoding="utf-8").strip()
 

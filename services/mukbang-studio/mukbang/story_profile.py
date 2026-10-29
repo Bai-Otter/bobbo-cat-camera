@@ -4,8 +4,16 @@ import os
 from pathlib import Path
 import re
 
-STYLE_VERSION = 'mi-inner-v1'
+STYLE_VERSION = 'mi-inner-v2'
 VOICE_INSTRUCTIONS = '保持参考音色本身。小猫自己的内心话，普通话，轻快清楚，短停顿，不故意含糊、不拖腔。'
+
+
+def detect_style(system_prompt):
+    """Historical/recovered prompts keep their actual version, not today's default."""
+    for version in (STYLE_VERSION, 'mi-inner-v1'):
+        if version in system_prompt:
+            return version
+    return 'legacy'
 
 
 def load():
