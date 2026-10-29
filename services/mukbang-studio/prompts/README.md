@@ -4,6 +4,8 @@
 
 直接复制 [当前选片提示词全文](current-user-prompt.txt)。完整工作方式见 [吃播选片与提示词迭代方法](../docs/mukbang-method.md)。
 
+小剧场另有[“咪的内心话”风格候选](story-mi-style-reference-v1.txt)与[提炼说明](../docs/story-mi-style-reference-2026-10-29.md)。这是2026-10-29参考研究存档，尚未自动接入线上请求，不替换本页P0004吃播标准。
+
 ## 保存了什么
 
 | 文件 | 用途 |
