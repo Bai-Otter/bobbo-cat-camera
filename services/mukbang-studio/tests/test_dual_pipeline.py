@@ -196,7 +196,8 @@ def test_optional_paid_narration_success_or_fallback(tmp_path, instrumented_pipe
 
 
 @pytest.mark.parametrize('music_failure',[False,True])
-def test_production_profile_mixes_bgm_in_normal_pipeline_once(tmp_path,instrumented_pipeline,monkeypatch,music_failure):
+@pytest.mark.parametrize('mood_status',['ready','invalid','missing'])
+def test_production_profile_mixes_bgm_in_normal_pipeline_once(tmp_path,instrumented_pipeline,monkeypatch,music_failure,mood_status):
     from mukbang import narration,story_music,story_profile
     state=instrumented_pipeline
     value=ready_story()
@@ -204,6 +205,9 @@ def test_production_profile_mixes_bgm_in_normal_pipeline_once(tmp_path,instrumen
                  inner_monologues=[{'id':'m1','clip_id':'s01','event_id':'e01','start':1.,'end':2.4,
                                     'frame_ids':['F0002'],'text':'给咪的？','performance_direction':'先疑惑再得意。'}])
     state['parsed']['interaction_story']=value
+    if mood_status != 'missing':
+        value['music_mood'] = {'category':'warm','confidence':.9,'reason':'人轻摸猫头，猫停在手旁',
+                               'evidence_frame_ids':['F0002' if mood_status == 'ready' else 'F0008']}
     state['options'].update(story_enabled=True,story_mode='inner_monologue',story_target_duration=4)
     monkeypatch.setenv('MUKBANG_BREEZE_ENABLED','1')
     monkeypatch.setattr(story_profile,'load',lambda:{'version':'mi-production-v1','voice_id':'clone',
@@ -227,6 +231,9 @@ def test_production_profile_mixes_bgm_in_normal_pipeline_once(tmp_path,instrumen
     output=pipeline.run_pipeline(tmp_path,state['source'],state['options'],state['config'],lambda _:None,lambda:False)
     story=output['result']['story']
     assert state['calls']==1 and len(music_calls)==1
+    assert story['music_mood']['status'] == mood_status
+    assert music_calls[0][5] == story['music_mood']
+    assert json.loads((tmp_path/'story-decision.json').read_text(encoding='utf-8'))['music_mood'] == story['music_mood']
     assert story['style_version']=='mi-inner-v2'
     assert story['narration']['voice_label']=='已确认的咪参考克隆'
     assert story['validation']['bgm_added'] is (not music_failure)

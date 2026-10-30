@@ -35,14 +35,30 @@ test("music audition page renders all tracks safely and pauses other players", a
     getElementById: id => id === "music-status" ? status : tracks,
     createElement: tag => { const n = new Element(tag); n.pause = () => { n.paused = true; }; return n; }
   };
-  const rows = Array.from({ length: 12 }, (_, i) => ({ title: `<script>track ${i}</script>`, style_note: "轻巧", attribution: "CC credit", audio_url: `/api/music/track-${i}/audio`, source_url: "https://incompetech.com/", preview_url: `/api/jobs/aabbccddeeff/files/local-postprocess/music-audition-v1/track-${i}/preview.mp4` }));
-  await vm.runInNewContext(fs.readFileSync(path.join(root, "web/music.js"), "utf8"), { document, fetch: async () => ({ ok: true, json: async () => ({ count: 12, tracks: rows }) }) });
+  const rows = Array.from({ length: 12 }, (_, i) => ({ title: `<script>track ${i}</script>`, style_note: "轻巧", attribution: "CC credit", mood_tags: {categories:["warm","relaxed"],labels:["温馨亲昵","轻松日常"],scores:{warm:3,relaxed:2}}, audio_url: `/api/music/track-${i}/audio`, source_url: "https://incompetech.com/", preview_url: `/api/jobs/aabbccddeeff/files/local-postprocess/music-audition-v1/track-${i}/preview.mp4` }));
+  await vm.runInNewContext(fs.readFileSync(path.join(root, "web/music.js"), "utf8"), { document, fetch: async () => ({ ok: true, json: async () => ({ count: 12, tracks: rows, mode:"story_mood_per_job" }) }) });
   assert.match(status.textContent, /12 首已接入/);
   const players = tracks.querySelectorAll();
   assert.equal(players.length, 24);
   assert.equal(find(tracks, n => n.tagName === "SCRIPT").length, 0);
+  assert.match(status.textContent, /按剧情匹配/);
+  assert.equal(find(tracks, n => n.className === "music-tag is-primary").length, 12);
+  assert.equal(find(tracks, n => n.className === "music-tag").length, 12);
   players[0].events.play();
   assert.ok(players.slice(1).every(n => n.paused));
+});
+
+test("story mood match and uncertain fallback are visible, never injected as markup", async () => {
+  const job = completed();
+  job.result.story.story_mode = "inner_monologue";
+  job.result.story.validation = { bgm_added:true, narration_added:true, subtitles_burned_in:true };
+  job.result.story.bgm = { label:"Carefree", rights_status:"cc_by_4_0", match:{label:"轻松日常",mode:"relaxed_fallback",candidate_ids:["a","b","c"],classification:{reason:"<script>实际互动</script>"},fallback_reason:"剧情类别把握不足"} };
+  const page = harness({jobs:[job],records:{[job.id]:job}}); await page.ready();
+  const root = page.nodes["story-output"];
+  assert.match(text(root), /轻松日常 → Carefree/);
+  assert.match(text(root), /剧情类别把握不足/);
+  assert.match(text(root), /3 首最高适配/);
+  assert.equal(find(root, n => n.tagName === "SCRIPT").length, 0);
 });
 
 test("old service audition fallback never claims random production is active", async () => {

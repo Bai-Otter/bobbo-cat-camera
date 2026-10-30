@@ -252,5 +252,9 @@ def validate_story(parsed_story: Any, frames: list[dict], duration: float, optio
               "duration": achieved, "reason": ""}
     if options.get("story_mode") == "inner_monologue":
         from .story_subtitles import validate_monologues
-        return validate_monologues(result, parsed_story, frames, duration, parameters)
+        from .story_mood import validate as validate_mood
+        result = validate_monologues(result, parsed_story, frames, duration, parameters)
+        result['music_mood'] = validate_mood(parsed_story.get('music_mood'),
+                                           {ref for clip in clips for ref in clip['co_visible_frame_ids']})
+        return result
     return result

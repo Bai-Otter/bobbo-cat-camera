@@ -156,6 +156,9 @@ def render_dual_outputs(job_dir: Path, source_path: Path, options: dict, info: d
         try:
             with timings.measure("selection"):
                 clips, events, audit = quantize_story(decision, info, sampling["frames"])
+                if 'music_mood' in decision:
+                    from .story_mood import for_final_clips
+                    story_output['music_mood'] = for_final_clips(decision['music_mood'], clips)
                 duration = sum(c["duration"] for c in clips)
                 if duration > 60.000001:
                     raise ValueError("实际小剧场超出60秒上限")
@@ -164,6 +167,8 @@ def render_dual_outputs(job_dir: Path, source_path: Path, options: dict, info: d
                             "target": options.get("story_target_duration", 30), "maximum": 60,
                             "clips": clips, "events": events, "adjustments": audit,
                             "co_visibility_policy": "all supplied sampled frames in each interval affirmed jointly visible; unsampled instants are not independently verified"}
+                if 'music_mood' in story_output:
+                    timeline['music_mood'] = story_output['music_mood']
                 if monologues:
                     goal = deepcopy(decision["duration_goal"])
                     goal["met"] = goal["minimum"] <= duration <= goal["maximum"]
@@ -256,10 +261,10 @@ def render_dual_outputs(job_dir: Path, source_path: Path, options: dict, info: d
                 else:
                     try:
                         emit({'status':'rendering','progress':91,'stage':'加入小剧场BGM',
-                              'message':'从本地曲库选曲并固定到本任务；配音时压低音乐，不重跑识图' if profile.get('music_library_file') else '使用已确认本地音乐；配音时压低音乐，不重跑识图'})
+                              'message':'按本次剧情类别匹配本地BGM，同类随机并固定；配音时压低音乐，不重跑识图' if profile.get('music_selection_policy') == 'story_mood_v1' else '从本地曲库选曲并固定到本任务；配音时压低音乐，不重跑识图' if profile.get('music_library_file') else '使用已确认本地音乐；配音时压低音乐，不重跑识图'})
                         with timings.measure('story_bgm'):
                             music = story_music.mix(job_dir/story_filename,job_dir/'interaction-story-mi.mp4',
-                                                    monologues,profile,cancelled)
+                                                    monologues,profile,cancelled,story_output.get('music_mood'))
                             for ident,seconds in music['steps_seconds'].items():
                                 timings.record_detail('story_bgm',ident,ident,seconds,'completed')
                         story_filename = 'interaction-story-mi.mp4'
@@ -268,7 +273,7 @@ def render_dual_outputs(job_dir: Path, source_path: Path, options: dict, info: d
                     except media.Cancelled:
                         raise
                     except Exception:
-                        reason = 'BGM合成失败，当前是配音无BGM版；请检查已确认音乐文件及哈希，未偷偷替换音乐'
+                        reason = 'BGM匹配或合成失败，当前是配音无BGM版；请检查曲库标签、音乐文件及哈希，未偷偷跨类别换曲'
                         story_output['bgm'] = {'status':'failed','reason':reason}
                         story_output.setdefault('warnings',[]).append(reason)
                 media.write_json(job_dir/'story-bgm.json',story_output['bgm'])

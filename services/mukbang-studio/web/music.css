@@ -14,6 +14,9 @@
 .music-track audio { width: 100%; height: 40px; margin: 6px 0 16px; }
 .music-track a { font-size: 12px; text-underline-offset: 4px; }
 .music-track details { margin-top: 16px; font-size: 12px; }
+.music-tags { display: flex; gap: 7px; flex-wrap: wrap; margin: 4px 0 18px; }
+.music-tag { display: inline-block; border: 1px solid #dfd5c8; color: #71675d; background: #f2ede5; font-size: 11px; border-radius: 20px; padding: 5px 9px; }
+.music-tag.is-primary { border-color: #875741; color: #fffaf2; background: #875741; }
 .music-track pre { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.7; }
 .music-license { font-size: 12px; line-height: 1.9; border-top: 1px solid #d9d1c5; padding-top: 24px; margin-top: 32px; }
 @media(max-width: 620px) { .music-tracks { grid-template-columns: 1fr; } .music-header { padding-top: 28px; } .music-track h2, .music-track p { min-height: 0; } }

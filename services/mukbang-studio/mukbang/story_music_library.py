@@ -5,7 +5,7 @@ import re
 import secrets
 from threading import RLock
 
-from . import media
+from . import media, story_mood
 
 _LOCK = RLock()
 _PUBLIC = ('id', 'title', 'artist', 'source_url', 'license', 'license_url', 'attribution', 'style_note')
@@ -61,11 +61,14 @@ def public_catalog(profile):
     rows = [{**{k: row[k] for k in _PUBLIC}, 'audio_url': f"/api/music/{row['id']}/audio"}
             for row in data['tracks'] if row.get('enabled', True)]
     for output, row in zip(rows, (r for r in data['tracks'] if r.get('enabled', True))):
+        output['mood_tags'] = story_mood.track_tags(row['id'])
         url = row.get('preview_url', '')
         if isinstance(url, str) and re.fullmatch(r'/api/jobs/[a-f0-9]{12}/files/local-postprocess/[a-zA-Z0-9_/-]+/preview\.mp4', url):
             output['preview_url'] = url
-    return {'mode': 'random_per_job', 'version': data['version'], 'count': len(rows), 'tracks': rows,
-            'notice': 'CC BY 4.0：发布视频需携带曲名、作者、来源、许可及修改说明。曲风为初筛候选，请试听。'}
+    return {'mode': 'story_mood_per_job' if profile.get('music_selection_policy') == 'story_mood_v1' else 'random_per_job',
+            'tags_version': story_mood.TAG_VERSION, 'categories': dict(story_mood.LABELS),
+            'version': data['version'], 'count': len(rows), 'tracks': rows,
+            'notice': 'CC BY 4.0：发布视频需携带曲名、作者、来源、许可及修改说明。情绪标签是产品配乐策划判断，可继续调校。'}
 
 
 def audio_path(profile, track_id):
@@ -79,7 +82,7 @@ def audio_path(profile, track_id):
     return path
 
 
-def select(profile, job_dir):
+def select(profile, job_dir, classification=None):
     if not profile.get('music_library_file'):
         return profile
     root = Path(profile['music_library_file']).parent
@@ -88,13 +91,24 @@ def select(profile, job_dir):
         with _LOCK:
             if pin.exists():
                 selected = json.loads(pin.read_text(encoding='utf-8'))
-                if selected['selection_mode'] != 'random_per_job' or not isinstance(selected['library_version'], str):
+                if selected['selection_mode'] not in {'random_per_job', 'story_mood_per_job'} or not isinstance(selected['library_version'], str):
+                    raise ValueError
+                if selected['selection_mode'] == 'story_mood_per_job' and (
+                        not isinstance(selected.get('match'), dict) or selected['match'].get('category') not in story_mood.LABELS):
                     raise ValueError
                 row = selected['track']
             else:
                 data, root = catalog(profile)
-                row = secrets.choice([r for r in data['tracks'] if r.get('enabled', True)])
-                selected = {'selection_mode': 'random_per_job', 'library_version': data['version'], 'track': row}
+                candidates = [r for r in data['tracks'] if r.get('enabled', True)]
+                match = None
+                if profile.get('music_selection_policy') == 'story_mood_v1':
+                    candidates, match = story_mood.candidates(candidates, classification)
+                row = {**secrets.choice(candidates)}
+                row['mood_tags'] = story_mood.track_tags(row['id'])
+                selected = {'selection_mode': 'story_mood_per_job' if match else 'random_per_job',
+                            'library_version': data['version'], 'track': row}
+                if match:
+                    selected['match'] = match
             path = _track(row, root)
             if not path.is_file() or media.sha256(path) != row['sha256']:
                 raise ValueError
@@ -102,9 +116,12 @@ def select(profile, job_dir):
                 temp = pin.with_suffix('.tmp')
                 media.write_json(temp, selected)
                 temp.replace(pin)
+        track_public = {k: row[k] for k in _PUBLIC}
+        if isinstance(row.get('mood_tags'), dict):
+            track_public['mood_tags'] = row['mood_tags']
         return {**profile, 'music_file': str(path), 'music_sha256': row['sha256'],
                 'music_label': row['title'], 'music_rights': 'cc_by_4_0',
-                'music_track': {k: row[k] for k in _PUBLIC},
+                'music_track': track_public, **({'music_match': selected['match']} if 'match' in selected else {}),
                 'music_selection_mode': selected['selection_mode'], 'music_library_version': selected['library_version']}
     except (OSError, ValueError, KeyError, TypeError):
         raise ValueError('BGM选曲或已固定音频无效；未偷偷换曲') from None

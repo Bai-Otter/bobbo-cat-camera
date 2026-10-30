@@ -1,0 +1,25 @@
+{
+  "version": "story-music-tags-v1",
+  "basis": "Product curation for the 12 tracks accepted by the user; not publisher labels or objective cat emotions.",
+  "categories": {
+    "warm": "温馨亲昵",
+    "funny": "呆萌搞笑",
+    "sneaky": "好奇试探",
+    "proud": "小小得意",
+    "relaxed": "轻松日常"
+  },
+  "tracks": {
+    "usuan1400011": {"warm": 0, "funny": 3, "sneaky": 1, "proud": 3, "relaxed": 1},
+    "usuan1100768": {"warm": 0, "funny": 3, "sneaky": 1, "proud": 2, "relaxed": 1},
+    "usuan1100772": {"warm": 0, "funny": 2, "sneaky": 3, "proud": 0, "relaxed": 1},
+    "usuan1100646": {"warm": 0, "funny": 2, "sneaky": 3, "proud": 0, "relaxed": 2},
+    "usuan1500015": {"warm": 0, "funny": 2, "sneaky": 3, "proud": 2, "relaxed": 1},
+    "usuan1100644": {"warm": 0, "funny": 2, "sneaky": 3, "proud": 1, "relaxed": 1},
+    "usuan1200102": {"warm": 0, "funny": 2, "sneaky": 3, "proud": 0, "relaxed": 0},
+    "usuan1100156": {"warm": 0, "funny": 3, "sneaky": 0, "proud": 3, "relaxed": 2},
+    "usuan1100110": {"warm": 1, "funny": 2, "sneaky": 0, "proud": 0, "relaxed": 3},
+    "usuan1200107": {"warm": 0, "funny": 3, "sneaky": 0, "proud": 2, "relaxed": 2},
+    "usuan1400037": {"warm": 3, "funny": 0, "sneaky": 0, "proud": 1, "relaxed": 3},
+    "usuan1500025": {"warm": 3, "funny": 1, "sneaky": 0, "proud": 2, "relaxed": 3}
+  }
+}

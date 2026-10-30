@@ -26,6 +26,21 @@ def test_broken_profile_is_not_silently_replaced_with_old_voice(tmp_path,monkeyp
     with pytest.raises(ValueError): story_profile.load()
 
 
+def test_mood_policy_requires_a_library_and_retains_confirmed_voice(tmp_path, monkeypatch):
+    monkeypatch.setenv('MUKBANG_APP_DATA_DIR', str(tmp_path))
+    voice = tmp_path/'voice.json'
+    voice.write_text(json.dumps({'voice_id':'same_confirmed_voice'}), encoding='utf-8')
+    profile = {'version':'mi-production-v1','voice_file':str(voice),'music_file':str(tmp_path/'music.wav'),
+               'music_sha256':'a'*64,'music_label':'参考','music_rights':'local_preview_only',
+               'music_selection_policy':'story_mood_v1'}
+    path = tmp_path/'story-profile.json'
+    path.write_text(json.dumps(profile), encoding='utf-8')
+    with pytest.raises(ValueError): story_profile.load()
+    profile['music_library_file'] = str(tmp_path/'library.json')
+    path.write_text(json.dumps(profile), encoding='utf-8')
+    assert story_profile.load()['voice_id'] == 'same_confirmed_voice'
+
+
 def test_mi_style_is_in_same_prompt_but_not_legacy_eating():
     sampling={'frames':[],'interval':1,'frame_count':0,'sheet_count':0}
     options={'target_duration':40,'min_duration':30,'max_duration':50,'story_enabled':True,'story_mode':'inner_monologue'}

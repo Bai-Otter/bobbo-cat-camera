@@ -118,3 +118,63 @@ def test_pinned_selection_atomic_under_same_job_threads(pool, tmp_path):
     with ThreadPoolExecutor(max_workers=4) as executor:
         results = list(executor.map(lambda _: library.select(profile, job), range(10)))
     assert len({row['music_sha256'] for row in results}) == 1
+
+
+@pytest.fixture
+def tagged_pool(pool):
+    from mukbang import story_mood
+    profile, tracks = pool
+    original = json.loads((story_mood.ROOT/'docs/cat-playful-v1-catalog.json').read_text(encoding='utf-8'))['tracks']
+    for track, real in zip(tracks, original):
+        track.update(id=real['id'], title=real['title'])
+    media.write_json(Path(profile['music_library_file']), {'version':'test-tagged','tracks':tracks})
+    return {**profile, 'music_selection_policy':'story_mood_v1'}, tracks
+
+
+@pytest.mark.parametrize('category',['warm','funny','sneaky','proud','relaxed'])
+def test_mood_policy_filters_before_random_and_pins_full_match(tagged_pool, tmp_path, monkeypatch, category):
+    from mukbang import story_mood
+    profile, tracks = tagged_pool
+    recognized = story_mood.validate({'category':category,'confidence':.85,'reason':'实际片内互动',
+                                     'evidence_frame_ids':['F0001']}, {'F0001'})
+    expected, _ = story_mood.candidates(tracks, recognized)
+    choices = []
+    def choose(rows):
+        choices.extend(r['id'] for r in rows)
+        return rows[-1]
+    monkeypatch.setattr(library.secrets, 'choice', choose)
+    job = tmp_path/'job'
+    job.mkdir()
+    result = library.select(profile, job, recognized)
+    assert choices == [r['id'] for r in expected]
+    assert result['music_match']['classification'] == recognized
+    assert result['music_selection_mode'] == 'story_mood_per_job'
+    assert result['music_track']['mood_tags']['labels']
+    assert result == library.select(profile, job, story_mood.validate(None, set()))
+    assert len(choices) == len(expected)  # No second choice during retry.
+    assert library.public_catalog(profile)['mode'] == 'story_mood_per_job'
+
+
+def test_old_random_pin_does_not_change_when_policy_is_enabled(tagged_pool, tmp_path):
+    profile, _ = tagged_pool
+    job = tmp_path/'job'
+    job.mkdir()
+    original = library.select({**profile,'music_selection_policy':'random_per_job'}, job)
+    later = library.select(profile, job)
+    assert later['music_sha256'] == original['music_sha256']
+    assert later['music_selection_mode'] == 'random_per_job' and 'music_match' not in later
+
+
+def test_missing_mood_under_new_policy_has_explicit_relaxed_fallback(tagged_pool, tmp_path):
+    profile, _ = tagged_pool
+    job = tmp_path/'job'
+    job.mkdir()
+    result = library.select(profile, job)
+    assert result['music_match']['mode'] == 'relaxed_fallback'
+    assert result['music_label'] in {'Carefree','Daily Beetle','Plucky Daisy'}
+
+
+def test_tagged_api_keeps_every_track_labeled(tagged_pool):
+    public = library.public_catalog(tagged_pool[0])
+    assert all(row['mood_tags']['labels'] for row in public['tracks'])
+    assert len(public['categories']) == 5

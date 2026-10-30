@@ -10,11 +10,11 @@ import wave
 from . import media
 
 
-def mix(video, destination, cues, profile, cancelled=None):
+def mix(video, destination, cues, profile, cancelled=None, classification=None):
     started = time.monotonic()
     video, destination = Path(video), Path(destination)
     from .story_music_library import select
-    profile = select(profile, destination.parent)
+    profile = select(profile, destination.parent, classification)
     attribution = profile.get('music_track', {}).get('attribution')
     if attribution:
         (destination.parent / 'story-music-credits.txt').write_text(attribution, encoding='utf-8')
@@ -83,7 +83,8 @@ def mix(video, destination, cues, profile, cancelled=None):
                    'library_version': profile['music_library_version'], 'attribution_required': True,
                    'credits_url': media.artifact_url(destination.parent, 'story-music-credits.txt')}
                   if attribution else {})
-    return {**track_info, 'status':'ready','bgm_added':True,'label':profile['music_label'],
+    return {**track_info, **({'match': profile['music_match']} if 'music_match' in profile else {}),
+            'status':'ready','bgm_added':True,'label':profile['music_label'],
             'rights_status':profile['music_rights'],'music_source_sha256':profile['music_sha256'],
             'nominal_rms_dbfs':-28,'gain':gain,'speech_duck_windows':windows,
             'video_bitstream_unchanged':True,'full_decode_pass':True,

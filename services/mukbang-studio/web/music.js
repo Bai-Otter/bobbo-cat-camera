@@ -11,12 +11,20 @@
     if (response.status === 404) response = await fetch("/static/music-catalog.local.json", { cache: "no-store" });
     if (!response.ok) throw new Error("曲库暂不可用，请确认安装及配置。");
     const pool = await response.json();
-    status.textContent = pool.mode === "preview_only" ? `${pool.count} 首可试听 · 正式生成随机配乐尚待重启服务` : pool.count ? `${pool.count} 首已接入 · 本地随机 · 不增加 AI 调用` : "此服务尚未启用随机曲库。";
+    status.textContent = pool.mode === "preview_only" ? `${pool.count} 首已标注 · 剧情匹配尚待重启服务` : pool.mode === "story_mood_per_job" ? `${pool.count} 首已接入 · 按剧情匹配，同类随机 · 不增加 AI 调用` : pool.count ? `${pool.count} 首已接入 · 本地随机 · 不增加 AI 调用` : "此服务尚未启用随机曲库。";
     const mode = document.getElementById("music-mode");
-    if (mode) mode.textContent = pool.mode === "preview_only" ? "下面是已验证的35秒对比样片。当前运行中的服务仍用旧固定BGM，重启后才启用随机曲库。" : "新小剧场随机选一首，同一任务固定不换曲。配音响起时，音乐会轻下来；吃播仍是原声。";
+    if (mode) mode.textContent = pool.mode === "preview_only" ? "下面是已验证的35秒对比样片。当前运行中的服务仍用旧固定BGM，重启后才启用剧情分类与配乐匹配。" : pool.mode === "story_mood_per_job" ? "同一次识图判断小剧场氛围 → 按标签匹配 → 同类最高适配曲目间随机。判断不确定时选轻松日常，不额外调用AI；配音时音乐仍会轻下来。" : "新小剧场随机选一首，同一任务固定不换曲。配音响起时，音乐会轻下来；吃播仍是原声。";
     pool.tracks.forEach((track, i) => {
       const card = el("article", "", "music-track");
       card.append(el("span", String(i + 1).padStart(2, "0"), "track-number"), el("h2", track.title), el("p", track.style_note));
+      const tags = el("div", "", "music-tags");
+      const categoryIds = Array.isArray(track.mood_tags?.categories) ? track.mood_tags.categories : [];
+      const labels = Array.isArray(track.mood_tags?.labels) ? track.mood_tags.labels : [];
+      labels.forEach((label, index) => {
+        if (typeof label !== "string") return;
+        tags.append(el("span", label, track.mood_tags?.scores?.[categoryIds[index]] === 3 ? "music-tag is-primary" : "music-tag"));
+      });
+      card.append(tags);
       const audio = document.createElement("audio"); audio.controls = true; audio.preload = "none"; audio.volume = 0.35;
       audio.setAttribute("aria-label", `试听 ${track.title}`);
       if (/^\/api\/music\/[a-zA-Z0-9_-]+\/audio$/.test(track.audio_url)) audio.src = track.audio_url;

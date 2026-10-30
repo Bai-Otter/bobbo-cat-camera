@@ -43,6 +43,10 @@ def load():
         if 'music_library_file' in value and (not isinstance(value['music_library_file'], str)
                 or not Path(value['music_library_file']).is_absolute()):
             raise ValueError
+        if value.get('music_selection_policy', 'random_per_job') not in {'random_per_job', 'story_mood_v1'}:
+            raise ValueError
+        if value.get('music_selection_policy') == 'story_mood_v1' and not value.get('music_library_file'):
+            raise ValueError
         return {**value, 'voice_id':voice}
     except (OSError, ValueError, TypeError, KeyError):
         raise ValueError('咪小剧场预设不完整；未自动退回旧音色，请检查服务私有配置') from None
@@ -58,6 +62,8 @@ def public(profile):
     if profile.get('music_library_file'):
         from .story_music_library import public_catalog
         pool = public_catalog(profile)
-        result.update(bgm_label=f"俏皮小猫曲库 · {pool['count']}首随机", music_rights='cc_by_4_0',
+        label = '按剧情匹配' if pool['mode'] == 'story_mood_per_job' else '随机'
+        result.update(bgm_label=f"俏皮小猫曲库 · {pool['count']}首{label}", music_rights='cc_by_4_0',
+                      music_tags_version=pool['tags_version'],
                       music_mode=pool['mode'], music_library_version=pool['version'], music_track_count=pool['count'])
     return result
