@@ -269,13 +269,38 @@ def render_choices(job_dir: Path, source_path: Path, options: dict, info: dict, 
                     "minimum": options["min_duration"], "maximum": options["max_duration"], "duration": duration,
                     "clips": clips, "memes": choices["memes"], "adjustments": choices["adjustments"], "warnings": choices["warnings"]}
         media.write_json(job_dir / "edit-timeline.json", timeline)
-    emit({"status": "rendering", "progress": 60, "stage": "自动剪辑精选", "message": f"渲染{len(clips)}段，共{duration:.2f}秒；保留原速、原画幅和原声，不加BGM"})
+    emit({"status": "rendering", "progress": 60, "stage": "自动剪辑精选", "message": f"渲染{len(clips)}段，共{duration:.2f}秒；保留原速、原画幅和原声，随后按本地配置加入吃播配乐"})
     output_rel = Path("highlights.mp4")
     with timings.measure("render_highlight"):
         validation = media.render_video(
             source_path, job_dir / output_rel, clips, info, cancelled,
             on_step=lambda ident, label, seconds, status: timings.record_detail(
                 "render_highlight", ident, label, seconds, status))
+    from . import eating_music
+    bgm = {'status': 'disabled', 'bgm_added': False}
+    try:
+        music_profile = eating_music.load()
+        if music_profile:
+            emit({'progress': 72, 'stage': '加入治愈吃播配乐', 'message': '从吃播独立曲库随机选一首，轻音量保留吃饭原声；不调用AI'})
+            with timings.measure('eating_bgm'):
+                mixed = Path('highlights-music.mp4')
+                bgm = eating_music.mix(job_dir / output_rel, job_dir / mixed, music_profile, cancelled)
+                for ident, seconds in bgm['steps_seconds'].items():
+                    timings.record_detail('eating_bgm', ident, {'prepare_music':'选曲与电平准备', 'mix':'混音', 'validation':'音视频校验'}[ident], seconds, 'completed')
+                validation = {**validation, 'pre_bgm_validation': deepcopy(validation),
+                              **{k: bgm[k] for k in ('bytes', 'sha256', 'audio_policy', 'audio_sample_rate', 'audio_channels',
+                                  'actual_container_duration_seconds', 'native_audio_sample_rate_preserved',
+                                  'native_audio_channels_preserved')},
+                              'audio_duration_seconds': bgm['actual_container_duration_seconds'],
+                              'bgm_added': True, 'video_bitstream_unchanged': True}
+                output_rel = mixed
+    except media.Cancelled:
+        raise
+    except Exception as exc:
+        media.check_cancelled(cancelled)
+        bgm = {'status': 'failed', 'bgm_added': False, 'reason': str(exc)}
+        choices['warnings'].append('吃播BGM未完成，已保留原声成片：' + str(exc))
+    media.write_json(job_dir / 'eating-bgm.json', bgm)
     memes = []
     if choices["memes"]:
         with timings.measure("export_memes"):
@@ -309,7 +334,8 @@ def render_choices(job_dir: Path, source_path: Path, options: dict, info: dict, 
                             "used_in_meme": f["id"] in meme_used} for f in sampling["frames"] if f.get("selected")]
         result = {"video_url": media.artifact_url(job_dir, output_rel), "video_duration": duration,
                   "container_duration": validation["actual_container_duration_seconds"], "summary": choices["validated"]["summary"],
-                  "clips": clips, "memes": memes, "selected_frames": selected_frames,
+                  "clips": clips, "memes": memes, "selected_frames": selected_frames, "bgm": bgm,
+                  "original_audio_video_url": media.artifact_url(job_dir, 'highlights.mp4'),
                   "adjustments": choices["adjustments"], "warnings": choices["warnings"], "validation": validation}
         if revision is not None:
             result.update(feedback=feedback_snapshot, comparison=comparison)

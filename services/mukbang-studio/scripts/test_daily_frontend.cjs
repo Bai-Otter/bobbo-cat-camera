@@ -16,6 +16,38 @@ const origin = "http://127.0.0.1:8880";
 const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
 const tick = () => new Promise((resolve) => setImmediate(resolve));
 
+test("eating BGM shows actual track, original download and partial failures", async () => {
+  const job = completed();
+  job.result.validation = { bgm_added: true };
+  job.result.bgm = { status: "ready", bgm_added: true, label: "Teddy Bear Waltz", track: { attribution: "Kevin / CC BY 4.0" }, credits_url: `/api/jobs/${job.id}/files/eating-music-credits.txt` };
+  job.result.original_audio_video_url = `/api/jobs/${job.id}/files/highlights.mp4`;
+  const page = harness({jobs:[job],records:{[job.id]:job}}); await page.ready();
+  assert.match(text(page.nodes["eating-output"]), /原声＋治愈BGM：Teddy Bear Waltz/);
+  assert.match(text(page.nodes["eating-output"]), /下载纯原声版/);
+  assert.match(text(page.nodes["eating-output"]), /Kevin \/ CC BY 4.0/);
+  job.result.validation = {};
+  job.result.bgm = { status: "failed", bgm_added: false, reason: "文件缺失" };
+  const failedPage = harness({jobs:[job],records:{[job.id]:job}}); await failedPage.ready();
+  assert.match(text(failedPage.nodes["eating-output"]), /BGM未完成.*文件缺失/);
+  assert.match(text(failedPage.nodes["job-stage"]), /部分完成/);
+  assert.equal(kit.outputsFor(job, origin).eating.has_bgm, false);
+  delete job.result.bgm;
+  assert.equal(kit.outputsFor(job, origin).eating.has_bgm, false);
+});
+
+test("eating audition uses only its own catalog and never story fallback", async () => {
+  const status = new Element(); const tracks = new Element(); const mode = new Element();
+  const document = { body: { dataset: { musicScope: "eating" } },
+    getElementById: id => id === "music-status" ? status : id === "music-mode" ? mode : tracks,
+    createElement: tag => new Element(tag) };
+  const urls = [];
+  await vm.runInNewContext(fs.readFileSync(path.join(root, "web/music.js"), "utf8"), { document,
+    fetch: async url => { urls.push(url); return {ok: true, status: 200, json: async () => ({count: 10, tracks: [{title:"Gentle", style_note:"治愈", attribution:"credit",source_url:"https://incompetech.com/",audio_url:"/api/eating-music/gentle/audio"}]})}; } });
+  assert.deepEqual(urls, ["/api/eating-music"]);
+  assert.match(text(mode), /10首/);
+  assert.ok(find(tracks, n => n.tagName === "AUDIO").some(n => n.src === "/api/eating-music/gentle/audio"));
+});
+
 test("random BGM exposes actual track and publish credits, not a fixed reference label", () => {
   const job = completed();
   job.result.story.validation = { bgm_added: true, narration_added: true, subtitles_burned_in: true };

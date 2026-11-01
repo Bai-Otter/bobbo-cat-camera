@@ -143,6 +143,43 @@ def test_all_success_phases_are_separate_and_completion_has_final_timings(tmp_pa
     assert timing_row(timings, "export_memes")["details"][0]["label"] == "表情包1 · MP4与GIF联合编码"
 
 
+@pytest.mark.parametrize('outcome', ['ready', 'failed', 'cancelled'])
+def test_eating_bgm_in_pipeline_keeps_original_and_one_ai_call(tmp_path, instrumented_pipeline, monkeypatch, outcome):
+    from mukbang import eating_music
+    state = instrumented_pipeline
+    monkeypatch.setattr(eating_music, 'load', lambda: {'fixture': True})
+    def mix(source, destination, profile, cancelled):
+        assert source.name == 'highlights.mp4' and destination.name == 'highlights-music.mp4'
+        state['clock'].advance(4)
+        if outcome == 'failed':
+            raise ValueError('test music failure')
+        if outcome == 'cancelled':
+            raise media.Cancelled('cancelled')
+        return {'bgm_added': True, 'status': 'ready', 'label': 'Gentle', 'steps_seconds': {'mix': 4},
+                'bytes': 12, 'sha256': 'mixed-digest', 'audio_policy': 'source + music',
+                'audio_sample_rate': 48000, 'audio_channels': 2, 'actual_container_duration_seconds': 8,
+                'native_audio_sample_rate_preserved': False, 'native_audio_channels_preserved': False}
+    monkeypatch.setattr(eating_music, 'mix', mix)
+    if outcome == 'cancelled':
+        with pytest.raises(media.Cancelled):
+            pipeline.run_pipeline(tmp_path, state['source'], state['options'], state['config'], lambda _: None, lambda: False)
+        return
+    fields = pipeline.run_pipeline(tmp_path, state['source'], state['options'], state['config'], lambda _: None, lambda: False)
+    result = fields['result']
+    assert state['calls'] == 1 and fields['status'] == 'completed'
+    assert result['original_audio_video_url'].endswith('/highlights.mp4')
+    assert result['bgm']['status'] == outcome
+    assert timing_row(fields['timings'], 'eating_bgm')['seconds'] == 4
+    if outcome == 'ready':
+        assert result['video_url'].endswith('/highlights-music.mp4')
+        assert result['validation']['sha256'] == 'mixed-digest'
+        assert result['validation']['pre_bgm_validation']['actual_container_duration_seconds'] == 8
+    else:
+        assert result['video_url'].endswith('/highlights.mp4')
+        assert not result['validation'].get('bgm_added')
+        assert any('test music failure' in warning for warning in result['warnings'])
+
+
 def test_redundant_outside_references_are_audited_without_changing_raw_or_recalling_ai(tmp_path, instrumented_pipeline):
     state, updates = instrumented_pipeline, []
     state["parsed"]["highlight_clips"][0]["frame_ids"].append("F0009")

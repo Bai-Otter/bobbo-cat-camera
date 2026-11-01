@@ -859,7 +859,12 @@
     const wanted = el("div"); append(wanted, el("dt", "", "你想要的")); const dd1 = el("dd", "", formatSeconds(job.options?.target_duration)); dd1.append(el("small", "", "秒")); wanted.append(dd1);
     const got = el("div"); got.append(el("dt", "", "实际精选")); const dd2 = el("dd", "", formatSeconds(result.video_duration, 2)); dd2.append(el("small", "", "秒")); got.append(dd2);
     append(compare, wanted, el("span", "separator"), got); meta.append(compare);
-    const facts = el("div", "fact-list"); ["原速不加速", "保留原声", "无 BGM / 旁白", recovered ? "本次 0 次 AI 视觉调用" : `${job.ai?.call_count ?? "—"} 次 AI 视觉调用`].forEach((text) => facts.append(el("span", "", text))); meta.append(facts);
+    const hasBgm = result.bgm?.bgm_added === true && result.validation?.bgm_added === true;
+    const facts = el("div", "fact-list"); ["原速不加速", "保留原声", hasBgm ? `治愈BGM：${result.bgm.label} / 无旁白` : "无 BGM / 旁白", recovered ? "本次 0 次 AI 视觉调用" : `${job.ai?.call_count ?? "—"} 次 AI 视觉调用`].forEach((text) => facts.append(el("span", "", text))); meta.append(facts);
+    if (hasBgm && result.bgm.track?.attribution) {
+      const credits = el("details"); append(credits, el("summary", "", "音乐署名 · 发布时请附上"), el("pre", "", result.bgm.track.attribution)); meta.append(credits);
+      if (result.original_audio_video_url) meta.append(link("下载纯原声版（无BGM）", result.original_audio_video_url, "", true));
+    }
     append(meta, link("下载精选 MP4 ↗", result.video_url, "secondary-button", true)); append(stage, screen, meta); box.append(stage);
     box.append(makeTimeline(result.clips || [], job.source?.duration, video));
     if (result.warnings?.length) { const warnings = el("div", "warnings"); result.warnings.forEach((warning) => warnings.append(el("p", "", warning))); box.append(warnings); }

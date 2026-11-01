@@ -54,14 +54,18 @@ def catalog(profile):
         raise ValueError('BGM曲库配置无效；未改用参考音乐') from None
 
 
-def public_catalog(profile):
+def public_catalog(profile, *, scope='story'):
+    if scope not in {'story', 'eating'}:
+        raise ValueError('未知曲库用途')
     if not profile or not profile.get('music_library_file'):
         return {'mode': 'fixed', 'tracks': [], 'count': 0}
     data, _ = catalog(profile)
-    rows = [{**{k: row[k] for k in _PUBLIC}, 'audio_url': f"/api/music/{row['id']}/audio"}
+    endpoint = '/api/eating-music' if scope == 'eating' else '/api/music'
+    rows = [{**{k: row[k] for k in _PUBLIC}, 'audio_url': f"{endpoint}/{row['id']}/audio"}
             for row in data['tracks'] if row.get('enabled', True)]
     for output, row in zip(rows, (r for r in data['tracks'] if r.get('enabled', True))):
-        output['mood_tags'] = story_mood.track_tags(row['id'])
+        output['mood_tags'] = ({'labels': ['可爱', '治愈', '纯享吃播']} if scope == 'eating'
+                               else story_mood.track_tags(row['id']))
         url = row.get('preview_url', '')
         if isinstance(url, str) and re.fullmatch(r'/api/jobs/[a-f0-9]{12}/files/local-postprocess/[a-zA-Z0-9_/-]+/preview\.mp4', url):
             output['preview_url'] = url
@@ -82,11 +86,13 @@ def audio_path(profile, track_id):
     return path
 
 
-def select(profile, job_dir, classification=None):
+def select(profile, job_dir, classification=None, *, scope='story'):
+    if scope not in {'story', 'eating'}:
+        raise ValueError('未知曲库用途')
     if not profile.get('music_library_file'):
         return profile
     root = Path(profile['music_library_file']).parent
-    pin = Path(job_dir) / 'story-music-selection.json'
+    pin = Path(job_dir) / f'{scope}-music-selection.json'
     try:
         with _LOCK:
             if pin.exists():
@@ -104,7 +110,8 @@ def select(profile, job_dir, classification=None):
                 if profile.get('music_selection_policy') == 'story_mood_v1':
                     candidates, match = story_mood.candidates(candidates, classification)
                 row = {**secrets.choice(candidates)}
-                row['mood_tags'] = story_mood.track_tags(row['id'])
+                row['mood_tags'] = ({'labels': ['可爱', '治愈', '纯享吃播']} if scope == 'eating'
+                                    else story_mood.track_tags(row['id']))
                 selected = {'selection_mode': 'story_mood_per_job' if match else 'random_per_job',
                             'library_version': data['version'], 'track': row}
                 if match:

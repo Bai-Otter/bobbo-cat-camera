@@ -596,7 +596,7 @@ def create_app(data_dir: Path | None = None, provider: ProviderConfig | None = N
     def config_result() -> dict:
         from .narration import enabled as narration_enabled
         from .head_captions import LAYOUT_VERSION
-        from . import story_profile
+        from . import story_profile, eating_music
         try:
             story_preset = story_profile.public(story_profile.load())
         except ValueError as exc:
@@ -608,6 +608,7 @@ def create_app(data_dir: Path | None = None, provider: ProviderConfig | None = N
                 "features": {"dual_video": True, "story_max_duration": 60, "story_inner_monologue": True, "story_head_captions": True, "photos": True, "photo_gallery": True, "story_narration": narration_enabled()},
                 "story_caption_layout": LAYOUT_VERSION,
                 "story_production_profile": story_preset,
+                "eating_music": eating_music.public(),
                 "prompt_template": active["text"],
                 "prompt_library": {"revision": current["revision"], "active_version_id": active["id"], "active": active},
                 "legacy_available": (data_dir / "legacy" / "manifest.json").is_file()}
@@ -744,6 +745,24 @@ def create_app(data_dir: Path | None = None, provider: ProviderConfig | None = N
     @app.get('/music')
     def music_page():
         return FileResponse(ROOT / 'web' / 'music.html')
+
+    @app.get('/api/eating-music')
+    def eating_music_catalog():
+        from . import eating_music
+        return eating_music.public()
+
+    @app.get('/api/eating-music/{track_id}/audio')
+    def eating_music_audio(track_id: str):
+        from . import eating_music, story_music_library
+        try:
+            path = story_music_library.audio_path(eating_music.load(), track_id)
+        except (ValueError, TypeError):
+            raise HTTPException(404, '吃播音乐尚不可用') from None
+        return FileResponse(path, media_type='audio/mpeg')
+
+    @app.get('/eating-music')
+    def eating_music_page():
+        return FileResponse(ROOT / 'web' / 'eating-music.html')
 
     @app.get("/api/jobs/{job_id}")
     def get_job(job_id: str):

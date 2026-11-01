@@ -59,6 +59,12 @@
     let eating;
     if (eatingUrl && (!result.highlight_status || result.highlight_status === "ready")) {
       eating = { status: "ready", video_url: eatingUrl, poster_url: safeUrl(result.poster_url, origin), duration: measuredSeconds(result.video_duration), clips: Array.isArray(result.clips) ? result.clips : [], summary: result.summary || "", warnings: result.warnings || [] };
+      eating.has_bgm = result.bgm?.bgm_added === true && result.validation?.bgm_added === true;
+      eating.bgm_label = eating.has_bgm ? result.bgm.label : "无BGM";
+      eating.music_credit = typeof result.bgm?.track?.attribution === "string" ? result.bgm.track.attribution : "";
+      eating.music_credits_url = safeUrl(result.bgm?.credits_url, origin);
+      eating.original_audio_video_url = safeUrl(result.original_audio_video_url, origin);
+      eating.bgm_error = result.bgm?.status === "failed" ? result.bgm.reason || "配乐未完成" : "";
     } else if (pending) eating = { status: "pending" };
     else if (result.highlight_status === "not_found") eating = { status: "not_found", reason: result.highlight_reason || "这段日常没有找到足够合适的吃播画面。没有用无关镜头凑成片。" };
     else eating = { status: "failed", reason: result.highlight_reason || (result.video_url ? "吃播视频地址无效，未展示为已完成。" : "这次尚未得到可播放的吃播成片。") };
@@ -287,6 +293,18 @@
     foot.append(el("span", "", isStory ? output.has_narration ? `原声＋${output.voice_label}配音＋字幕${output.has_bgm ? "＋BGM" : "（无BGM）"}` : output.has_monologues ? `原声＋内心独白字幕${output.has_bgm ? "＋BGM" : ""}` : "原声历史版 · 未加独白字幕" : clipCount ? `${clipCount} 段精选 · ${historyDate(job?.updated_at || job?.created_at)} 更新` : "原速原声 · 慢慢看它吃"));
     const download = el("a", "", "下载视频 ↗"); download.href = output.video_url; download.setAttribute("download", "");
     foot.append(download); root.append(foot, error);
+    if (!isStory) {
+      root.append(el("p", "output-notice", output.has_bgm ? `原声＋治愈BGM：${output.bgm_label} · 无旁白` : "原速原声 · 无BGM、无旁白"));
+      if (output.bgm_error) root.append(el("p", "output-notice", `吃播BGM未完成，保留原声版：${output.bgm_error}`));
+      if (output.has_bgm && output.music_credit) {
+        const credits = el("details", "output-warnings");
+        credits.append(el("summary", "", "音乐署名 · 发布时请一并附上"));
+        const credit = el("pre", "", output.music_credit); credit.style.whiteSpace = "pre-wrap"; credit.style.overflowWrap = "anywhere"; credits.append(credit);
+        if (output.music_credits_url) { const a = el("a", "", "下载音乐署名"); a.href = output.music_credits_url; a.setAttribute("download", ""); credits.append(a); }
+        root.append(credits);
+      }
+      if (output.has_bgm && output.original_audio_video_url) { const a = el("a", "output-notice", "下载纯原声版（无BGM）"); a.href = output.original_audio_video_url; a.setAttribute("download", ""); root.append(a); }
+    }
     if (isStory) (output.audio_errors || []).forEach(message => root.append(el("p", "output-notice", message)));
     if (isStory && output.has_monologues) {
       root.append(el("p", "output-notice", `本次实际：${output.style_version} · ${output.bgm_label}${output.music_rights === "local_preview_only" ? "（本地试听素材，商用授权待确认）" : ""}`));
@@ -363,7 +381,8 @@
     const previousTerminal = state.job && TERMINAL.has(state.job.status);
     state.job = job;
     show($("job-notice"), true);
-    const audioFailed = outputsFor(job, origin).story.audio_errors?.length > 0;
+    const audioOutputs = outputsFor(job, origin);
+    const audioFailed = audioOutputs.story.audio_errors?.length > 0 || Boolean(audioOutputs.eating.bgm_error);
     const partial = job.status === "completed" && (audioFailed || [job.result?.highlight_status, job.result?.story?.status,
       ...Object.values(job.result?.photos || {}).map(photo => photo?.status)].some(status => ["failed", "invalid"].includes(status)));
     $("job-notice").className = `job-notice${partial || ["failed", "interrupted"].includes(job.status) ? " is-error" : job.status === "completed" ? " is-complete" : ""}`;

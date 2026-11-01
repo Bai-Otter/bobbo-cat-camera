@@ -35,7 +35,7 @@ def fetch(url):
         return response.read()
 
 
-def install(destination):
+def install(destination, picks=None, version='cat-playful-v1'):
     destination = Path(destination).resolve()
     destination.mkdir(parents=True, exist_ok=True)
     evidence = destination / 'license-evidence'
@@ -85,11 +85,12 @@ def install(destination):
         return {'id': ident, 'title': title, 'artist': 'Kevin MacLeod', 'file': filename,
                 'sha256': digest, 'duration': duration, 'source_url': source, 'download_url': url,
                 'license': 'CC-BY-4.0', 'license_url': LICENSE, 'attribution': credit,
-                'style_note': note, 'bpm_publisher': row['bpm'], 'enabled': True}
+                'style_note': note, 'bpm_publisher': row['bpm'],
+                'publisher_instruments': row.get('instruments'), 'publisher_feel': row.get('feel'), 'enabled': True}
 
     with ThreadPoolExecutor(max_workers=3) as pool:
-        tracks = list(pool.map(download, PICKS))
-    value = {'version': 'cat-playful-v1', 'checked_at': datetime.now(timezone.utc).isoformat(),
+        tracks = list(pool.map(download, PICKS if picks is None else picks))
+    value = {'version': version, 'checked_at': datetime.now(timezone.utc).isoformat(),
              'license_evidence': {name: hashlib.sha256(body).hexdigest() for name, body in pages.items()},
              'selection_basis': 'Publisher instrumentation/mood metadata; subjective match to reference awaits user audition.',
              'tracks': tracks}

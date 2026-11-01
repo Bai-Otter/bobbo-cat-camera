@@ -10,14 +10,16 @@ import wave
 from . import media
 
 
-def mix(video, destination, cues, profile, cancelled=None, classification=None):
+def mix(video, destination, cues, profile, cancelled=None, classification=None, *, scope='story'):
+    if scope not in {'story', 'eating'}:
+        raise ValueError('未知混音用途')
     started = time.monotonic()
     video, destination = Path(video), Path(destination)
     from .story_music_library import select
-    profile = select(profile, destination.parent, classification)
+    profile = select(profile, destination.parent, classification, scope=scope)
     attribution = profile.get('music_track', {}).get('attribution')
     if attribution:
-        (destination.parent / 'story-music-credits.txt').write_text(attribution, encoding='utf-8')
+        (destination.parent / f'{scope}-music-credits.txt').write_text(attribution, encoding='utf-8')
     music = Path(profile['music_file'])
     if not music.is_file() or media.sha256(music) != profile['music_sha256']:
         raise ValueError('BGM文件缺失或与已确认版本不一致；未自动替换音乐')
@@ -28,11 +30,12 @@ def mix(video, destination, cues, profile, cancelled=None, classification=None):
         raise ValueError('BGM文件没有音轨')
     before = media.probe(video, cancelled)
     duration = float(before['format']['duration'])
-    if not 0 < duration <= 60.15:
-        raise ValueError('BGM仅用于60秒以内小剧场')
-    decoded = destination.parent / 'story-music-normalization.wav'
+    max_duration = 120.15 if scope == 'eating' else 60.15
+    if not 0 < duration <= max_duration:
+        raise ValueError('BGM视频超出允许时长')
+    decoded = destination.parent / f'{scope}-music-normalization.wav'
     media.run(['ffmpeg','-v','error','-nostdin','-y','-stream_loop','-1',*audio_input,
-               '-i',str(music.resolve()),'-t',str(duration),'-vn','-ar','48000','-ac','2','-c:a','pcm_s16le',str(decoded)], cancelled)
+               '-i',str(music.resolve()),'-af','asetpts=N/SR/TB','-t',str(duration),'-vn','-ar','48000','-ac','2','-c:a','pcm_s16le',str(decoded)], cancelled)
     with wave.open(str(decoded),'rb') as f:
         values = array('h',f.readframes(f.getnframes()))
     if sys.byteorder != 'little':
@@ -41,7 +44,8 @@ def mix(video, destination, cues, profile, cancelled=None, classification=None):
     peak = max((abs(v) for v in values),default=0)/32768
     if rms < 1e-7 or peak == 0:
         raise ValueError('BGM为空白，未发布为已加入音乐')
-    gain = min(10**(-28/20)/rms, 10**(-10/20)/peak)
+    target_db = -32 if scope == 'eating' else -28
+    gain = min(10**(target_db/20)/rms, 10**(-10/20)/peak)
     expression = '1'
     windows = []
     for cue in cues:
@@ -55,11 +59,13 @@ def mix(video, destination, cues, profile, cancelled=None, classification=None):
         windows.append({'start':start,'audio_end':end,'music_gain_during_voice':.35})
     prep_seconds = time.monotonic()-started
     mix_start = time.monotonic()
+    source_audio = any(s.get('codec_type') == 'audio' for s in before['streams'])
     graph = (f"[1:a]volume='{gain:.10f}*{expression}':eval=frame,afade=t=in:d=0.7,"
-             f"afade=t=out:st={max(0,duration-1.4):.6f}:d=1.4[music];"
-             '[0:a]aformat=sample_rates=48000:channel_layouts=stereo[base];'
+             f"afade=t=out:st={max(0,duration-1.4):.6f}:d=1.4[music];")
+    graph += ('[0:a]aformat=sample_rates=48000:channel_layouts=stereo[base];'
              '[base][music]amix=inputs=2:normalize=0:duration=first,'
-             'alimiter=limit=0.8414:level=false:latency=true[mix]')
+              if source_audio else '[music]')
+    graph += 'alimiter=limit=0.8414:level=false:latency=true[mix]'
     credits_options = ['-metadata', 'comment=' + attribution] if attribution else []
     media.run(['ffmpeg','-v','error','-nostdin','-y',*media.SAFE_INPUT_OPTIONS,'-i',str(video.resolve()),
                '-protocol_whitelist','file,pipe','-i',str(decoded.resolve()),'-filter_complex',graph,
@@ -81,16 +87,18 @@ def mix(video, destination, cues, profile, cancelled=None, classification=None):
     media.run(['ffmpeg','-v','error','-xerror',*media.SAFE_INPUT_OPTIONS,'-i',str(destination.resolve()),'-f','null','-'],cancelled)
     track_info = ({'track': profile['music_track'], 'selection_mode': profile['music_selection_mode'],
                    'library_version': profile['music_library_version'], 'attribution_required': True,
-                   'credits_url': media.artifact_url(destination.parent, 'story-music-credits.txt')}
+                   'credits_url': media.artifact_url(destination.parent, f'{scope}-music-credits.txt')}
                   if attribution else {})
     return {**track_info, **({'match': profile['music_match']} if 'music_match' in profile else {}),
             'status':'ready','bgm_added':True,'label':profile['music_label'],
             'rights_status':profile['music_rights'],'music_source_sha256':profile['music_sha256'],
-            'nominal_rms_dbfs':-28,'gain':gain,'speech_duck_windows':windows,
+            'nominal_rms_dbfs':target_db,'gain':gain,'speech_duck_windows':windows,
             'video_bitstream_unchanged':True,'full_decode_pass':True,
             'actual_container_duration_seconds':float(final['format']['duration']),
             'audio_sample_rate':int(audio['sample_rate']),'audio_channels':int(audio['channels']),
-            'audio_policy':'source + confirmed speech + pinned local BGM; music ducked to 35% during speech',
+            'audio_policy': ('source + quiet randomized eating BGM; no narration' if scope == 'eating'
+                             else 'source + confirmed speech + pinned local BGM; music ducked to 35% during speech'),
+            'source_audio_present':source_audio,
             'native_audio_sample_rate_preserved':False,'native_audio_channels_preserved':False,
             'bytes':destination.stat().st_size,'sha256':media.sha256(destination),
             'steps_seconds':{'prepare_music':prep_seconds,'mix':mix_seconds,'validation':time.monotonic()-check_start},
