@@ -196,8 +196,9 @@ def test_optional_paid_narration_success_or_fallback(tmp_path, instrumented_pipe
 
 
 @pytest.mark.parametrize('music_failure',[False,True])
+@pytest.mark.parametrize('narration_failure',[False,True])
 @pytest.mark.parametrize('mood_status',['ready','invalid','missing'])
-def test_production_profile_mixes_bgm_in_normal_pipeline_once(tmp_path,instrumented_pipeline,monkeypatch,music_failure,mood_status):
+def test_production_profile_mixes_bgm_in_normal_pipeline_once(tmp_path,instrumented_pipeline,monkeypatch,music_failure,mood_status,narration_failure):
     from mukbang import narration,story_music,story_profile
     state=instrumented_pipeline
     value=ready_story()
@@ -215,6 +216,8 @@ def test_production_profile_mixes_bgm_in_normal_pipeline_once(tmp_path,instrumen
     monkeypatch.setattr(narration,'configured',lambda:object())
     def synth(config,cues,*args):
         assert cues[0]['performance_direction']=='先疑惑再得意。'
+        if narration_failure:
+            raise narration.NarrationError('Breeze配音失败（HTTP 502），已重试2次')
         return {'status':'ready','voice_label':'已确认的咪参考克隆','clips':[{'duration':1.2}],'seconds':1}
     monkeypatch.setattr(narration,'synthesize',synth)
     monkeypatch.setattr(narration,'mix_video',lambda *args:{'narration_added':True,'actual_container_duration_seconds':4})
@@ -235,7 +238,13 @@ def test_production_profile_mixes_bgm_in_normal_pipeline_once(tmp_path,instrumen
     assert music_calls[0][5] == story['music_mood']
     assert json.loads((tmp_path/'story-decision.json').read_text(encoding='utf-8'))['music_mood'] == story['music_mood']
     assert story['style_version']=='mi-inner-v2'
-    assert story['narration']['voice_label']=='已确认的咪参考克隆'
+    assert story['narration']['status'] == ('failed' if narration_failure else 'ready')
+    assert story['validation']['narration_added'] is (not narration_failure)
+    assert music_calls[0][0].name == ('interaction-story.mp4' if narration_failure else 'interaction-story-voiced.mp4')
+    assert bool(music_calls[0][2]) is (not narration_failure)
+    if not narration_failure:
+        assert story['narration']['voice_label']=='已确认的咪参考克隆'
     assert story['validation']['bgm_added'] is (not music_failure)
-    assert story['video_url'].endswith('interaction-story-voiced.mp4' if music_failure else 'interaction-story-mi.mp4')
+    fallback = 'interaction-story.mp4' if narration_failure else 'interaction-story-voiced.mp4'
+    assert story['video_url'].endswith(fallback if music_failure else 'interaction-story-mi.mp4')
     assert story['bgm']['status']==('failed' if music_failure else 'ready')

@@ -1,4 +1,6 @@
 import io
+import asyncio
+import json
 import wave
 
 import httpx
@@ -38,6 +40,28 @@ def test_no_cutoff_or_crossing_next_line():
             {"id": "m2", "clip_id": "s1", "text": "嗯", "output_start": 4., "output_end": 5.4}]
     with pytest.raises(NarrationError, match="放不下"):
         align_cues(cues, [{"id": "s1", "output_end": 8}], [{"duration": 4}, {"duration": 1}])
+
+
+@pytest.mark.parametrize('duration', [1.92, 2.])
+@pytest.mark.parametrize('at_cut', [True, False])
+def test_optional_tail_padding_never_rejects_complete_speech_that_fits(duration, at_cut):
+    cues = [{'id':'m1','clip_id':'s1','text':'拌好了？','output_start':1.,'output_end':3.}]
+    clips = [{'id':'s1','output_end':3. if at_cut else 8.}]
+    audio = [{'duration':duration}]
+    if not at_cut:
+        cues.append({'id':'m2','clip_id':'s1','text':'嗯','output_start':3.6,'output_end':5.6})
+        audio.append({'duration':1.})
+    out = align_cues(cues, clips, audio)
+    assert out[0]['output_end'] == 3.
+    assert out[0]['audio_duration'] == duration
+    assert out[0]['tail_padding_seconds'] == pytest.approx(2. - duration)
+    assert cues[0]['output_end'] == 3.
+
+
+def test_tail_padding_tolerance_cannot_cut_real_audio():
+    with pytest.raises(NarrationError, match='放不下'):
+        align_cues([{'id':'m1','clip_id':'s1','text':'拌好了？','output_start':1.,'output_end':3.}],
+                   [{'id':'s1','output_end':3.}], [{'duration':2.01}])
 
 
 def test_paid_synthesis_cache_and_contract(tmp_path):
@@ -156,3 +180,74 @@ def test_private_profile_overrides_legacy_voice(tmp_path,monkeypatch):
     selected=narration.configured()
     assert selected.voice_id=='confirmed_clone' and selected.voice_kind=='authorized-reference-clone'
     assert '不故意含糊' in selected.instructions
+
+
+@pytest.mark.parametrize('status', [502, 503, 504])
+def test_transient_gateway_failure_retries_only_failed_cue(tmp_path, monkeypatch, status):
+    from mukbang import narration
+    monkeypatch.setattr(narration, 'RETRY_DELAYS', (0., 0.), raising=False)
+    posts = []
+    def handle(request):
+        if request.method == 'GET':
+            return httpx.Response(200, json={'commercial_use_allowed': True})
+        posts.append(request)
+        if len(posts) == 1:
+            return httpx.Response(status, content=b'private-test-key')
+        return httpx.Response(200, content=wav(), headers={'content-type': 'audio/wav'})
+    cues = [{'id': 'm1', 'text': '咪先吃啦。'}]
+    result = synthesize(config(), cues, tmp_path, transport=httpx.MockTransport(handle))
+    assert len(posts) == 2 and result['api_request_count'] == 2
+    assert [a['http_status'] for a in result['clips'][0]['attempts']] == [status, 200]
+    again = synthesize(config(), cues, tmp_path, transport=httpx.MockTransport(handle))
+    assert len(posts) == 2 and again['api_request_count'] == 0
+    assert 'private-test-key' not in str(result)
+
+
+def test_retry_budget_is_bounded_and_failure_keeps_other_completed_cues(tmp_path, monkeypatch):
+    from mukbang import narration
+    monkeypatch.setattr(narration, 'RETRY_DELAYS', (0., 0.), raising=False)
+    posts = []
+    async def handle(request):
+        if request.method == 'GET':
+            return httpx.Response(200, json={'commercial_use_allowed': True, 'max_concurrent_generations': 2})
+        text = json.loads(request.content)['text']
+        posts.append(text)
+        if text == '坏句':
+            return httpx.Response(502, content=b'private-test-key')
+        await asyncio.sleep(.02)
+        return httpx.Response(200, content=wav(), headers={'content-type': 'audio/wav'})
+    with pytest.raises(NarrationError) as exc:
+        synthesize(config(), [{'id':'m1','text':'坏句'}, {'id':'m2','text':'好句'}],
+                   tmp_path, transport=httpx.MockTransport(handle))
+    assert posts.count('坏句') == 3 and posts.count('好句') == 1
+    assert len(list(tmp_path.glob('*.wav'))) == 1
+    assert 'private-test-key' not in str(exc.value)
+    report = json.loads((tmp_path / 'attempts.json').read_text(encoding='utf-8'))
+    assert report['api_request_count'] == 4 and report['completed_cues'] == 1
+
+
+def test_ambiguous_network_error_does_not_repeat_paid_post(tmp_path):
+    posts = []
+    def handle(request):
+        if request.method == 'GET':
+            return httpx.Response(200, json={'commercial_use_allowed': True})
+        posts.append(request)
+        raise httpx.ReadError('private-test-key', request=request)
+    with pytest.raises(NarrationError) as exc:
+        synthesize(config(), [{'id':'m1','text':'喵'}], tmp_path, transport=httpx.MockTransport(handle))
+    assert len(posts) == 1 and 'private-test-key' not in str(exc.value)
+
+
+def test_cancellation_stops_gateway_retries(tmp_path, monkeypatch):
+    from mukbang import narration, media
+    monkeypatch.setattr(narration, 'RETRY_DELAYS', (0., 0.), raising=False)
+    posts = []
+    def handle(request):
+        if request.method == 'GET':
+            return httpx.Response(200, json={'commercial_use_allowed': True})
+        posts.append(request)
+        return httpx.Response(502)
+    with pytest.raises(media.Cancelled):
+        synthesize(config(), [{'id':'m1','text':'喵'}], tmp_path,
+                   lambda: bool(posts), transport=httpx.MockTransport(handle))
+    assert len(posts) == 1

@@ -71,6 +71,9 @@
         narrative.has_monologues = story.story_mode === "inner_monologue" && story.validation?.subtitles_burned_in === true;
         narrative.has_narration = story.validation?.narration_added === true;
         narrative.has_bgm = story.validation?.bgm_added === true;
+        narrative.audio_errors = [];
+        if (!narrative.has_narration && story.narration?.status === "failed") narrative.audio_errors.push(`配音未完成：${story.narration.reason || "配音生成失败，成功句子已保留。"}`);
+        if (!narrative.has_bgm && ["failed", "skipped"].includes(story.bgm?.status)) narrative.audio_errors.push(`BGM未完成：${story.bgm.reason || "音乐尚未加入成片。"}`);
         narrative.voice_label = narrative.has_narration ? (story.narration?.voice_label || "小布女宝宝") : "";
         narrative.style_version = story.style_version || "历史文案";
         narrative.bgm_label = narrative.has_bgm ? (story.bgm?.label || "BGM") : "无BGM";
@@ -281,9 +284,10 @@
     root.append(stage);
     const foot = el("div", "media-footer");
     const clipCount = output.clips.length;
-    foot.append(el("span", "", isStory ? output.has_narration ? `原声＋${output.voice_label}配音＋字幕${output.has_bgm ? "＋BGM" : "（无BGM）"}` : output.has_monologues ? "原声＋内心独白字幕" : "原声历史版 · 未加独白字幕" : clipCount ? `${clipCount} 段精选 · ${historyDate(job?.updated_at || job?.created_at)} 更新` : "原速原声 · 慢慢看它吃"));
+    foot.append(el("span", "", isStory ? output.has_narration ? `原声＋${output.voice_label}配音＋字幕${output.has_bgm ? "＋BGM" : "（无BGM）"}` : output.has_monologues ? `原声＋内心独白字幕${output.has_bgm ? "＋BGM" : ""}` : "原声历史版 · 未加独白字幕" : clipCount ? `${clipCount} 段精选 · ${historyDate(job?.updated_at || job?.created_at)} 更新` : "原速原声 · 慢慢看它吃"));
     const download = el("a", "", "下载视频 ↗"); download.href = output.video_url; download.setAttribute("download", "");
     foot.append(download); root.append(foot, error);
+    if (isStory) (output.audio_errors || []).forEach(message => root.append(el("p", "output-notice", message)));
     if (isStory && output.has_monologues) {
       root.append(el("p", "output-notice", `本次实际：${output.style_version} · ${output.bgm_label}${output.music_rights === "local_preview_only" ? "（本地试听素材，商用授权待确认）" : ""}`));
       if (output.has_bgm && output.music_match) {
@@ -359,8 +363,9 @@
     const previousTerminal = state.job && TERMINAL.has(state.job.status);
     state.job = job;
     show($("job-notice"), true);
-    const partial = job.status === "completed" && [job.result?.highlight_status, job.result?.story?.status,
-      ...Object.values(job.result?.photos || {}).map(photo => photo?.status)].some(status => ["failed", "invalid"].includes(status));
+    const audioFailed = outputsFor(job, origin).story.audio_errors?.length > 0;
+    const partial = job.status === "completed" && (audioFailed || [job.result?.highlight_status, job.result?.story?.status,
+      ...Object.values(job.result?.photos || {}).map(photo => photo?.status)].some(status => ["failed", "invalid"].includes(status)));
     $("job-notice").className = `job-notice${partial || ["failed", "interrupted"].includes(job.status) ? " is-error" : job.status === "completed" ? " is-complete" : ""}`;
     $("job-stage").textContent = partial ? "部分完成，请查看未生成原因" : job.stage || STATUS_LABELS[job.status] || "处理中";
     const progress = typeof job.progress === "number" && Number.isFinite(job.progress) ? Math.max(0, Math.min(100, job.progress)) : 0;

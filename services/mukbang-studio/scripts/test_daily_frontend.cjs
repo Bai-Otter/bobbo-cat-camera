@@ -313,6 +313,22 @@ test("model titles and reasons are plain text, never injected HTML", async () =>
   assert.match(text(page.nodes["story-output"]), /<img src=x/); assert.equal(find(page.nodes["story-output"], (node) => node.tagName === "IMG").length, 0);
 });
 
+test("audio failures remain visibly partial even when the story video is playable", async () => {
+  for (const failure of ["narration", "bgm"]) {
+    const job = completed();
+    job.result.story.story_mode = "inner_monologue";
+    job.result.story.validation = {subtitles_burned_in:true, narration_added:failure !== "narration", bgm_added:failure !== "bgm"};
+    job.result.story[failure] = {status:"failed", reason:"服务临时出错 <script>"};
+    const page = harness({jobs:[job], records:{[job.id]:job}}); await page.ready();
+    assert.match(page.nodes["job-stage"].textContent, /部分完成/);
+    assert.doesNotMatch(page.nodes["job-notice"].className, /is-complete/);
+    assert.match(text(page.nodes["story-output"]), failure === "narration" ? /配音未完成/ : /BGM未完成/);
+    assert.equal(videos(page.nodes["story-output"]).length, 1);
+    assert.equal(find(page.nodes["story-output"], n => n.tagName === "SCRIPT").length, 0);
+    if (failure === "narration") assert.match(text(page.nodes["story-output"]), /原声＋内心独白字幕＋BGM/);
+  }
+});
+
 test("history lacking story shows the historical disclosure while eating still plays", async () => {
   const job = completed(); delete job.options.story_enabled; delete job.result.story;
   const page = harness({ jobs: [job], records: { [job.id]: job } }); await page.ready();

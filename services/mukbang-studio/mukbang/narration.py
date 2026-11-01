@@ -22,10 +22,19 @@ from .story_subtitles import plain_caption, performance_direction
 
 BASE = "https://api.breeze.blue"
 INSTRUCTIONS = "保持这个音色本身的女宝宝声音，轻轻地自言自语，笨笨软软，带一点好奇和馋嘴。自然停顿，不喊叫，不拔高句尾，不用播音腔。"
+RETRY_DELAYS = (1., 2.)
+RETRYABLE_STATUS = {502, 503, 504}
 
 
 class NarrationError(RuntimeError):
-    pass
+    def __init__(self, message, *, attempts=None):
+        super().__init__(message)
+        self.attempts = attempts or []
+
+
+class _GatewayFailure(Exception):
+    def __init__(self, status):
+        self.status = status
 
 
 @dataclass(frozen=True)
@@ -89,6 +98,67 @@ def wav_duration(data: bytes) -> float:
         raise NarrationError("配音WAV不完整、格式不符或超过30秒；未采用残缺音频") from None
 
 
+async def _request_audio(client, config, body, cancelled):
+    """Retry explicit gateway failures only, bounded by attempts AND one deadline.
+
+    A timeout, lost response, malformed 200, rate limit or auth error is not
+    retried: a paid request may already have succeeded on the provider side.
+    """
+    started, attempts = time.monotonic(), []
+    for index in range(len(RETRY_DELAYS) + 1):
+        media.check_cancelled(cancelled)
+        remaining = config.deadline_seconds - (time.monotonic() - started)
+        if remaining <= 0:
+            raise NarrationError('Breeze配音已达到重试总时限；成功句子可复用', attempts=attempts)
+        attempt_started, first, status = time.monotonic(), None, None
+        data = bytearray()
+        async def request():
+            nonlocal first, status
+            async with client.stream('POST', f'/v1/text-to-speech/{config.voice_id}',
+                                     params={'output_format': 'wav_24000'}, json=body) as response:
+                status = response.status_code
+                if status in RETRYABLE_STATUS:
+                    raise _GatewayFailure(status)
+                if status != 200:
+                    raise NarrationError(f'Breeze配音失败（HTTP {status}），此类错误未自动重试')
+                if not response.headers.get('content-type', '').lower().startswith(('audio/', 'application/octet-stream')):
+                    raise NarrationError('Breeze未返回音频，未采用响应内容')
+                async for chunk in response.aiter_bytes():
+                    media.check_cancelled(cancelled)
+                    if chunk and first is None:
+                        first = time.monotonic() - started
+                    data.extend(chunk)
+                    if len(data) > 2 * 1024 * 1024:
+                        raise NarrationError('Breeze单句音频超出大小限制')
+        try:
+            await asyncio.wait_for(request(), remaining)
+            duration = wav_duration(bytes(data))
+        except _GatewayFailure as exc:
+            attempts.append({'http_status': exc.status, 'status': 'gateway_error',
+                             'seconds': time.monotonic() - attempt_started})
+            media.check_cancelled(cancelled)
+            if index == len(RETRY_DELAYS):
+                raise NarrationError(f'Breeze配音失败（HTTP {exc.status}），已重试{index}次；成功句子可复用',
+                                     attempts=attempts) from None
+            delay = RETRY_DELAYS[index]
+            if time.monotonic() - started + delay >= config.deadline_seconds:
+                raise NarrationError('Breeze配音已达到重试总时限；成功句子可复用', attempts=attempts) from None
+            await asyncio.sleep(delay)
+            continue
+        except (httpx.HTTPError, asyncio.TimeoutError):
+            attempts.append({'http_status': status, 'status': 'network_error',
+                             'seconds': time.monotonic() - attempt_started})
+            raise NarrationError('Breeze配音网络错误或请求超时；结果不确定，未重复付费请求，成功句子可复用',
+                                 attempts=attempts) from None
+        except NarrationError as exc:
+            attempts.append({'http_status': status, 'status': 'invalid_response',
+                             'seconds': time.monotonic() - attempt_started})
+            exc.attempts = attempts
+            raise
+        attempts.append({'http_status': 200, 'status': 'completed', 'seconds': time.monotonic() - attempt_started})
+        return bytes(data), duration, first, time.monotonic() - started, attempts
+
+
 async def _synthesize(config, cues, directory, cancelled, transport):
     started = time.monotonic()
     directory.mkdir(parents=True, exist_ok=True)
@@ -120,36 +190,13 @@ async def _synthesize(config, cues, directory, cancelled, transport):
                             and meta.get("sha256") == hashlib.sha256(data).hexdigest()):
                         return {**meta, "duration": wav_duration(data), "cache_hit": True,
                                 "request_seconds": 0., "first_body_seconds": None, "id": cue["id"],
+                                "attempts": [], "api_request_count": 0,
                                 "instructions":body['instructions']}
                 except (ValueError, OSError, NarrationError):
                     pass
             async with gate:
                 media.check_cancelled(cancelled)
-                request_start = time.monotonic()
-                first = None
-                data = bytearray()
-                async def request():
-                    nonlocal first
-                    async with client.stream("POST", f"/v1/text-to-speech/{config.voice_id}",
-                                             params={"output_format": "wav_24000"}, json=body) as response:
-                        if response.status_code != 200:
-                            # Do not echo provider bodies, request headers, credentials or URLs from errors.
-                            raise NarrationError(f"Breeze配音失败（HTTP {response.status_code}），未自动重试")
-                        if not response.headers.get("content-type", "").lower().startswith(("audio/", "application/octet-stream")):
-                            raise NarrationError("Breeze未返回音频，未采用响应内容")
-                        async for chunk in response.aiter_bytes():
-                            media.check_cancelled(cancelled)
-                            if chunk and first is None:
-                                first = time.monotonic() - request_start
-                            data.extend(chunk)
-                            if len(data) > 2 * 1024 * 1024:
-                                raise NarrationError("Breeze单句音频超出大小限制")
-                try:
-                    await asyncio.wait_for(request(), config.deadline_seconds)
-                except (httpx.HTTPError, asyncio.TimeoutError):
-                    raise NarrationError("Breeze配音网络错误或请求超时；未自动重试，已成功的句子可复用") from None
-                elapsed = time.monotonic() - request_start
-                duration = wav_duration(bytes(data))
+                data, duration, first, elapsed, attempts = await _request_audio(client, config, body, cancelled)
                 # Only publish a complete validated WAV. Failed responses never become cache entries.
                 temporary = audio.with_suffix(".wav.part")
                 temporary.write_bytes(data)
@@ -158,13 +205,26 @@ async def _synthesize(config, cues, directory, cancelled, transport):
                         "request_sha256": digest, "sha256": hashlib.sha256(data).hexdigest(),
                         "entitlement": public_entitlement, "created_at": datetime.now(timezone.utc).isoformat(),
                         "request_seconds": elapsed, "first_body_seconds": first, "cache_hit": False,
+                        "attempts": attempts, "api_request_count": len(attempts),
                         "first_body_note": "同步WAV响应首个非空数据块，含容器头；不是流式首音频TTFA",
                         "instructions":body['instructions']}
                 media.write_json(meta_file, meta)
                 return meta
         tasks = [asyncio.create_task(one(i, cue)) for i, cue in enumerate(cues)]
         try:
-            clips = await asyncio.gather(*tasks)
+            # A single exhausted cue must not cancel other already-paid work.
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            report = [{'id': cue['id'], 'status': 'failed' if isinstance(result, BaseException) else 'ready',
+                       'attempts': getattr(result, 'attempts', []) if isinstance(result, BaseException) else result['attempts']}
+                      for cue, result in zip(cues, results)]
+            request_count = sum(len(row['attempts']) for row in report)
+            media.write_json(directory / 'attempts.json', {
+                'retryable_http_statuses': sorted(RETRYABLE_STATUS), 'max_retries_per_cue': len(RETRY_DELAYS),
+                'api_request_count': request_count, 'completed_cues': sum(r['status'] == 'ready' for r in report), 'cues': report})
+            for result in results:
+                if isinstance(result, BaseException):
+                    raise result
+            clips = results
         finally:
             for task in tasks:
                 if not task.done():
@@ -174,6 +234,7 @@ async def _synthesize(config, cues, directory, cancelled, transport):
             "voice_label":config.voice_label, "voice_kind":config.voice_kind,
             "model_id": config.model_id, "language_code": "zh", "instructions": config.instructions,
             "entitlement": public_entitlement, "clips": clips, "seconds": time.monotonic() - started,
+            "api_request_count": request_count,
             "bgm_added": False, "speed": 1., "pitch_shift": False}
 
 
@@ -207,11 +268,15 @@ def align_cues(cues, clips, audio_clips):
         if not math.isfinite(duration) or duration <= 0:
             raise NarrationError("配音时长无效")
         start = cue["output_start"]
-        end = max(cue["output_end"], start + duration + .2)
         limit = min(boundaries[cue["clip_id"]], output[i+1]["output_start"] - .6 if i+1 < len(output) else math.inf)
-        if end > limit + .001:
+        required_end = max(cue["output_end"], start + duration)
+        if required_end > limit + .001:
             raise NarrationError(f"独白 {cue['id']} 的自然配音放不下当前动作区间；保留字幕版，不裁尾或加速")
-        cue.update(output_end=end, audio_duration=duration, original_subtitle_end=cues[i]["output_end"])
+        # Post-speech subtitle hold is optional, unlike the complete audio and
+        # reading window. Do not reject a 1.92s recording in a 2s shot for padding.
+        end = max(required_end, min(start + duration + .2, limit))
+        cue.update(output_end=end, audio_duration=duration, original_subtitle_end=cues[i]["output_end"],
+                   tail_padding_seconds=max(0., end - start - duration))
         if "source_end" in cue:
             cue["original_source_subtitle_end"] = cue["source_end"]
             cue["source_end"] += end - cues[i]["output_end"]

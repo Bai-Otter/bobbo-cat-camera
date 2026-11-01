@@ -21,7 +21,7 @@ def main() -> int:
     parser.add_argument("--job-id", help="可选的新12位任务ID；已有目录绝不覆盖")
     parser.add_argument("--port", type=int, default=8876, help="必须已停止的本地服务端口，默认8876")
     parser.add_argument("--retry-incomplete-story", action="store_true",
-                        help="允许为整体完成但小剧场失败的任务新建恢复任务；不覆盖原结果")
+                        help="允许为整体完成但小剧场/配音/BGM失败的任务新建恢复任务；不覆盖原结果，复用成功配音缓存")
     args = parser.parse_args()
     last_stage = None
     def progress(record):

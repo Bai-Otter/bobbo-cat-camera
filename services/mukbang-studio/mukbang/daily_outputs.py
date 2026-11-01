@@ -203,7 +203,7 @@ def render_dual_outputs(job_dir: Path, source_path: Path, options: dict, info: d
                     raise
                 except Exception as exc:
                     speech = None
-                    reason = "配音生成或对齐未完成，已保留原声字幕版；未自动重试或截断声音"
+                    reason = "配音生成或对齐未完成，已保留原声字幕版；已成功的句子可复用，不截断声音"
                     if isinstance(exc, narration.NarrationError):
                         reason += "：" + str(exc)
                     story_output["narration"] = {"status": "failed", "reason": reason}
@@ -254,28 +254,25 @@ def render_dual_outputs(job_dir: Path, source_path: Path, options: dict, info: d
                     "kind": "fictional_inner_monologue", "narration_added": True,
                     "cues": monologues, "duration_goal": goal})
             if monologues and profile:
-                if not mixed:
-                    reason = '咪预设的配音未成功，未用只有BGM的版本冒充完整效果'
-                    story_output['bgm'] = {'status':'skipped','reason':reason}
+                # Music is local and independent of TTS availability. Keep the
+                # speech failure explicit; never claim the BGM-only fallback is voiced.
+                try:
+                    emit({'status':'rendering','progress':91,'stage':'加入小剧场BGM',
+                          'message':'按本次剧情类别匹配本地BGM，同类随机并固定；配音时压低音乐，不重跑识图' if profile.get('music_selection_policy') == 'story_mood_v1' else '从本地曲库选曲并固定到本任务；配音时压低音乐，不重跑识图' if profile.get('music_library_file') else '使用已确认本地音乐；配音时压低音乐，不重跑识图'})
+                    with timings.measure('story_bgm'):
+                        music = story_music.mix(job_dir/story_filename,job_dir/'interaction-story-mi.mp4',
+                                                monologues if mixed else [],profile,cancelled,story_output.get('music_mood'))
+                        for ident,seconds in music['steps_seconds'].items():
+                            timings.record_detail('story_bgm',ident,ident,seconds,'completed')
+                    story_filename = 'interaction-story-mi.mp4'
+                    story_output['bgm'] = music
+                    validation.update({k:v for k,v in music.items() if k not in {'status','label','rights_status','steps_seconds','seconds'}})
+                except media.Cancelled:
+                    raise
+                except Exception:
+                    reason = 'BGM匹配或合成失败，当前成片未加入BGM；请检查曲库标签、音乐文件及哈希，未偷偷跨类别换曲'
+                    story_output['bgm'] = {'status':'failed','reason':reason}
                     story_output.setdefault('warnings',[]).append(reason)
-                else:
-                    try:
-                        emit({'status':'rendering','progress':91,'stage':'加入小剧场BGM',
-                              'message':'按本次剧情类别匹配本地BGM，同类随机并固定；配音时压低音乐，不重跑识图' if profile.get('music_selection_policy') == 'story_mood_v1' else '从本地曲库选曲并固定到本任务；配音时压低音乐，不重跑识图' if profile.get('music_library_file') else '使用已确认本地音乐；配音时压低音乐，不重跑识图'})
-                        with timings.measure('story_bgm'):
-                            music = story_music.mix(job_dir/story_filename,job_dir/'interaction-story-mi.mp4',
-                                                    monologues,profile,cancelled,story_output.get('music_mood'))
-                            for ident,seconds in music['steps_seconds'].items():
-                                timings.record_detail('story_bgm',ident,ident,seconds,'completed')
-                        story_filename = 'interaction-story-mi.mp4'
-                        story_output['bgm'] = music
-                        validation.update({k:v for k,v in music.items() if k not in {'status','label','rights_status','steps_seconds','seconds'}})
-                    except media.Cancelled:
-                        raise
-                    except Exception:
-                        reason = 'BGM匹配或合成失败，当前是配音无BGM版；请检查曲库标签、音乐文件及哈希，未偷偷跨类别换曲'
-                        story_output['bgm'] = {'status':'failed','reason':reason}
-                        story_output.setdefault('warnings',[]).append(reason)
                 media.write_json(job_dir/'story-bgm.json',story_output['bgm'])
             if monologues:
                 validation.update(subtitles_burned_in=True, subtitle_count=len(monologues),

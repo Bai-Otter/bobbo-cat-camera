@@ -135,9 +135,12 @@ def _options(value) -> dict:
 
 def _evidence(directory: Path, ident: str, *, retry_incomplete_story=False) -> dict:
     record = _read_json(_file(directory, "job.json"))
+    story_result = record.get("result", {}).get("story", {})
+    incomplete_audio = (story_result.get("status") == "ready" and
+                        any(story_result.get(part, {}).get("status") == "failed" for part in ("narration", "bgm")))
     partial_story = (retry_incomplete_story is True and record.get("status") == "completed" and
                      record.get("options", {}).get("story_enabled") is True and
-                     record.get("result", {}).get("story", {}).get("status") in {"invalid", "failed"})
+                     (story_result.get("status") in {"invalid", "failed"} or incomplete_audio))
     if record.get("id") != ident or (record.get("status") != "failed" and not partial_story):
         raise ValueError("只允许恢复原始失败任务，不覆盖成功任务")
     timings = record.get("timings")
@@ -364,6 +367,16 @@ def recover_render(data_dir: Path, source_job_id: str, *, job_id: str | None = N
                 shutil.copy2(_file(original, name), target / name)
                 if media.sha256(target / name) != before[name]:
                     raise ValueError("复制期间原任务AI证据发生变化，已停止恢复")
+            # Completed utterances survive an explicit audio recovery. The TTS
+            # module rechecks the request identity, audio hash and WAV format
+            # before reuse; copying never marks incomplete audio as successful.
+            for name, cache_digest in before.items():
+                if re.fullmatch(r"narration/[a-f0-9]{64}\.(wav|json)", name):
+                    destination = target / name
+                    destination.parent.mkdir(exist_ok=True)
+                    shutil.copy2(_file(original, name), destination)
+                    if media.sha256(destination) != cache_digest:
+                        raise ValueError("配音缓存复制校验失败，已停止恢复")
             media.write_json(target / "recovery-provenance.json", provenance)
             media.write_json(target / "sampling.json", sampling)
         public_source = pipeline._public_source(info, target, source)

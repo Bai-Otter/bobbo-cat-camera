@@ -128,10 +128,13 @@ def test_complete_selection_failure_can_create_new_zero_call_recovery(saved_fail
     assert hashes(original) == before
 
 
-def test_partial_story_requires_explicit_opt_in_and_original_stays_unchanged(saved_failure):
+@pytest.mark.parametrize('failed_part', ['story', 'narration', 'bgm'])
+def test_partial_story_requires_explicit_opt_in_and_original_stays_unchanged(saved_failure, failed_part):
     original = saved_failure / "jobs" / SOURCE_ID
     record = load(original / "job.json")
     record.update(status="completed", result={"story": {"status": "invalid"}})
+    if failed_part != 'story':
+        record['result']['story'] = {'status':'ready', failed_part:{'status':'failed'}}
     record["options"]["story_enabled"] = True
     media.write_json(original / "job.json", record)
     before = hashes(original)
@@ -141,9 +144,30 @@ def test_partial_story_requires_explicit_opt_in_and_original_stays_unchanged(sav
     assert evidence["stage"] == "render_story"
     assert hashes(original) == before
     record["result"]["story"]["status"] = "ready"
+    if failed_part != 'story':
+        record['result']['story'][failed_part]['status'] = 'ready'
     media.write_json(original / "job.json", record)
     with pytest.raises(ValueError, match="只允许恢复"):
         recovery._evidence(original, SOURCE_ID, retry_incomplete_story=True)
+
+
+def test_recovery_copies_hashed_voice_cache_without_touching_original(saved_failure):
+    original = saved_failure / 'jobs' / SOURCE_ID
+    # Real jobs have files alphabetically after source.mp4. A loop variable
+    # must not replace the source digest with the last cache/artifact digest.
+    media.write_json(original / 'timings.json', {'fixture': 'distinct from source hash'})
+    cache = original / 'narration'
+    cache.mkdir()
+    digest = 'a' * 64
+    (cache / (digest + '.wav')).write_bytes(b'fixture; TTS must still validate before reuse')
+    (cache / (digest + '.json')).write_text('{}', encoding='utf-8')
+    (cache / 'unfinished.wav.part').write_bytes(b'partial')
+    before = hashes(original)
+    recovery.recover_render(saved_failure, SOURCE_ID, job_id=RECOVERY_ID)
+    restored = saved_failure / 'jobs' / RECOVERY_ID / 'narration'
+    assert sorted(p.name for p in restored.iterdir()) == [digest + '.json', digest + '.wav']
+    assert (restored / (digest + '.wav')).read_bytes() == (cache / (digest + '.wav')).read_bytes()
+    assert hashes(original) == before
 
 
 def test_selection_failure_reuses_audited_redundant_reference_convergence(saved_failure):
