@@ -9,6 +9,12 @@ import unicodedata
 from .story import StoryError, _identifier, _interval, _references, _source_frames, _text
 
 
+CAPTION_GAP_TARGET = 1.5
+CAPTION_GAP_TOLERANCE = .2
+CAPTION_GAP_MINIMUM = CAPTION_GAP_TARGET - CAPTION_GAP_TOLERANCE
+TIMING_EPSILON = .001
+
+
 def plain_caption(value) -> str:
     text = _text(value, "内心独白", limit=36)
     if any(c in "{}\\<>\r\n" or unicodedata.category(c).startswith("C") for c in text):
@@ -35,8 +41,8 @@ def validate_cue_rhythm(cues: list[dict], duration: float, *, start_key="start",
         length = end - start
         if length < max(1.4, len(text) / 5.) - .02 or length > 5.5 + .001:
             raise StoryError("内心独白显示时间不足以阅读或单句过长，应重写短句而非加速/裁尾")
-        if start < previous_end + 1.5 - .001:
-            raise StoryError("内心独白重叠或过密，成片两句之间至少留白1.5秒")
+        if start < previous_end + CAPTION_GAP_MINIMUM - TIMING_EPSILON:
+            raise StoryError("内心独白重叠或过密；留白目标1.5秒，允许0.2秒偏差，仍不能少于1.3秒")
         previous_end = end
         occupied += length
     if occupied > duration * .55 + .001:
@@ -99,14 +105,18 @@ def validate_monologues(decision: dict, parsed: dict, frames: list[dict], durati
         cues.append(cue)
         output_cues.append({**cue, "start": offsets[clip_id] + start - clip["start"],
                             "end": offsets[clip_id] + end - clip["start"]})
-    # A small cross-cut gap error can be repaired before speech synthesis by
+    # A small same-shot or cross-cut gap error can be repaired before speech synthesis by
     # shortening only excess subtitle hold. Never move the reaction onset,
-    # discard evidence, rewrite text, or relax the rhythm validation.
+    # discard evidence or rewrite text. Gaps already within the explicit
+    # tolerance pass unchanged; repair is reserved for larger deviations.
     timing_adjustments = []
     for index in range(1, len(output_cues)):
         previous, current = output_cues[index - 1], output_cues[index]
-        deficit = previous["end"] + 1.5 - current["start"]
-        if previous["clip_id"] == current["clip_id"] or not .001 < deficit <= .75:
+        gap = current["start"] - previous["end"]
+        if gap >= CAPTION_GAP_MINIMUM - TIMING_EPSILON:
+            continue
+        deficit = CAPTION_GAP_TARGET - gap
+        if not .001 < deficit <= .75:
             continue
         source_cue = cues[index - 1]
         new_end = source_cue["end"] - deficit
@@ -115,7 +125,9 @@ def validate_monologues(decision: dict, parsed: dict, frames: list[dict], durati
         if (new_end - source_cue["start"] < max(1.4, len(source_cue["text"]) / 5.) or
                 any(t >= new_end for t in evidence_times)):
             continue
-        timing_adjustments.append({"type": "cross_cut_caption_hold", "cue_id": source_cue["id"],
+        adjustment_type = ("same_clip_caption_hold" if previous["clip_id"] == current["clip_id"]
+                           else "cross_cut_caption_hold")
+        timing_adjustments.append({"type": adjustment_type, "cue_id": source_cue["id"],
                                    "before_end": source_cue["end"], "after_end": new_end,
                                    "reason": "缩短冗余字幕停留，保留起点、文字、全部证据及1.5秒留白；配音后仍校验完整音频"})
         source_cue["end"] = new_end
@@ -130,7 +142,8 @@ def validate_monologues(decision: dict, parsed: dict, frames: list[dict], durati
         output = output_cues[index]
         new_end = cue["start"] + needed
         next_start = output_cues[index + 1]["start"] if index + 1 < len(cues) else math.inf
-        if new_end > clips[cue["clip_id"]]["end"] or output["end"] + deficit > next_start - 1.5:
+        if (new_end > clips[cue["clip_id"]]["end"] or
+                output["end"] + deficit > next_start - CAPTION_GAP_MINIMUM + TIMING_EPSILON):
             continue
         timing_adjustments.append({"type": "extend_caption_reading_hold", "cue_id": cue["id"],
                                    "before_end": cue["end"], "after_end": new_end,
@@ -143,6 +156,16 @@ def validate_monologues(decision: dict, parsed: dict, frames: list[dict], durati
                   inner_monologues=cues, subtitle_kind="fictional_inner_monologue",
                   duration_goal={"target": parameters["story_target_duration_seconds"], "minimum": minimum,
                                  "maximum": maximum, "met": achieved >= minimum, "shortfall_reason": shortfall})
+    result["caption_rhythm_policy"] = {
+        "target_gap_seconds": CAPTION_GAP_TARGET,
+        "tolerance_seconds": CAPTION_GAP_TOLERANCE,
+        "minimum_gap_seconds": CAPTION_GAP_MINIMUM,
+        "accepted_short_gaps": [
+            {"previous_cue_id": previous["id"], "cue_id": current["id"],
+             "gap_seconds": round(current["start"] - previous["end"], 6)}
+            for previous, current in zip(output_cues, output_cues[1:])
+            if current["start"] - previous["end"] < CAPTION_GAP_TARGET - TIMING_EPSILON],
+    }
     if timing_adjustments:
         result["caption_timing_adjustments"] = timing_adjustments
     if shortfall:

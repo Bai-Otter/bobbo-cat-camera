@@ -311,6 +311,21 @@ def test_safe_file_blocks_traversal_extensions_and_symlink(tmp_path):
         assert error.value.status_code == 404
 
 
+@pytest.mark.parametrize("relative", ["interaction-story.srt", "local-postprocess/repair/interaction-story.srt"])
+def test_safe_file_serves_subtitles_without_relaxing_path_boundaries(tmp_path, relative):
+    root = tmp_path / "job"
+    subtitle = root / relative
+    subtitle.parent.mkdir(parents=True)
+    subtitle.write_text("1\n00:00:01,000 --> 00:00:02,500\n我先吃啦。\n", encoding="utf-8")
+    assert safe_file(root, relative) == subtitle.resolve()
+    outside = tmp_path / "outside.srt"
+    outside.write_text("private", encoding="utf-8")
+    for invalid in ("../outside.srt", str(outside), "..\\outside.srt"):
+        with pytest.raises(Exception) as error:
+            safe_file(root, invalid)
+        assert error.value.status_code == 404
+
+
 def test_nested_public_redaction():
     assert clean_public({"api_key": "s", "nested": [{"Authorization": "s", "message": "the s key"}]}, "s") == {
         "nested": [{"message": "the [密钥已隐藏] key"}]}

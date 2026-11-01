@@ -532,7 +532,7 @@ def safe_file(root: Path, relative: str) -> Path:
             raise ValueError
         target = (root / relative).resolve()
         target.relative_to(root.resolve())
-        if not target.is_file() or target.suffix.lower() not in {".mp4", ".mov", ".mkv", ".avi", ".webm", ".m4v", ".jpg", ".jpeg", ".png", ".gif", ".json", ".txt", ".webp"}:
+        if not target.is_file() or target.suffix.lower() not in {".mp4", ".mov", ".mkv", ".avi", ".webm", ".m4v", ".jpg", ".jpeg", ".png", ".gif", ".json", ".txt", ".webp", ".srt"}:
             raise ValueError
         return target
     except (ValueError, OSError):

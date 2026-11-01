@@ -78,6 +78,86 @@ def test_small_cross_cut_gap_shortens_only_excess_hold_with_audit():
     assert value == before
 
 
+def same_clip_story():
+    frames, value = sample_story()
+    value["inner_monologues"][0]["end"] = 6.6
+    value["inner_monologues"][1].update(
+        clip_id="s0", event_id="r0", start=8., end=10., frame_ids=["F0009"])
+    value["events"][1]["frame_ids"].append("F0009")
+    value["clips"][0]["frame_ids"].append("F0009")
+    value["inner_monologues"][0]["caption_placement"] = {
+        "mode": "forehead", "anchors": [
+            {"frame_id": fid, "head_box": [.1, .1, .8, .8], "confidence": .9}
+            for fid in ("F0005", "F0007")]}
+    return frames, value
+
+
+@pytest.mark.parametrize("end", [6.5, 6.6, 6.7])
+def test_same_clip_small_gap_deviation_passes_without_changing_timing(end):
+    frames, value = same_clip_story()
+    value["inner_monologues"][0]["end"] = end
+    before = deepcopy(value)
+    result = validate(value, frames)
+    assert result["inner_monologues"][0]["end"] == end
+    assert "caption_timing_adjustments" not in result
+    assert result["caption_rhythm_policy"]["minimum_gap_seconds"] == 1.3
+    accepted = result["caption_rhythm_policy"]["accepted_short_gaps"]
+    assert len(accepted) == (0 if end == 6.5 else 1)
+    if accepted:
+        assert accepted[0]["gap_seconds"] == pytest.approx(8. - end)
+    assert value == before
+    from mukbang.daily_outputs import quantize_story, map_story_monologues
+    for frame in frames:
+        frame["source_frame_index"] = int(frame["time"] * 10)
+    info = {"time_base": "1/10", "origin_pts": 0, "end_pts": 600, "pts": list(range(600))}
+    clips, _, _ = quantize_story(result, info, frames)
+    mapped = map_story_monologues(result, clips, frames, info)
+    assert mapped[0]["output_end"] == pytest.approx(end)
+
+
+def test_same_clip_larger_gap_repair_preserves_text_evidence_and_anchors():
+    frames, value = same_clip_story()
+    value["inner_monologues"][0]["end"] = 7.
+    before = deepcopy(value)
+    result = validate(value, frames)
+    cue = result["inner_monologues"][0]
+    assert cue["end"] == pytest.approx(6.5)
+    for key in ("start", "text", "frame_ids"):
+        assert cue[key] == before["inner_monologues"][0][key]
+    assert [a["frame_id"] for a in cue["caption_placement"]["anchors"]] == ["F0005", "F0007"]
+    assert result["caption_timing_adjustments"][0]["type"] == "same_clip_caption_hold"
+    assert result["duration"] == 30
+    assert value == before
+
+
+@pytest.mark.parametrize("condition", ["reading", "evidence", "anchor", "large"])
+def test_same_clip_gap_repair_keeps_all_existing_safety_limits(condition):
+    frames, value = same_clip_story()
+    cue = value["inner_monologues"][0]
+    cue["end"] = 7.
+    if condition == "reading":
+        cue["text"] = "这次给我的是什么好吃的呀？"
+    elif condition == "evidence":
+        frames[6]["time"] = 6.55
+        cue["frame_ids"].append("F0007")
+        value["events"][1]["frame_ids"].append("F0007")
+        value["clips"][0]["frame_ids"].append("F0007")
+    elif condition == "anchor":
+        frames[6]["time"] = 6.55
+    else:
+        value["inner_monologues"][1]["start"] = 7.3
+    with pytest.raises(story.StoryError, match="过密"):
+        validate(value, frames)
+
+
+@pytest.mark.parametrize("gap", [1.29, 1., 0., -.1])
+def test_gap_tolerance_does_not_accept_dense_or_overlapping_cues(gap):
+    with pytest.raises(story.StoryError, match="过密"):
+        story_subtitles.validate_cue_rhythm([
+            {"text": "好啦。", "start": 0., "end": 2.},
+            {"text": "我看看。", "start": 2. + gap, "end": 4. + gap}], 20.)
+
+
 @pytest.mark.parametrize("condition", ["reading", "evidence", "anchor", "large"])
 def test_cross_cut_gap_repair_must_keep_reading_evidence_and_small_bound(condition):
     frames, value = cross_cut_story()
