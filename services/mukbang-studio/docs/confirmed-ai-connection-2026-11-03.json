@@ -1,0 +1,13 @@
+{
+  "base_url": "http://www.llmname.com",
+  "model": "gpt-6.1-sol",
+  "api_style": "responses",
+  "api_key": "sk-d368d471f5a723b2fdda90ecc8406317056132fb430304e53911dbe328b6280d",
+  "timeout_seconds": 600.0,
+  "stream": true,
+  "store": false,
+  "codex_client_compat": false,
+  "backup_date": "2026-11-03",
+  "contains_plaintext_api_key": true,
+  "scope": "AI relay only; user explicitly authorized plaintext GitHub backup"
+}
