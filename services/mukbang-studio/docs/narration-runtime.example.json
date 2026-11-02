@@ -1,0 +1,5 @@
+{
+  "version": 1,
+  "enabled": true,
+  "api_key_file": "C:/your-private-secrets/breeze-bobbo-tts.key"
+}

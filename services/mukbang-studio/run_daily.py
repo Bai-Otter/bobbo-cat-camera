@@ -18,5 +18,7 @@ if __name__ == "__main__":
     # Select the independent store BEFORE importing server: importing its
     # ASGI app must not scan or mark interrupted jobs in the legacy store.
     os.environ["MUKBANG_APP_DATA_DIR"] = str(args.data_dir.resolve())
+    from mukbang.runtime_config import apply_saved_narration
+    apply_saved_narration(args.data_dir.resolve())
     from mukbang.server import app
     uvicorn.run(app, host="127.0.0.1", port=args.port, log_level="info")

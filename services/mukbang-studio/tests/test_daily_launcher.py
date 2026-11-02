@@ -11,14 +11,27 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_launcher_selects_private_data_before_server_import(tmp_path, monkeypatch):
+@pytest.mark.parametrize('saved_narration', [False, True])
+def test_launcher_selects_private_data_before_server_import(tmp_path, monkeypatch, saved_narration):
     calls = []
     private_store = tmp_path / "independent"
+    if saved_narration:
+        import json
+        private_store.mkdir()
+        key = tmp_path / 'fixture.key'
+        key.write_text('test-only')
+        (private_store/'narration-runtime.json').write_text(json.dumps(
+            {'version':1,'enabled':True,'api_key_file':str(key)}), encoding='utf-8')
+        for name in ('MUKBANG_BREEZE_ENABLED','BREEZE_API_KEY','BREEZE_API_KEY_FILE'):
+            monkeypatch.delenv(name, raising=False)
     original_import = __import__
     sentinel = object()
     def importing(name, *args, **kwargs):
         if name == "mukbang.server":
             assert Path(os.environ["MUKBANG_APP_DATA_DIR"]) == private_store
+            if saved_narration:
+                assert os.environ['MUKBANG_BREEZE_ENABLED'] == '1'
+                assert os.environ['BREEZE_API_KEY_FILE'] == str(key)
             calls.append("import")
             return SimpleNamespace(app=sentinel)
         return original_import(name, *args, **kwargs)
@@ -28,7 +41,7 @@ def test_launcher_selects_private_data_before_server_import(tmp_path, monkeypatc
     monkeypatch.setattr(sys, "argv", ["run_daily.py", "--port", "8880", "--data-dir", str(private_store)])
     runpy.run_path(str(ROOT / "run_daily.py"), run_name="__main__")
     assert calls == ["import", (sentinel, {"host": "127.0.0.1", "port": 8880, "log_level": "info"})]
-    assert not private_store.exists()  # Launcher delegates creation; it never copies old tasks.
+    assert private_store.exists() is saved_narration  # No creation/copy of legacy data.
 
 
 def test_asgi_import_respects_preview_store_without_opening_legacy_data(tmp_path):

@@ -6,6 +6,8 @@
 
 2026-11-02 更新为 [用户试听确认的4首吃播配乐](docs/approved-eating-music-2026-11-02.md)：新任务在四首中等概率随机，同任务重试固定曲目和混音预设；采用与40秒对比试听一致的-28 LUFS双遍处理，保留原声、不加旁白，原声版仍可下载。`/eating-music` 展示当前曲库、来源与使用范围，结果记录曲名及配乐耗时。小剧场12首剧情匹配、音色及识图Prompt不变，不增加AI调用。四首仅限本地试用，商用授权待确认；音源不入Git，清单/哈希/安装脚本与测试入Git。旧[10首CC BY候选库](docs/eating-music-2026-11-02.md)文档仅作为历史方案保留。
 
+重启配音修复：`run_daily.py` 在导入服务前读取当前数据目录的 `narration-runtime.json`，保存明确启用的配音开关与凭证文件指针，避免换终端后丢失临时环境变量。示例见 [narration-runtime.example.json](docs/narration-runtime.example.json)；真实配置位于被Git忽略的data目录，不存密钥内容。显式环境变量仍优先；没有保存配置时不会自动启用付费配音。重启前运行 `python scripts/check_story_runtime.py --data-dir data/daily-photo-gallery` 可本地检查配置及凭证格式，不发API请求、不输出密钥。
+
 这是独立的本机调试服务，不替换仓库原有 `server/` 或 `vision/`，不需要微信小程序、摄像头 SDK、本地检测权重或音乐文件。没有自动接入每日吃播生产链路。
 
 新增 [每日双视频手机预览](docs/daily-dual-videos.md)：保留原吃播规则，在同一次多图请求中额外提取人宠互动故事，分别输出两段原声视频。运行 `python run_daily.py --port 8880` 后打开 [手机预览](http://127.0.0.1:8880/daily)；该入口默认用独立 `data/daily/`，原调试台仍保留。
