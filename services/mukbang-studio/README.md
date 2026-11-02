@@ -2,6 +2,10 @@
 
 [返回项目首页](../../README.md)
 
+当前可恢复的 AI 设置、原中转信息和 PowerShell 中文误报修复已备份至 [AI 配置与恢复说明](docs/ai-runtime-recovery-2026-11-02.md)，附不含密钥的已确认配置模板与本机重启脚本。
+
+启动配置检查（2026-11-02）：AI 配置不能只保存在某次终端的临时环境变量中。复用已授权的本机中转时，在服务根目录被 Git 忽略的 `.env` 中保存 `MUKBANG_VISION_USE_CODEX_PROVIDER=1`、`MUKBANG_CODEX_HOME=本机配置目录`、`MUKBANG_VISION_MODEL=gpt-6.1-sol`、`MUKBANG_VISION_TIMEOUT_SECONDS=600`；密钥仍只从原凭证文件读取，不复制进仓库。兼容标签按最后成功任务设置，不自行开启。启动前执行 `python scripts/check_story_runtime.py --data-dir data/daily-photo-gallery --expected-ai-model gpt-6.1-sol`，同时验证 AI 配置、指定模型、已确认配音及小剧场音乐；仅返回公开配置，不发付费请求。重启后还必须核对 `/api/config` 的 `configured`、provider 各字段，以及配音和曲库，不能仅凭音乐库可读就判定整个服务恢复。显式进程环境变量仍优先于 `.env`。
+
 上传猫咪视频 → 抽帧拼图 → 一次多图 AI 选片 → 自动导出精选和独立表情包。可以核对原始拼图、AI 圈选、完整 Prompt、实际时间轴与分阶段耗时，再用反馈逐轮调整。
 
 2026-11-02 更新为 [用户试听确认的4首吃播配乐](docs/approved-eating-music-2026-11-02.md)：新任务在四首中等概率随机，同任务重试固定曲目和混音预设；采用与40秒对比试听一致的-28 LUFS双遍处理，保留原声、不加旁白，原声版仍可下载。`/eating-music` 展示当前曲库、来源与使用范围，结果记录曲名及配乐耗时。小剧场12首剧情匹配、音色及识图Prompt不变，不增加AI调用。四首仅限本地试用，商用授权待确认；音源不入Git，清单/哈希/安装脚本与测试入Git。旧[10首CC BY候选库](docs/eating-music-2026-11-02.md)文档仅作为历史方案保留。

@@ -30,6 +30,30 @@ def test_current_relay_requires_explicit_opt_in(codex_home):
     assert provider.public()["provider"]["model"] == "qwen-vl-max"
 
 
+def test_saved_startup_settings_restore_full_provider_without_session_env(codex_home, monkeypatch):
+    monkeypatch.delenv('MUKBANG_CODEX_HOME')
+    config.ROOT.mkdir()
+    path = config.ROOT / '.env'
+    path.write_text(
+        f'MUKBANG_CODEX_HOME={codex_home.as_posix()}\n'
+        'MUKBANG_VISION_USE_CODEX_PROVIDER=1\n'
+        'MUKBANG_VISION_MODEL=gpt-6.1-sol\n'
+        'MUKBANG_VISION_TIMEOUT_SECONDS=600\n'
+        'MUKBANG_VISION_CODEX_CLIENT_COMPAT=0\n', encoding='utf-8')
+    before = path.read_bytes()
+    public = config.ProviderConfig().public()
+    assert public['configured']
+    provider = public['provider']
+    assert provider['model'] == 'gpt-6.1-sol'
+    assert provider['base_url'] == 'http://relay.example'
+    assert provider['api_style'] == 'responses'
+    assert provider['configuration_source'] == 'codex'
+    assert provider['client_compatibility'] == 'none'
+    assert provider['timeout_seconds'] == 600
+    assert 'FAKE_CURRENT_RELAY_KEY' not in json.dumps(public)
+    assert path.read_bytes() == before
+
+
 def test_local_env_loads_probe_decoder_thread_setting(codex_home, monkeypatch):
     # Register a teardown value before .env parsing mutates the real mapping.
     monkeypatch.setenv("MUKBANG_FFPROBE_THREADS", "0")
