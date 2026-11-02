@@ -34,7 +34,7 @@ def check_cancelled(cancelled: Callable[[], bool] | None) -> None:
         raise Cancelled("任务已取消")
 
 
-def run(args: list[str], cancelled=None, timeout=900, *, cwd=None) -> str:
+def run(args: list[str], cancelled=None, timeout=900, *, cwd=None, include_stderr=False) -> str:
     check_cancelled(cancelled)
     started = time.monotonic()
     process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -54,7 +54,7 @@ def run(args: list[str], cancelled=None, timeout=900, *, cwd=None) -> str:
         raise
     if process.returncode:
         raise RuntimeError("媒体处理失败：" + stderr[-5000:])
-    return stdout
+    return stdout + stderr if include_stderr else stdout
 
 
 def sha256(path: Path) -> str:

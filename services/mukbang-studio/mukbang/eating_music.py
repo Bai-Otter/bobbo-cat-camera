@@ -13,7 +13,7 @@ def load():
     path = Path(explicit) if explicit else Path(root) / 'music-eating' / 'library.json'
     if not explicit and not path.exists():
         return None
-    profile = {'music_library_file': str(path.resolve()), 'music_selection_policy': 'random_per_job'}
+    profile = {'music_library_file': str(path.resolve()), 'music_selection_policy': 'random_per_job', 'music_scope': 'eating'}
     story_music_library.catalog(profile)
     return profile
 
@@ -23,7 +23,7 @@ def public():
         profile = load()
         pool = story_music_library.public_catalog(profile, scope='eating')
         return {**pool, 'enabled': bool(profile), 'scope': 'eating',
-                'notice': '吃播独立曲库，每个新任务等概率随机选一首；保留原声、不加配音。发布请附带音乐署名。'}
+                'notice': '吃播独立曲库，每个新任务等概率随机选一首；保留原声、不加配音。' + pool.get('notice', '')}
     except ValueError as exc:
         return {'status': 'invalid', 'enabled': False, 'scope': 'eating', 'count': 0, 'tracks': [], 'reason': str(exc)}
 

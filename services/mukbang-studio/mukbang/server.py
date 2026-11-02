@@ -758,7 +758,7 @@ def create_app(data_dir: Path | None = None, provider: ProviderConfig | None = N
             path = story_music_library.audio_path(eating_music.load(), track_id)
         except (ValueError, TypeError):
             raise HTTPException(404, '吃播音乐尚不可用') from None
-        return FileResponse(path, media_type='audio/mpeg')
+        return FileResponse(path, media_type='audio/mp4' if path.suffix.lower() == '.m4a' else 'audio/mpeg')
 
     @app.get('/eating-music')
     def eating_music_page():

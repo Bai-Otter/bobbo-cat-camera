@@ -3,6 +3,7 @@ from array import array
 import json
 import math
 from pathlib import Path
+import re
 import sys
 import time
 import wave
@@ -34,8 +35,23 @@ def mix(video, destination, cues, profile, cancelled=None, classification=None, 
     if not 0 < duration <= max_duration:
         raise ValueError('BGM视频超出允许时长')
     decoded = destination.parent / f'{scope}-music-normalization.wav'
+    audition = scope == 'eating' and profile.get('music_mix_preset') == 'audition_lufs_v1'
+    normalization = 'asetpts=N/SR/TB'
+    if audition:
+        # Analyze exactly the excerpt that will be heard, including loops for longer videos.
+        trim = f'atrim=duration={duration},asetpts=N/SR/TB'
+        analysis = media.run(['ffmpeg','-hide_banner','-nostdin','-stream_loop','-1',*audio_input,
+                              '-i',str(music.resolve()),'-vn','-af',
+                              trim + ',loudnorm=I=-28:TP=-9:LRA=11:print_format=json',
+                              '-f','null','-'], cancelled, include_stderr=True)
+        stats = json.loads(re.findall(r'\{[^{}]*"input_i"[^{}]*\}', analysis)[-1])
+        if not all(math.isfinite(float(stats[k])) for k in ('input_i','input_tp','input_lra','input_thresh','target_offset')):
+            raise ValueError('BGM响度测量无效或为空白')
+        normalization = (trim + f',loudnorm=I=-28:TP=-9:LRA=11:measured_I={stats["input_i"]}:'
+                         f'measured_TP={stats["input_tp"]}:measured_LRA={stats["input_lra"]}:'
+                         f'measured_thresh={stats["input_thresh"]}:offset={stats["target_offset"]}:linear=true')
     media.run(['ffmpeg','-v','error','-nostdin','-y','-stream_loop','-1',*audio_input,
-               '-i',str(music.resolve()),'-af','asetpts=N/SR/TB','-t',str(duration),'-vn','-ar','48000','-ac','2','-c:a','pcm_s16le',str(decoded)], cancelled)
+               '-i',str(music.resolve()),'-af',normalization,'-t',str(duration),'-vn','-ar','48000','-ac','2','-c:a','pcm_s16le',str(decoded)], cancelled)
     with wave.open(str(decoded),'rb') as f:
         values = array('h',f.readframes(f.getnframes()))
     if sys.byteorder != 'little':
@@ -45,7 +61,7 @@ def mix(video, destination, cues, profile, cancelled=None, classification=None, 
     if rms < 1e-7 or peak == 0:
         raise ValueError('BGM为空白，未发布为已加入音乐')
     target_db = -32 if scope == 'eating' else -28
-    gain = min(10**(target_db/20)/rms, 10**(-10/20)/peak)
+    gain = 1.0 if audition else min(10**(target_db/20)/rms, 10**(-10/20)/peak)
     expression = '1'
     windows = []
     for cue in cues:
@@ -60,12 +76,13 @@ def mix(video, destination, cues, profile, cancelled=None, classification=None, 
     prep_seconds = time.monotonic()-started
     mix_start = time.monotonic()
     source_audio = any(s.get('codec_type') == 'audio' for s in before['streams'])
-    graph = (f"[1:a]volume='{gain:.10f}*{expression}':eval=frame,afade=t=in:d=0.7,"
-             f"afade=t=out:st={max(0,duration-1.4):.6f}:d=1.4[music];")
+    fade_in, fade_out = (.4, 1.2) if audition else (.7, 1.4)
+    graph = (f"[1:a]volume='{gain:.10f}*{expression}':eval=frame,afade=t=in:d={fade_in},"
+             f"afade=t=out:st={max(0,duration-fade_out):.6f}:d={fade_out}[music];")
     graph += ('[0:a]aformat=sample_rates=48000:channel_layouts=stereo[base];'
              '[base][music]amix=inputs=2:normalize=0:duration=first,'
               if source_audio else '[music]')
-    graph += 'alimiter=limit=0.8414:level=false:latency=true[mix]'
+    graph += f'alimiter=limit={0.95 if audition else 0.8414}:level=false:latency=true[mix]'
     credits_options = ['-metadata', 'comment=' + attribution] if attribution else []
     media.run(['ffmpeg','-v','error','-nostdin','-y',*media.SAFE_INPUT_OPTIONS,'-i',str(video.resolve()),
                '-protocol_whitelist','file,pipe','-i',str(decoded.resolve()),'-filter_complex',graph,
@@ -86,13 +103,17 @@ def mix(video, destination, cues, profile, cancelled=None, classification=None, 
         raise ValueError('BGM合成改变了视频流')
     media.run(['ffmpeg','-v','error','-xerror',*media.SAFE_INPUT_OPTIONS,'-i',str(destination.resolve()),'-f','null','-'],cancelled)
     track_info = ({'track': profile['music_track'], 'selection_mode': profile['music_selection_mode'],
-                   'library_version': profile['music_library_version'], 'attribution_required': True,
+                   'library_version': profile['music_library_version'], 'attribution_required': profile['music_rights'] == 'cc_by_4_0',
                    'credits_url': media.artifact_url(destination.parent, f'{scope}-music-credits.txt')}
                   if attribution else {})
     return {**track_info, **({'match': profile['music_match']} if 'music_match' in profile else {}),
             'status':'ready','bgm_added':True,'label':profile['music_label'],
             'rights_status':profile['music_rights'],'music_source_sha256':profile['music_sha256'],
-            'nominal_rms_dbfs':target_db,'gain':gain,'speech_duck_windows':windows,
+            'nominal_rms_dbfs':None if audition else target_db,
+            'normalization_mode':'two_pass_lufs' if audition else 'rms',
+            'music_target_lufs':-28 if audition else None,
+            'mix_preset':profile.get('music_mix_preset'),
+            'gain':gain,'speech_duck_windows':windows,
             'video_bitstream_unchanged':True,'full_decode_pass':True,
             'actual_container_duration_seconds':float(final['format']['duration']),
             'audio_sample_rate':int(audio['sample_rate']),'audio_channels':int(audio['channels']),

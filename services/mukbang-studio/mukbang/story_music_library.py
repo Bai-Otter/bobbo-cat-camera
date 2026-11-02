@@ -11,7 +11,7 @@ _LOCK = RLock()
 _PUBLIC = ('id', 'title', 'artist', 'source_url', 'license', 'license_url', 'attribution', 'style_note')
 
 
-def _track(value, root):
+def _track(value, root, *, allow_local_preview=False):
     if not isinstance(value, dict):
         raise ValueError('BGM曲目格式无效')
     for key in (*_PUBLIC, 'file', 'sha256'):
@@ -21,13 +21,20 @@ def _track(value, root):
         raise ValueError('BGM编号无效')
     if not re.fullmatch(r'[a-f0-9]{64}', value['sha256']):
         raise ValueError('BGM哈希无效')
-    if value['license'] != 'CC-BY-4.0' or value['license_url'] != 'https://creativecommons.org/licenses/by/4.0/':
-        raise ValueError('BGM许可尚未审核')
-    if not value['source_url'].startswith('https://incompetech.com/'):
-        raise ValueError('BGM来源尚未审核')
+    local = value['license'] == 'LOCAL-PREVIEW-ONLY'
+    if local:
+        if not allow_local_preview:
+            raise ValueError('BGM仅限显式启用的本地吃播试用')
+        if not re.fullmatch(r'https://www\.qishui\.com/track/[0-9]{19}', value['source_url']) or value['license_url'] != value['source_url']:
+            raise ValueError('本地试听BGM来源无效')
+    else:
+        if value['license'] != 'CC-BY-4.0' or value['license_url'] != 'https://creativecommons.org/licenses/by/4.0/':
+            raise ValueError('BGM许可尚未审核')
+        if not value['source_url'].startswith('https://incompetech.com/'):
+            raise ValueError('BGM来源尚未审核')
     relative = Path(value['file'])
     path = (root / relative).resolve()
-    if relative.is_absolute() or not path.is_relative_to(root.resolve()) or path.suffix.lower() != '.mp3':
+    if relative.is_absolute() or not path.is_relative_to(root.resolve()) or path.suffix.lower() not in ({'.mp3', '.m4a'} if local else {'.mp3'}):
         raise ValueError('BGM音频路径无效')
     if not isinstance(value.get('enabled', True), bool):
         raise ValueError('BGM启用状态无效')
@@ -43,8 +50,11 @@ def catalog(profile):
         rows = data['tracks']
         if not isinstance(data['version'], str) or not isinstance(rows, list) or not 1 <= len(rows) <= 100:
             raise ValueError
+        allow_local = profile.get('music_scope') == 'eating' and data.get('usage') == 'local_preview_only'
         for row in rows:
-            _track(row, manifest.parent)
+            _track(row, manifest.parent, allow_local_preview=allow_local)
+        if data.get('mix_preset') not in (None, 'audition_lufs_v1'):
+            raise ValueError
         if len({r['id'] for r in rows}) != len(rows) or len({r['sha256'] for r in rows}) != len(rows):
             raise ValueError
         if not any(r.get('enabled', True) for r in rows):
@@ -60,6 +70,9 @@ def public_catalog(profile, *, scope='story'):
     if not profile or not profile.get('music_library_file'):
         return {'mode': 'fixed', 'tracks': [], 'count': 0}
     data, _ = catalog(profile)
+    local = any(r['license'] == 'LOCAL-PREVIEW-ONLY' for r in data['tracks'])
+    if local and scope != 'eating':
+        raise ValueError('本地吃播试听曲库不能用作小剧场曲库')
     endpoint = '/api/eating-music' if scope == 'eating' else '/api/music'
     rows = [{**{k: row[k] for k in _PUBLIC}, 'audio_url': f"{endpoint}/{row['id']}/audio"}
             for row in data['tracks'] if row.get('enabled', True)]
@@ -72,7 +85,9 @@ def public_catalog(profile, *, scope='story'):
     return {'mode': 'story_mood_per_job' if profile.get('music_selection_policy') == 'story_mood_v1' else 'random_per_job',
             'tags_version': story_mood.TAG_VERSION, 'categories': dict(story_mood.LABELS),
             'version': data['version'], 'count': len(rows), 'tracks': rows,
-            'notice': 'CC BY 4.0：发布视频需携带曲名、作者、来源、许可及修改说明。情绪标签是产品配乐策划判断，可继续调校。'}
+            'rights_status': 'local_preview_only' if local else 'cc_by_4_0',
+            'notice': ('本地试用素材，商用授权待确认；仅确认听感，不代表获得商用或再分发许可。'
+                       if local else 'CC BY 4.0：发布视频需携带曲名、作者、来源、许可及修改说明。情绪标签是产品配乐策划判断，可继续调校。')}
 
 
 def audio_path(profile, track_id):
@@ -80,7 +95,7 @@ def audio_path(profile, track_id):
     row = next((r for r in data['tracks'] if r['id'] == track_id and r.get('enabled', True)), None)
     if row is None:
         raise ValueError('BGM曲目不存在')
-    path = _track(row, root)
+    path = _track(row, root, allow_local_preview=profile.get('music_scope') == 'eating' and data.get('usage') == 'local_preview_only')
     if not path.is_file() or media.sha256(path) != row['sha256']:
         raise ValueError('BGM文件缺失或哈希不一致')
     return path
@@ -113,10 +128,13 @@ def select(profile, job_dir, classification=None, *, scope='story'):
                 row['mood_tags'] = ({'labels': ['可爱', '治愈', '纯享吃播']} if scope == 'eating'
                                     else story_mood.track_tags(row['id']))
                 selected = {'selection_mode': 'story_mood_per_job' if match else 'random_per_job',
-                            'library_version': data['version'], 'track': row}
+                            'library_version': data['version'], 'track': row,
+                            'mix_preset': data.get('mix_preset')}
                 if match:
                     selected['match'] = match
-            path = _track(row, root)
+            if selected.get('mix_preset') not in (None, 'audition_lufs_v1'):
+                raise ValueError
+            path = _track(row, root, allow_local_preview=scope == 'eating' and profile.get('music_scope') == 'eating')
             if not path.is_file() or media.sha256(path) != row['sha256']:
                 raise ValueError
             if not pin.exists():
@@ -127,7 +145,8 @@ def select(profile, job_dir, classification=None, *, scope='story'):
         if isinstance(row.get('mood_tags'), dict):
             track_public['mood_tags'] = row['mood_tags']
         return {**profile, 'music_file': str(path), 'music_sha256': row['sha256'],
-                'music_label': row['title'], 'music_rights': 'cc_by_4_0',
+                'music_label': row['title'], 'music_rights': 'local_preview_only' if row['license'] == 'LOCAL-PREVIEW-ONLY' else 'cc_by_4_0',
+                'music_mix_preset': selected.get('mix_preset'),
                 'music_track': track_public, **({'music_match': selected['match']} if 'match' in selected else {}),
                 'music_selection_mode': selected['selection_mode'], 'music_library_version': selected['library_version']}
     except (OSError, ValueError, KeyError, TypeError):

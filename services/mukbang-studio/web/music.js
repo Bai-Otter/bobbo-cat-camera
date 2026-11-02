@@ -12,6 +12,7 @@
     if (!eating && response.status === 404) response = await fetch("/static/music-catalog.local.json", { cache: "no-store" });
     if (!response.ok) throw new Error("曲库暂不可用，请确认安装及配置。");
     const pool = await response.json();
+    if (eating && document.querySelector('.music-license')) document.querySelector('.music-license').textContent = pool.notice || '请确认曲目来源及使用授权。';
     if (pool.status === "invalid") throw new Error(pool.reason || "曲库配置异常");
     status.textContent = pool.mode === "preview_only" ? `${pool.count} 首已标注 · 剧情匹配尚待重启服务` : pool.mode === "story_mood_per_job" ? `${pool.count} 首已接入 · 按剧情匹配，同类随机 · 不增加 AI 调用` : pool.count ? `${pool.count} 首已接入 · 本地随机 · 不增加 AI 调用` : "此服务尚未启用随机曲库。";
     const mode = document.getElementById("music-mode");
@@ -33,10 +34,11 @@
       if (/^\/api\/(?:music|eating-music)\/[a-zA-Z0-9_-]+\/audio$/.test(track.audio_url)) audio.src = track.audio_url;
       audio.addEventListener("play", () => root.querySelectorAll("audio,video").forEach(other => { if (other !== audio) other.pause(); }));
       audio.addEventListener("error", () => { if (!card.querySelector(".audio-error")) card.append(el("p", "此曲暂时无法播放，请刷新后重试。", "audio-error")); });
-      const source = el("a", "作者官网 / 许可来源 ↗");
-      if (track.source_url.startsWith("https://incompetech.com/")) source.href = track.source_url;
+      const localPreview = track.license === 'LOCAL-PREVIEW-ONLY';
+      const source = el("a", localPreview ? "歌曲来源（非授权证明）↗" : "作者官网 / 许可来源 ↗");
+      if (track.source_url.startsWith("https://incompetech.com/") || /^https:\/\/www\.qishui\.com\/track\/[0-9]{19}$/.test(track.source_url)) source.href = track.source_url;
       source.target = "_blank"; source.rel = "noopener noreferrer";
-      const credit = el("details"); credit.append(el("summary", "查看发布署名"), el("pre", track.attribution));
+      const credit = el("details"); credit.append(el("summary", localPreview ? "来源与使用范围 · 商用授权待确认" : "查看发布署名"), el("pre", track.attribution));
       if (audio.src) card.append(audio);
       card.append(source, credit); root.append(card);
       if (typeof track.preview_url === "string" && /^\/api\/jobs\/[a-f0-9]{12}\/files\/local-postprocess\/[a-zA-Z0-9_/-]+\/preview\.mp4$/.test(track.preview_url)) {

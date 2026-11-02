@@ -1,0 +1,14 @@
+{
+  "version": "cat-eating-approved-four-v1",
+  "approved_on": "2026-11-02",
+  "usage": "local_preview_only",
+  "commercial_rights": "unconfirmed",
+  "mix_preset": "audition_lufs_v1",
+  "selection_basis": "User approved all four after viewing the same 40-second eating clip with each track.",
+  "tracks": [
+    {"id":"qishui-7129768898223671333","track_id":"7129768898223671333","title":"可爱小孩子","artist":"Regen","source_file":"01-可爱小孩子-Regen.m4a","sha256":"bcfa1ccdc4c70d6b48afcd3a68c7ad43324008402fa5083e603dcc75e6e0e77f","duration":108.016009,"audio_scope":"full_duration","style_note":"用户确认：可爱小孩子，适合纯享吃播。"},
+    {"id":"qishui-7187241986007582776","track_id":"7187241986007582776","title":"可爱淘气","artist":"烂番茄气球","source_file":"02-可爱淘气-烂番茄气球.m4a","sha256":"7c0448e89f1162b56fee8d8ed8ef4b8b65a54d66a007e20b254623682f1ee23c","duration":92.106009,"audio_scope":"full_duration","style_note":"用户确认：可爱淘气，适合纯享吃播。"},
+    {"id":"qishui-7390302691786426369","track_id":"7390302691786426369","title":"亿点点偷感（可爱无厘头bgm）","artist":"丢了一个月亮","source_file":"03-亿点点偷感-试听53秒.m4a","sha256":"1c02bf611fec7fdc64078eb2d694246ec4f889eddb46bb6c0371f5f15956d937","duration":53.475011,"audio_scope":"public_preview_not_full_track","style_note":"用户确认：偷感、无厘头。音源仅为53秒公开试听片段，不是整首。"},
+    {"id":"qishui-6939231336213301249","track_id":"6939231336213301249","title":"ねこふんじゃった（踩到猫了）","artist":"Ikuko Sakairi & Noriko Murakami & Shonenshojo Gasshodan Mizuumi","source_file":"04-ねこふんじゃった.m4a","sha256":"c6bf0d173824d96deb5deb5e735a4f1fd8b1ca1ef06e57052afb0f092e4ee366","duration":99.08,"audio_scope":"full_duration","style_note":"用户确认：踩到猫了，适合纯享吃播。"}
+  ]
+}

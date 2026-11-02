@@ -61,6 +61,7 @@
       eating = { status: "ready", video_url: eatingUrl, poster_url: safeUrl(result.poster_url, origin), duration: measuredSeconds(result.video_duration), clips: Array.isArray(result.clips) ? result.clips : [], summary: result.summary || "", warnings: result.warnings || [] };
       eating.has_bgm = result.bgm?.bgm_added === true && result.validation?.bgm_added === true;
       eating.bgm_label = eating.has_bgm ? result.bgm.label : "无BGM";
+      eating.music_rights = result.bgm?.rights_status;
       eating.music_credit = typeof result.bgm?.track?.attribution === "string" ? result.bgm.track.attribution : "";
       eating.music_credits_url = safeUrl(result.bgm?.credits_url, origin);
       eating.original_audio_video_url = safeUrl(result.original_audio_video_url, origin);
@@ -296,9 +297,10 @@
     if (!isStory) {
       root.append(el("p", "output-notice", output.has_bgm ? `原声＋治愈BGM：${output.bgm_label} · 无旁白` : "原速原声 · 无BGM、无旁白"));
       if (output.bgm_error) root.append(el("p", "output-notice", `吃播BGM未完成，保留原声版：${output.bgm_error}`));
+      if (output.has_bgm && output.music_rights === 'local_preview_only') root.append(el('p', 'output-notice', '本地试用配乐 · 商用授权待确认'));
       if (output.has_bgm && output.music_credit) {
         const credits = el("details", "output-warnings");
-        credits.append(el("summary", "", "音乐署名 · 发布时请一并附上"));
+        credits.append(el("summary", "", output.music_rights === 'local_preview_only' ? '音乐来源与使用范围（非商用授权）' : "音乐署名 · 发布时请一并附上"));
         const credit = el("pre", "", output.music_credit); credit.style.whiteSpace = "pre-wrap"; credit.style.overflowWrap = "anywhere"; credits.append(credit);
         if (output.music_credits_url) { const a = el("a", "", "下载音乐署名"); a.href = output.music_credits_url; a.setAttribute("download", ""); credits.append(a); }
         root.append(credits);

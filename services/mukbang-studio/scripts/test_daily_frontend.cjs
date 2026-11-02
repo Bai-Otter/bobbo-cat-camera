@@ -38,6 +38,7 @@ test("eating BGM shows actual track, original download and partial failures", as
 test("eating audition uses only its own catalog and never story fallback", async () => {
   const status = new Element(); const tracks = new Element(); const mode = new Element();
   const document = { body: { dataset: { musicScope: "eating" } },
+    querySelector: () => null,
     getElementById: id => id === "music-status" ? status : id === "music-mode" ? mode : tracks,
     createElement: tag => new Element(tag) };
   const urls = [];
@@ -46,6 +47,31 @@ test("eating audition uses only its own catalog and never story fallback", async
   assert.deepEqual(urls, ["/api/eating-music"]);
   assert.match(text(mode), /10首/);
   assert.ok(find(tracks, n => n.tagName === "AUDIO").some(n => n.src === "/api/eating-music/gentle/audio"));
+});
+
+test("approved eating pool exposes four tracks and local-only rights without CC claims", async () => {
+  const nodes = { 'music-status':new Element(), 'music-tracks':new Element(), 'music-mode':new Element() };
+  const license = new Element();
+  const rows = Array.from({length:4}, (_, i) => ({title:'Approved '+i, style_note:'Confirmed',
+    license:'LOCAL-PREVIEW-ONLY', attribution:'商用授权待确认',
+    source_url:'https://www.qishui.com/track/7129768898223671333',
+    audio_url:`/api/eating-music/approved-${i}/audio`}));
+  await vm.runInNewContext(fs.readFileSync(path.join(root, 'web/music.js'), 'utf8'), {
+    document:{body:{dataset:{musicScope:'eating'}}, getElementById:id=>nodes[id],
+      querySelector:()=>license, createElement:tag=>new Element(tag)},
+    fetch:async()=>({ok:true,json:async()=>({count:4,tracks:rows,mode:'random_per_job',notice:'本地试用，商用授权待确认'})})
+  });
+  assert.match(text(nodes['music-mode']), /4首/);
+  assert.match(text(license), /商用授权待确认/);
+  assert.equal(find(nodes['music-tracks'], n=>n.tagName==='AUDIO').length, 4);
+  assert.match(text(nodes['music-tracks']), /来源与使用范围/);
+  assert.doesNotMatch(text(nodes['music-tracks']), /CC BY|查看发布署名/);
+  const job = completed();
+  job.result.validation = {bgm_added:true};
+  job.result.bgm = {status:'ready',bgm_added:true,label:'Approved',rights_status:'local_preview_only',track:{attribution:'商用授权待确认'}};
+  const page = harness({jobs:[job],records:{[job.id]:job}}); await page.ready();
+  assert.match(text(page.nodes['eating-output']), /本地试用配乐.*商用授权待确认/);
+  assert.doesNotMatch(text(page.nodes['eating-output']), /发布时请一并附上/);
 });
 
 test("random BGM exposes actual track and publish credits, not a fixed reference label", () => {
