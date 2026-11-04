@@ -179,6 +179,8 @@ def _run_pipeline(job_dir: Path, source_path: Path, options: dict, model_config:
             finally:
                 ai_elapsed = round(time.monotonic() - ai_started, 3)
     except vision.VisionError as exc:
+        if getattr(exc, 'transport', None):
+            ai['transport'] = exc.transport
         raw = vision.redact(exc.raw_text, key)
         if raw:
             (job_dir / "ai-raw-response.txt").write_text(raw, encoding="utf-8")
@@ -188,6 +190,8 @@ def _run_pipeline(job_dir: Path, source_path: Path, options: dict, model_config:
         raise
     with timings.measure("selection"):
         # Save raw output BEFORE parsing so malformed JSON remains debuggable.
+        if response.get('transport'):
+            ai['transport'] = response['transport']
         ai.update(raw_response=response["text"], usage=response.get("usage", {}), elapsed_seconds=ai_elapsed)
         (job_dir / "ai-raw-response.txt").write_text(response["text"], encoding="utf-8")
         media.write_json(job_dir / "ai-response-envelope.json", response["envelope"])

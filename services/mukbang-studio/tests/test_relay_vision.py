@@ -316,6 +316,14 @@ def test_absolute_deadline_also_cancels_waiting_for_response_headers(tmp_path, m
                            config(timeout_seconds=30))
     assert state == {"calls": 1, "cancelled": True, "client_closed": True}
     assert failure.value.raw_text == ""
+    diagnostic = json.loads((tmp_path / 'ai-transport.json').read_text(encoding='utf-8'))
+    assert diagnostic['status'] == 'failed'
+    assert diagnostic['phase'] == 'awaiting_response_headers'
+    assert diagnostic['response_headers_seconds'] is None
+    assert diagnostic['received_bytes'] == 0
+    assert diagnostic['failure_reason'] == 'absolute_deadline'
+    assert 'OFFLINE_FIXTURE_SECRET' not in json.dumps(diagnostic)
+    assert '尚未收到服务响应头' in str(failure.value)
 
 
 @pytest.mark.parametrize("style, streaming", [
@@ -340,6 +348,14 @@ def test_incremental_json_success_is_unchanged_for_all_wire_formats(tmp_path, mo
     assert len(calls) == 1
     assert result["text"] == text
     assert result["envelope"] == envelope
+    diagnostic = json.loads((tmp_path / 'ai-transport.json').read_text(encoding='utf-8'))
+    assert result['transport'] == diagnostic
+    assert diagnostic['status'] == 'completed' and diagnostic['phase'] == 'completed'
+    assert diagnostic['http_status'] == 200
+    assert diagnostic['received_bytes'] == len(raw)
+    assert diagnostic['response_headers_seconds'] is not None
+    assert diagnostic['first_response_byte_seconds'] is not None
+    assert 'OFFLINE_FIXTURE_SECRET' not in json.dumps(diagnostic)
 
 
 @pytest.mark.parametrize("style, streaming", [
@@ -363,6 +379,12 @@ def test_network_read_timeout_retains_partial_and_closes_without_retry(tmp_path,
     assert state == {"calls": 1, "closed": True}
     assert "received [REDACTED]" == failure.value.raw_text
     assert "OFFLINE_FIXTURE_SECRET" not in str(failure.value)
+    diagnostic = json.loads((tmp_path / 'ai-transport.json').read_text(encoding='utf-8'))
+    assert failure.value.transport == diagnostic
+    assert diagnostic['phase'] == 'receiving_response'
+    assert diagnostic['failure_reason'] == 'transport_timeout'
+    assert diagnostic['received_bytes'] == len(b'received OFFLINE_FIXTURE_SECRET')
+    assert 'OFFLINE_FIXTURE_SECRET' not in json.dumps(diagnostic)
 
 
 @pytest.mark.parametrize("changes, expected", [

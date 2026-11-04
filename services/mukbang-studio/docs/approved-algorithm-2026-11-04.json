@@ -1,0 +1,49 @@
+{
+  "backup_version": "approved-cat-algorithm-2026-11-04",
+  "approved_date": "2026-11-04",
+  "vision": {
+    "model": "gpt-6.1-sol",
+    "api_style": "responses",
+    "frames_per_sheet": 60,
+    "visual_requests_per_job": 1,
+    "automatic_retries": 0,
+    "default_timeout_seconds": 600,
+    "benchmark_only_timeout_seconds": 1800,
+    "diagnostics_file": "ai-transport.json"
+  },
+  "story": {
+    "profile_version": "mi-production-v1",
+    "style_version": "mi-inner-v2",
+    "voice_label": "已确认的咪参考克隆",
+    "original_audio": true,
+    "inner_monologue_subtitles": true,
+    "bgm_enabled": true,
+    "selection_mode": "story_mood_per_job",
+    "active_track_count": 10,
+    "disabled_track_ids": ["usuan1400037", "usuan1500025"],
+    "disabled_track_titles": ["Carefree", "Daily Beetle"],
+    "user_approved_reference_track_id": "usuan1400011",
+    "user_approved_reference_track_title": "Monkeys Spinning Monkeys",
+    "reference_scope": "Approved on the 55-second audition; future jobs still match plot categories and randomly choose eligible tracks, not a global fixed-song override."
+  },
+  "eating_music": {
+    "library_version": "cat-eating-approved-four-v1",
+    "active_track_count": 4,
+    "selection_mode": "random_per_job",
+    "mix_preset": "audition_lufs_v1",
+    "rights_status": "local_preview_only"
+  },
+  "benchmark": {
+    "source_job_id": "e692e554472d",
+    "isolated_run_id": "68c045ce2b31",
+    "source_duration_seconds": 767,
+    "sampled_frames": 767,
+    "sheets": 13,
+    "ai_seconds": 162.172,
+    "cached_input_total_seconds": 493.140,
+    "estimated_cold_total_seconds": 647.625,
+    "cold_total_is_estimate_not_full_rerun": true,
+    "eating_output_seconds": 60,
+    "story_output_seconds": 55
+  }
+}

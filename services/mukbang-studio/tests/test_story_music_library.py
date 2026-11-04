@@ -25,6 +25,40 @@ def test_legacy_fixed_profile_unchanged(tmp_path):
     assert library.select(profile, tmp_path) is profile
 
 
+def test_rejected_tracks_are_not_installed_or_enabled_in_default_catalog():
+    from mukbang import story_mood
+    from scripts.install_story_music import PICKS
+    saved = json.loads((story_mood.ROOT / 'docs/cat-playful-v1-catalog.json').read_text(encoding='utf-8'))
+    enabled = {row['id'] for row in saved['tracks'] if row.get('enabled', True)}
+    assert 'usuan1400037' not in enabled
+    assert 'usuan1500025' not in enabled
+    assert 'usuan1100110' in enabled  # Unrelated Plucky Daisy remains available.
+    assert len(enabled) == 10
+    assert 'Carefree' not in {title for title, _ in PICKS}
+    assert 'Daily Beetle' not in {title for title, _ in PICKS}
+
+
+def test_disabled_track_is_excluded_before_mood_matching(tagged_pool, tmp_path, monkeypatch):
+    from mukbang import story_mood
+    profile, tracks = tagged_pool
+    for row in tracks:
+        if row['id'] == 'usuan1400037':
+            row['enabled'] = False
+    media.write_json(Path(profile['music_library_file']), {'version': 'filtered', 'tracks': tracks})
+    seen = []
+    def choose(rows):
+        seen.extend(row['id'] for row in rows)
+        return rows[0]
+    monkeypatch.setattr(library.secrets, 'choice', choose)
+    job = tmp_path / 'filtered-job'
+    job.mkdir()
+    classification = story_mood.validate({'category': 'relaxed', 'confidence': .9,
+                                         'reason': '日常互动', 'evidence_frame_ids': ['F0001']}, {'F0001'})
+    library.select(profile, job, classification)
+    assert 'usuan1400037' not in seen
+    assert 'usuan1400037' not in {row['id'] for row in library.public_catalog(profile)['tracks']}
+
+
 def test_random_is_pinned_to_job_and_keeps_metadata(pool, tmp_path, monkeypatch):
     profile, tracks = pool
     job = tmp_path / 'job'

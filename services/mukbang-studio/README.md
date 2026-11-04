@@ -2,6 +2,10 @@
 
 [返回项目首页](../../README.md)
 
+用户确认的2026-11-04算法快照：[备份参数](docs/approved-algorithm-2026-11-04.json) · [实测与恢复说明](docs/long-video-reliability-2026-11-04.md)。确认参考曲Monkeys Spinning Monkeys；Carefree和Daily Beetle禁用，新小剧场仍按剧情匹配，不是全部固定为试听曲。
+
+2026-11-04：[长片实测与超时诊断](docs/long-video-reliability-2026-11-04.md)。小剧场Carefree、Daily Beetle按用户反馈移出新任务候选，保留其余10首与历史成片；视觉请求新增不含密钥的阶段诊断，仍一次请求、不自动重试。代码诊断需新进程加载，曲库禁用已热生效。
+
 当前可恢复的 AI 设置、原中转信息和 PowerShell 中文误报修复已备份至 [AI 配置与恢复说明](docs/ai-runtime-recovery-2026-11-02.md)，附不含密钥的已确认配置模板与本机重启脚本。
 
 启动配置检查（2026-11-02）：AI 配置不能只保存在某次终端的临时环境变量中。复用已授权的本机中转时，在服务根目录被 Git 忽略的 `.env` 中保存 `MUKBANG_VISION_USE_CODEX_PROVIDER=1`、`MUKBANG_CODEX_HOME=本机配置目录`、`MUKBANG_VISION_MODEL=gpt-6.1-sol`、`MUKBANG_VISION_TIMEOUT_SECONDS=600`；密钥仍只从原凭证文件读取，不复制进仓库。兼容标签按最后成功任务设置，不自行开启。启动前执行 `python scripts/check_story_runtime.py --data-dir data/daily-photo-gallery --expected-ai-model gpt-6.1-sol`，同时验证 AI 配置、指定模型、已确认配音及小剧场音乐；仅返回公开配置，不发付费请求。重启后还必须核对 `/api/config` 的 `configured`、provider 各字段，以及配音和曲库，不能仅凭音乐库可读就判定整个服务恢复。显式进程环境变量仍优先于 `.env`。

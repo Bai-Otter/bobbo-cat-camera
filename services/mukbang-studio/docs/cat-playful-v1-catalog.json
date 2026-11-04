@@ -183,7 +183,8 @@
       "attribution": "\"Carefree\" — Kevin MacLeod (incompetech.com)\nSource: https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1400037\nLicensed under Creative Commons Attribution 4.0: https://creativecommons.org/licenses/by/4.0/\nChanges: excerpted/looped as needed, volume adjusted, faded and mixed with dialogue/source audio.\n",
       "style_note": "尤克里里与钟琴，温柔明亮的互动",
       "bpm_publisher": "96",
-      "enabled": true
+      "enabled": false,
+      "disabled_reason": "2026-11-04 用户明确不喜欢此曲，移出新任务候选；保留历史任务音源。"
     },
     {
       "id": "usuan1500025",
@@ -199,7 +200,8 @@
       "attribution": "\"Daily Beetle\" — Kevin MacLeod (incompetech.com)\nSource: https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1500025\nLicensed under Creative Commons Attribution 4.0: https://creativecommons.org/licenses/by/4.0/\nChanges: excerpted/looped as needed, volume adjusted, faded and mixed with dialogue/source audio.\n",
       "style_note": "尤克里里与玩具钢琴，开心的吃饭日常",
       "bpm_publisher": "100",
-      "enabled": true
+      "enabled": false,
+      "disabled_reason": "2026-11-04 用户试听后拒绝此曲，移出新任务候选；保留历史任务音源。"
     }
   ]
 }

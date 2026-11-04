@@ -326,7 +326,7 @@ def parse_response_sse(raw: str) -> dict:
 
 
 async def _receive_vision(endpoint: str, payload: dict, headers: dict, key: str,
-                          timeout: float, started: float) -> tuple[bytes, int, str, str]:
+                          timeout: float, started: float, diagnostics: dict | None = None) -> tuple[bytes, int, str, str]:
     """One cancellable POST, with a single deadline across headers and body.
 
     Read JSON bodies incrementally as well as SSE so a slow JSON drip cannot
@@ -336,9 +336,18 @@ async def _receive_vision(endpoint: str, payload: dict, headers: dict, key: str,
     """
     chunks = []
     deadline = started + timeout
+    diagnostics = {} if diagnostics is None else diagnostics
+    diagnostics['phase'] = 'awaiting_response_headers'
 
     def partial_raw():
         return redact(b"".join(chunks).decode("utf-8", "replace"), key)
+
+    def waiting_detail():
+        if diagnostics.get('response_headers_seconds') is None:
+            return '尚未收到服务响应头'
+        if not diagnostics.get('received_bytes'):
+            return '已收到响应头，但尚未收到响应内容'
+        return f"已接收{diagnostics['received_bytes']}字节，尚未完成响应"
 
     try:
         # HTTPX's own timeout is per I/O; the outer cancellable scope is the
@@ -346,11 +355,17 @@ async def _receive_vision(endpoint: str, payload: dict, headers: dict, key: str,
         async with asyncio.timeout(max(0, deadline - time.monotonic())):
             async with httpx.AsyncClient(timeout=timeout, follow_redirects=False, trust_env=False) as client:
                 async with client.stream("POST", endpoint, headers=headers, json=payload) as response:
+                    diagnostics.update(http_status=response.status_code,
+                                       response_headers_seconds=round(time.monotonic() - started, 3),
+                                       phase='receiving_response')
                     received = 0
                     async for chunk in response.aiter_bytes():
+                        if chunk and diagnostics.get('first_response_byte_seconds') is None:
+                            diagnostics['first_response_byte_seconds'] = round(time.monotonic() - started, 3)
                         remaining = 2_000_000 - received
                         chunks.append(chunk[:remaining])
                         received += len(chunk)
+                        diagnostics['received_bytes'] = received
                         if received > 2_000_000:
                             raise VisionError("视觉服务返回内容过大；已保留截断结果且未重试", partial_raw())
                         # Also reject an already-buffered result whose transport
@@ -359,21 +374,50 @@ async def _receive_vision(endpoint: str, payload: dict, headers: dict, key: str,
                             raise TimeoutError
                     if time.monotonic() >= deadline:
                         raise TimeoutError
+                    diagnostics.update(network_seconds=round(time.monotonic() - started, 3),
+                                       phase='response_received')
                     return (b"".join(chunks), response.status_code,
                             response.headers.get("content-type", ""), response.encoding or "utf-8")
     except TimeoutError:
-        raise VisionError(f"视觉服务请求超过总时限（{timeout:g}秒）；已取消连接，不会自动再调用AI",
+        diagnostics['failure_reason'] = 'absolute_deadline'
+        raise VisionError(f"视觉服务请求超过总时限（{timeout:g}秒）；{waiting_detail()}；已取消连接，不会自动再调用AI",
                           partial_raw()) from None
     except httpx.TimeoutException:
-        raise VisionError(f"视觉服务请求超时（等待上限{timeout:g}秒）；已停止，不会自动再调用AI",
+        diagnostics['failure_reason'] = 'transport_timeout'
+        raise VisionError(f"视觉服务请求超时（等待上限{timeout:g}秒）；{waiting_detail()}；已停止，不会自动再调用AI",
                           partial_raw()) from None
     except httpx.HTTPError:
+        diagnostics['failure_reason'] = 'transport_error'
         raise VisionError("无法连接视觉服务；已停止，不会自动再调用AI",
                           partial_raw()) from None
 
 
 def call_vision(prompts: dict, sheets: list[dict], job_dir: Path, model_config: dict) -> dict[str, Any]:
     """Sync worker API: exactly one POST, an absolute deadline, no retries."""
+    started = time.monotonic()
+    diagnostics = {'schema_version': 1, 'status': 'preparing', 'phase': 'preparing_request',
+                   'http_status': None, 'response_headers_seconds': None,
+                   'first_response_byte_seconds': None, 'received_bytes': 0}
+    try:
+        result = _call_vision(prompts, sheets, job_dir, model_config, diagnostics)
+        diagnostics['status'] = 'completed'
+        result['transport'] = diagnostics
+        return result
+    except BaseException as exc:
+        diagnostics.update(status='failed', error_type=type(exc).__name__)
+        if isinstance(exc, VisionError):
+            exc.transport = diagnostics
+        raise
+    finally:
+        diagnostics['total_seconds'] = round(time.monotonic() - started, 3)
+        # Fixed, numeric/enum-only fields: no keys, headers, URLs or remote text.
+        (Path(job_dir) / 'ai-transport.json').write_text(
+            json.dumps(diagnostics, ensure_ascii=False, indent=2), encoding='utf-8')
+
+
+def _call_vision(prompts: dict, sheets: list[dict], job_dir: Path, model_config: dict,
+                 diagnostics: dict) -> dict[str, Any]:
+    preparation_started = time.monotonic()
     endpoint = endpoint_url(model_config["base_url"], model_config["api_style"],
                             trusted_http_base_url=model_config.get("trusted_http_base_url"))
     timeout = _request_timeout(model_config)
@@ -387,10 +431,13 @@ def call_vision(prompts: dict, sheets: list[dict], job_dir: Path, model_config: 
     if streaming:
         headers["Accept"] = "text/event-stream"
     started = time.monotonic()
+    diagnostics.update(status='requesting', timeout_seconds=timeout,
+                       request_preparation_seconds=round(started - preparation_started, 3))
     # The application's existing pipeline and tuning callers are sync workers.
     # Run the cancellable network operation on this worker, not another thread.
     content, status, content_type, encoding = asyncio.run(
-        _receive_vision(endpoint, payload, headers, key, timeout, started))
+        _receive_vision(endpoint, payload, headers, key, timeout, started, diagnostics))
+    diagnostics['phase'] = 'parsing_response'
     raw = redact(content.decode(encoding, "replace"), key)
     if status >= 300:
         if status == 403 and "This account only allows Codex official clients" in raw:
@@ -413,6 +460,7 @@ def call_vision(prompts: dict, sheets: list[dict], job_dir: Path, model_config: 
         text = redact(extract_text(envelope, model_config["api_style"]), key)
     except (VisionError, TypeError, AttributeError):
         raise VisionError("视觉服务响应结构中没有有效的模型文本", raw) from None
+    diagnostics['phase'] = 'completed'
     return {"text": text, "envelope": json.loads(redact(json.dumps(envelope, ensure_ascii=False), key)),
             "usage": envelope.get("usage", {}), "elapsed_seconds": round(time.monotonic() - started, 3)}
 

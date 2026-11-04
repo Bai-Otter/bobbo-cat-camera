@@ -25,8 +25,6 @@ PICKS = [
     ('Mister Exposition', '跳跃钢琴与大号，呆萌日常'),
     ('Plucky Daisy', '摇摇晃晃的小钢琴，轻松的小步子'),
     ('Batty McFaddin - Slower', '古怪俏皮的钢琴，慢一点的小喜剧'),
-    ('Carefree', '尤克里里与钟琴，温柔明亮的互动'),
-    ('Daily Beetle', '尤克里里与玩具钢琴，开心的吃饭日常'),
 ]
 
 
