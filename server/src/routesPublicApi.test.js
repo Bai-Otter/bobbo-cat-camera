@@ -2702,7 +2702,8 @@ test("motion alert preference is user-scoped while device detection stays enable
   assert.equal(otherUser.statusCode, 404);
 });
 
-test("vendor alarm callback is capability-authenticated, persisted, and queued without a user push", async () => {
+test("vendor alarm callback is capability-authenticated, persisted, and queued without a user push", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"], now: new Date("2026-08-31T12:00:00+08:00") });
   let ingested = null;
   setFeedAnalysisCoordinator({
     setMotionAlarmSink() {},
@@ -3143,7 +3144,13 @@ test("playback-url returns a bounded startup error when the HLS relay exits earl
   );
 });
 
-test("livestream serves the trusted cute preset through backend HLS", async () => {
+test("livestream serves the trusted cute preset through backend HLS", async (t) => {
+  const originalHttpsProxy = process.env.HTTPS_PROXY;
+  t.after(() => {
+    if (originalHttpsProxy === undefined) delete process.env.HTTPS_PROXY;
+    else process.env.HTTPS_PROXY = originalHttpsProxy;
+  });
+  process.env.HTTPS_PROXY = "http://127.0.0.1:9";
   let hlsOptions = null;
   let hlsCreateCount = 0;
   let livestreamUrlCount = 0;
