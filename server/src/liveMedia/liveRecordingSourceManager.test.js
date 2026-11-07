@@ -4,6 +4,18 @@ const { Readable } = require("node:stream");
 
 const { LiveRecordingSourceManager } = require("./liveRecordingSourceManager");
 
+test("recording source proxy dependency is directly declared and locked at 5.0.0", () => {
+  const manifest = require("../../package.json");
+  const lockfile = require("../../package-lock.json");
+
+  assert.equal(manifest.dependencies["http-proxy-agent"], "5.0.0");
+  assert.deepEqual(lockfile.packages[""].dependencies, manifest.dependencies);
+  assert.equal(
+    lockfile.packages["node_modules/http-proxy-agent"].version,
+    manifest.dependencies["http-proxy-agent"]
+  );
+});
+
 test("recording sources expose only an opaque session while retaining the direct stream server-side", async () => {
   let now = 1000;
   let releases = 0;
